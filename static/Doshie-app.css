@@ -4414,3 +4414,26 @@ body .header .install-app:not([hidden]) {
   .app-update-banner button, .update-banner button, [data-update-banner] button { min-height:40px !important; }
 }
 
+/* Keyboard-stable composer on Android phones and tablets. */
+@media (max-width:1100px) and (pointer:coarse) {
+  body:not(.control-app) .input-area {
+    position:fixed !important;
+    left:8px !important; right:8px !important;
+    bottom:max(8px, env(safe-area-inset-bottom)) !important;
+    margin:0 !important;
+    transform:translateZ(0) !important;
+    transition:none !important;
+    will-change:auto !important;
+  }
+  body:not(.control-app) #messages {
+    padding-bottom:calc(190px + env(safe-area-inset-bottom)) !important;
+    scroll-padding-bottom:calc(190px + env(safe-area-inset-bottom)) !important;
+  }
+  body:not(.control-app) #input {
+    min-height:42px !important;
+    max-height:120px !important;
+    overflow-y:auto !important;
+    resize:none !important;
+  }
+}
+

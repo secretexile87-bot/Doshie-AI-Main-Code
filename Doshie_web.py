@@ -94,7 +94,7 @@ HTML = """
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/Doshie-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/Doshie-192.png">
-<link rel="stylesheet" href="/static/Doshie-app.css?v=57">
+<link rel="stylesheet" href="/static/Doshie-app.css?v=58">
 <title>Doshie</title>
 
 <style>
