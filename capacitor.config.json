@@ -1,0 +1,14 @@
+{
+  "appId": "org.diyoshi.assistant",
+  "appName": "DiYoshi",
+  "webDir": "www",
+  "server": {
+    "url": "https://hermes-duran-tecra-a60-m.tail50b4c5.ts.net:8443/tech?app=android-0.7.8",
+    "allowNavigation": [
+      "yoshi-home.duckdns.org",
+      "hermes-duran-tecra-a60-m.tail50b4c5.ts.net",
+      "diyoshi.tail50b4c5.ts.net"
+    ],
+    "cleartext": false
+  }
+}

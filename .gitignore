@@ -1,0 +1,29 @@
+# Android
+.gradle/
+build/
+**/build/
+local.properties
+
+# Signing keys
+*.jks
+*.keystore
+*.p12
+
+# Secrets
+*.properties
+*.env
+
+# Node
+node_modules/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Old backups and exported builds
+*.zip
+*.apk
+backups/
+
+capacitor.config.json.*
