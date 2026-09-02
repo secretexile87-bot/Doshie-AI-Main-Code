@@ -107,7 +107,44 @@ function esc(v){const d=document.createElement("div");d.textContent=v??"";return
 function empty(title,text){$("#messages").innerHTML='<div class="empty"><div><strong>'+esc(title)+'</strong>'+esc(text)+'</div></div>'}
 function add(role,text){const row=document.createElement("article");row.className="message "+(role==="user"?"me":"");const av=document.createElement("div");av.className="avatar";av.textContent=role==="user"?($("#initial").textContent||"H"):"D";const b=document.createElement("div");b.className="bubble";b.innerHTML='<strong>'+esc(role==="user"?profile:"Doshie")+'</strong><p>'+esc(text)+'</p>';row.append(av,b);$("#messages").append(row)}
 async function loadChat(){if(mode==="incognito"){empty("Incognito chat","Nothing in this chat will be saved.");$("#modeStatus").textContent="Incognito";return}try{const r=await fetch(API_BASE+"/chat-history?profile="+encodeURIComponent(profile)+"&space=main",{cache:"no-store"}),d=await r.json();if(!r.ok)throw Error(d.error||"Chat unavailable");$("#messages").replaceChildren();(d.history||[]).forEach(x=>add(x.role,x.content));if(!d.history?.length)empty("Welcome to Doshie","Start a conversation. Remembered chats return here next time.");$("#modeStatus").textContent="Remembered · "+profile}catch(e){empty("Chat unavailable","Refresh the workspace and try again.");$("#modeStatus").textContent="Offline"}}
-async function send(){const field=$("#input"),text=field.value.trim();if(!text)return;add("user",text);field.value="";$("#modeStatus").textContent="🦖 Doshie is thinking...";$("#modeStatus").textContent="Doshie is thinking…"document.body.className="thinking";
+async function send(){
+const field=$("#input"),text=field.value.trim();
+if(!text)return;
+
+add("user",text);
+field.value="";
+$("#modeStatus").textContent="🦖 Doshie is thinking...";
+document.body.className="thinking";
+
+try{
+const r=await fetch(API_BASE+"/chat",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+profile,
+space:"main",
+message:text,
+incognito:mode==="incognito"
+})
+});
+
+const d=await r.json();
+
+add(
+"assistant",
+d.reply||d.response||d.error||"I could not answer right now."
+);
+
+$("#modeStatus").textContent=
+mode==="incognito"?"Incognito":"Remembered · "+profile;
+
+}catch(e){
+add("assistant","The local assistant is temporarily unavailable.");
+$("#modeStatus").textContent="Connection unavailable";
+}
+
+document.body.className="";
+$("#messages").scrollTop=$("#messages").scrollHeight;{const field=$("#input"),text=field.value.trim();if(!text)return;add("user",text);field.value="";$("#modeStatus").textContent="🦖 Doshie is thinking...";$("#modeStatus").textContent="Doshie is thinking…"document.body.className="thinking";
 $("#modeStatus").textContent="🦖 Doshie is thinking...";;try{const r=await fetch(API_BASE+"/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profile,space:"main",message:text,incognito:mode==="incognito"})}),d=await r.json();add("assistant",document.body.className="";d.reply||d.response||d.error||"I could not answer right now.");$("#modeStatus").textContent=mode==="incognito"?"Incognito":"Remembered · "+profile}catch(e){add("assistant","The local assistant is temporarily unavailable.");$("#modeStatus").textContent="Connection unavailable"}$("#messages").scrollTop=$("#messages").scrollHeight}
 function view(name){if(name==="control")location.href="https://hermes-duran-tecra-a60-m.tail50b4c5.ts.net:8443/control";if(name==="terminal")location.href="/tech?view=terminal";if(name==="hermes")location.href="/tech?view=hermes";if(name==="media")location.href="/tech?view=media";if(name==="memory")location.href="/tech?view=memory";if(name==="profiles")location.href="/tech?view=profiles";if(name==="settings")location.href="/tech?view=settings"}
 document.querySelectorAll("[data-view]").forEach(x=>x.onclick=()=>view(x.dataset.view));
@@ -207,4 +244,5 @@ $("#attach").onclick=()=>$("#filePicker").click();$("#camera").onclick=()=>$("#c
 </script>
 </body>
 </html>
+
 
