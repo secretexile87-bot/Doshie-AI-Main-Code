@@ -4,69 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Doshie // Companion Workspace</title>
-/* ================================
-   DOSHIE COMPANION ANIMATION
-   ================================ */
-
-.buddy-icon img {
-    animation: doshieIdle 3s ease-in-out infinite;
-}
-
-@keyframes doshieIdle {
-    0%,100% {
-        transform: translateY(0) scale(1);
-    }
-
-    50% {
-        transform: translateY(-4px) scale(1.03);
-    }
-}
-
-
-/* Thinking mode */
-.thinking .buddy-icon img {
-    animation:
-    doshieThink 1s infinite;
-}
-
-@keyframes doshieThink {
-
-    0% {
-        transform: rotate(0deg);
-    }
-
-    25% {
-        transform: rotate(-3deg);
-    }
-
-    50% {
-        transform: rotate(3deg);
-    }
-
-    100% {
-        transform: rotate(0deg);
-    }
-
-}
-
-
-/* Speaking glow */
-.speaking .buddy-icon img {
-    animation:
-    doshieSpeak .6s infinite;
-}
-
-@keyframes doshieSpeak {
-
-    0%,100% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.08);
-    }
-
-}
 <style>
 :root{--bg:#090506;--panel:#12090b;--panel2:#190c10;--line:#4a1820;--text:#fff7f8;--muted:#b99da2;--cyan:#ff334f;--green:#78f0ae;--purple:#ff6a7e;--danger:#ff718f;--radius:18px}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px system-ui,sans-serif}
@@ -92,7 +29,7 @@ button,input,textarea,select{font:inherit}button{cursor:pointer;color:inherit}bu
 <div class="shell">
 <header class="topbar"><div class="brand"><img src="diyoshi-avatar.png" alt="Doshie"><div>DOSHIE<small>PRIVATE COMPANION WORKSPACE</small></div></div><div class="top-spacer"></div><a class="command-link" href="https://hermes-duran-tecra-a60-m.tail50b4c5.ts.net:8443/control">🛡️ Command Center</a><label class="profile-switch"><span id="initial" class="profile-initial">H</span><select id="profiles" aria-label="Switch profile"><option value="Hermes">Hermes Duran</option></select></label><span class="online"><i></i> ONLINE</span></header>
 <nav class="sidebar"><div class="nav-title">Workspace</div><button class="nav active" data-view="chat">⌂ Chat</button><button class="nav" data-view="hermes">✦ Hermes AI</button><button class="nav" data-view="terminal">⌁ Terminals</button><button class="nav" data-view="media">◈ Media Studio</button><button class="nav" data-view="memory">🧠 Memory</button><div class="nav-title">Manage</div><button class="nav" data-view="profiles">♙ Profiles</button><button class="nav" data-view="settings">⚙ Settings</button><a class="nav download-link" href="https://hermes-duran-tecra-a60-m.tail50b4c5.ts.net:8444/Doshie-latest.apk">⬇ Download Android app</a><div class="card-mini"><b>Doshie</b><br><small>Local companion · protected</small></div></nav>
-<main class="main"><section class="page-head"><div class="eyebrow">Active channel / secure</div><div class="buddy-heading"><span class="buddy-icon" title="Doshie is thinking"><img src="diyoshi-avatar.png" alt=""><span class="thought-dots" aria-hidden="true"><i></i><i></i><i></i></span></span><h1 id="title">Talk to your AI</h1></div><p id="subtitle">Chat, code, build, and grow together.</p><div class="modebar"><button id="remembered" class="active">◷ Remembered</button><button id="incognito">◉ Incognito</button><button id="newchat">＋ New chat</button><span id="modeStatus">Loading chat…</span></div><div id="updateCard" class="download-card update-card" hidden><h4>✨ Doshie update available</h4><p id="updateText">A newer signed Android app is ready.</p><div class="update-actions"><a id="updateDownload" class="download-link" href="#">⬇ Download update</a><button id="updateLater" class="download-link secondary" type="button">Later</button></div></div></section><section id="messages" class="messages"></section><input id="filePicker" type="file" multiple accept="image/*,.pdf,.txt,.md,.csv,.json,.py,.js,.css,.html" hidden><input id="cameraPicker" type="file" accept="image/*" capture="environment" hidden><div class="composer"><button id="attach" title="Attach file">📎</button><button id="camera" title="Use camera">📷</button><button id="mic" title="Use microphone">🎙️</button><button id="mic" title="Use microphone">●</button<button id="mic" title="Use microphone">🎙️</button>><input id="input" placeholder="Message Doshie…"><button id="send" class="send" title="Send">↑</button></div></main>
+<main class="main"><section class="page-head"><div class="eyebrow">Active channel / secure</div><div class="buddy-heading"><span class="buddy-icon" title="Doshie is thinking"><img src="diyoshi-avatar.png" alt=""><span class="thought-dots" aria-hidden="true"><i></i><i></i><i></i></span></span><h1 id="title">Talk to your AI</h1></div><p id="subtitle">Chat, code, build, and grow together.</p><div class="modebar"><button id="remembered" class="active">◷ Remembered</button><button id="incognito">◉ Incognito</button><button id="newchat">＋ New chat</button><span id="modeStatus">Loading chat…</span></div><div id="updateCard" class="download-card update-card" hidden><h4>✨ Doshie update available</h4><p id="updateText">A newer signed Android app is ready.</p><div class="update-actions"><a id="updateDownload" class="download-link" href="#">⬇ Download update</a><button id="updateLater" class="download-link secondary" type="button">Later</button></div></div></section><section id="messages" class="messages"></section><input id="filePicker" type="file" multiple accept="image/*,.pdf,.txt,.md,.csv,.json,.py,.js,.css,.html" hidden><input id="cameraPicker" type="file" accept="image/*" capture="environment" hidden><div class="composer"><button id="attach" title="Attach file">📎</button><button id="camera" title="Use camera">📷</button><button id="mic" title="Use microphone">●</button><input id="input" placeholder="Message Doshie…"><button id="send" class="send" title="Send">↑</button></div></main>
 <aside class="rightbar"><section class="panel"><h3>Quick tools</h3><p>Keep the everyday controls together and open advanced tools only when needed.</p><div class="tool-grid"><button data-view="hermes">Hermes</button><button data-view="terminal">Terminal</button><button data-view="memory">Memory</button><button data-view="settings">Settings</button></div><div class="download-card"><h4>Get Doshie on Android</h4><p>Use this permanent link for the current signed APK. Tailscale must be connected.</p><a class="download-link" href="https://hermes-duran-tecra-a60-m.tail50b4c5.ts.net:8444/Doshie-latest.apk">⬇ Download latest APK</a><a class="download-link secondary" href="https://hermes-duran-tecra-a60-m.tail50b4c5.ts.net:8444/">Open download center</a></div></section><section class="panel"><h3>Doshie status</h3><div class="status-row"><i></i> Memory synchronized</div><div class="status-row"><i></i> Local-first routing</div><div class="status-row"><i></i> Companion ready</div></section></aside>
 <footer class="bottom"><small>PRIVATE WORKSPACE · APPROVAL REQUIRED</small><button id="refresh">↻ Refresh</button><button id="fullscreen">⛶ Fullscreen</button></footer>
 </div>
@@ -107,8 +44,7 @@ function esc(v){const d=document.createElement("div");d.textContent=v??"";return
 function empty(title,text){$("#messages").innerHTML='<div class="empty"><div><strong>'+esc(title)+'</strong>'+esc(text)+'</div></div>'}
 function add(role,text){const row=document.createElement("article");row.className="message "+(role==="user"?"me":"");const av=document.createElement("div");av.className="avatar";av.textContent=role==="user"?($("#initial").textContent||"H"):"D";const b=document.createElement("div");b.className="bubble";b.innerHTML='<strong>'+esc(role==="user"?profile:"Doshie")+'</strong><p>'+esc(text)+'</p>';row.append(av,b);$("#messages").append(row)}
 async function loadChat(){if(mode==="incognito"){empty("Incognito chat","Nothing in this chat will be saved.");$("#modeStatus").textContent="Incognito";return}try{const r=await fetch(API_BASE+"/chat-history?profile="+encodeURIComponent(profile)+"&space=main",{cache:"no-store"}),d=await r.json();if(!r.ok)throw Error(d.error||"Chat unavailable");$("#messages").replaceChildren();(d.history||[]).forEach(x=>add(x.role,x.content));if(!d.history?.length)empty("Welcome to Doshie","Start a conversation. Remembered chats return here next time.");$("#modeStatus").textContent="Remembered · "+profile}catch(e){empty("Chat unavailable","Refresh the workspace and try again.");$("#modeStatus").textContent="Offline"}}
-async function send(){const field=$("#input"),text=field.value.trim();if(!text)return;add("user",text);field.value="";$("#modeStatus").textContent="🦖 Doshie is thinking...";$("#modeStatus").textContent="Doshie is thinking…"document.body.className="thinking";
-$("#modeStatus").textContent="🦖 Doshie is thinking...";;try{const r=await fetch(API_BASE+"/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profile,space:"main",message:text,incognito:mode==="incognito"})}),d=await r.json();add("assistant",document.body.className="";d.reply||d.response||d.error||"I could not answer right now.");$("#modeStatus").textContent=mode==="incognito"?"Incognito":"Remembered · "+profile}catch(e){add("assistant","The local assistant is temporarily unavailable.");$("#modeStatus").textContent="Connection unavailable"}$("#messages").scrollTop=$("#messages").scrollHeight}
+async function send(){const field=$("#input"),text=field.value.trim();if(!text)return;add("user",text);field.value="";$("#modeStatus").textContent="Doshie is thinking…";try{const r=await fetch(API_BASE+"/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profile,space:"main",message:text,incognito:mode==="incognito"})}),d=await r.json();add("assistant",d.reply||d.response||d.error||"I could not answer right now.");$("#modeStatus").textContent=mode==="incognito"?"Incognito":"Remembered · "+profile}catch(e){add("assistant","The local assistant is temporarily unavailable.");$("#modeStatus").textContent="Connection unavailable"}$("#messages").scrollTop=$("#messages").scrollHeight}
 function view(name){if(name==="control")location.href="https://hermes-duran-tecra-a60-m.tail50b4c5.ts.net:8443/control";if(name==="terminal")location.href="/tech?view=terminal";if(name==="hermes")location.href="/tech?view=hermes";if(name==="media")location.href="/tech?view=media";if(name==="memory")location.href="/tech?view=memory";if(name==="profiles")location.href="/tech?view=profiles";if(name==="settings")location.href="/tech?view=settings"}
 document.querySelectorAll("[data-view]").forEach(x=>x.onclick=()=>view(x.dataset.view));
 $("#send").onclick=send;$("#input").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});
@@ -119,87 +55,7 @@ $("#refresh").onclick=()=>location.reload();$("#fullscreen").onclick=()=>documen
 $("#profiles").onchange=e=>{profile=e.target.value;$("#initial").textContent=(profile.trim()[0]||"?").toUpperCase();loadChat()};
 $("#attach").onclick=()=>alert("Choose a file from the attachment control in the full chat view.");
 $("#camera").onclick=()=>alert("Camera is available from the full chat view.");
-$("#mic").onclick=()=>{
-
-const mic=$("#mic");
-const status=$("#modeStatus");
-
-if(!("webkitSpeechRecognition" in window||"SpeechRecognition" in window)){
-alert("Speech recognition is not available in this browser.");
-return;
-}
-
-const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
-
-const recognition=new Speech();
-
-recognition.lang="en-US";
-
-mic.textContent="🔴";
-status.textContent="Listening...";
-
-recognition.onresult=e=>{
-
-$("#input").value=e.results[0][0].transcript;
-
-mic.textContent="🎙️";
-
-status.textContent="Ready";
-
-};
-
-recognition.onerror=()=>{
-
-mic.textContent="🎙️";
-
-status.textContent="Voice error";
-
-};
-
-
-recognition.onend=()=>{
-
-mic.textContent="🎙️";
-
-};
-
-
-recognition.start();
-
-};
-const mic=$("#mic");
-const status=$("#modeStatus");
-
-if(!("webkitSpeechRecognition" in window||"SpeechRecognition" in window)){
-alert("Speech recognition is not available in this browser.");
-return;
-}
-
-const R=window.SpeechRecognition||window.webkitSpeechRecognition;
-const r=new R();
-
-r.lang="en-US";
-
-mic.textContent="🔴";
-status.textContent="Listening...";
-
-r.onresult=e=>{
-$("#input").value=e.results[0][0].transcript;
-mic.textContent="🎙️";
-status.textContent="Ready";
-};
-
-r.onerror=()=>{
-mic.textContent="🎙️";
-status.textContent="Voice unavailable";
-};
-
-r.onend=()=>{
-mic.textContent="🎙️";
-};
-
-r.start();
-};$("#mic").onclick=()=>{if(!("webkitSpeechRecognition" in window||"SpeechRecognition" in window)){alert("Speech recognition is not available in this browser.");return}const R=window.SpeechRecognition||window.webkitSpeechRecognition,r=new R;r.lang="en-US";r.onresult=e=>$("#input").value=e.results[0][0].transcript;r.start()};
+$("#mic").onclick=()=>{if(!("webkitSpeechRecognition" in window||"SpeechRecognition" in window)){alert("Speech recognition is not available in this browser.");return}const R=window.SpeechRecognition||window.webkitSpeechRecognition,r=new R;r.lang="en-US";r.onresult=e=>$("#input").value=e.results[0][0].transcript;r.start()};
 loadChat();
 checkForAndroidUpdate();
 async function loadProfiles(){try{const r=await fetch(API_BASE+"/profiles",{cache:"no-store"}),d=await r.json();const list=d.profiles||d||[];if(!Array.isArray(list))return;const select=$("#profiles");list.forEach(p=>{const name=typeof p==="string"?p:(p.name||p.profile);if(!name||[...select.options].some(o=>o.value===name))return;const o=document.createElement("option");o.value=name;o.textContent=name;select.append(o)})}catch(e){}}
@@ -207,4 +63,3 @@ $("#attach").onclick=()=>$("#filePicker").click();$("#camera").onclick=()=>$("#c
 </script>
 </body>
 </html>
-
