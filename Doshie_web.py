@@ -29,6 +29,7 @@ import time
 
 sys.path.insert(0, "/data/data/com.termux/files/home/Doshie")
 import Doshie_memory
+import Doshie_tool_agent
 import Doshie_agents
 import Doshie_news
 import Doshie_profile_avatar
@@ -76,6 +77,7 @@ app.config.update(
         "127.0.0.1",
         "localhost",
         "100.113.75.55",
+	"yoshi-home.duckdns.org",
     ],
 )
 app.permanent_session_lifetime = timedelta(hours=8)
@@ -399,6 +401,15 @@ button { cursor: pointer; }
     #dashboard { text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 }
 
+.agent-live-activity { font-weight:700; }
+.agent-working { box-shadow: 0 0 0 1px var(--agent-accent), var(--shadow); }
+.agent-working .agent-light { animation: helper-pulse .8s ease-in-out infinite alternate; }
+@keyframes helper-pulse { to { transform:scale(1.35); opacity:.65; } }
+
+.helper-command-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px; margin:10px 0; border:1px solid var(--line); border-radius:12px; background:var(--surface-soft); }
+.helper-command-bar strong { margin-right:auto; }
+.helper-command-bar span { color:var(--muted); font-size:13px; }
+
 .credential-field { display:flex; align-items:center; gap:6px; width:100%; }
 .credential-field input { flex:1; min-width:0; }
 .credential-field button { width:44px; min-width:44px; height:44px; padding:0; border:1px solid var(--line); border-radius:10px; background:var(--surface-soft); color:var(--text); }
@@ -478,6 +489,68 @@ button { cursor: pointer; }
 }
 @media (prefers-reduced-motion:reduce) {
     .thinking-buddy img { animation:none !important; }
+}
+
+/* Fold / tablet UI v2: header, composer, and chat spacing */
+@media (max-width: 1100px) and (pointer: coarse) {
+  body:not(.control-app) .header {
+    display:flex !important;
+    flex-wrap:wrap !important;
+    gap:8px !important;
+    min-height:90px !important;
+    align-items:center !important;
+  }
+  body:not(.control-app) .header h1 {
+    flex:1 1 auto !important;
+    min-width:140px !important;
+  }
+  body:not(.control-app) .profile-menu,
+  body:not(.control-app) .profile-selector {
+    max-width:48vw !important;
+  }
+  body:not(.control-app) .messages .message,
+  body:not(.control-app) .message {
+    max-width:88% !important;
+  }
+  body:not(.control-app) .input-area {
+    min-height:58px !important;
+    gap:6px !important;
+    padding:8px !important;
+  }
+  body:not(.control-app) .input-area input,
+  body:not(.control-app) .input-area textarea {
+    font-size:16px !important;
+  }
+}
+
+/* Fold UI v3: header lanes, profile safety, and messenger spacing */
+@media (max-width:1100px) and (pointer:coarse) {
+  body:not(.control-app) .header {
+    display:flex !important;
+    flex-wrap:wrap !important;
+    gap:8px !important;
+    min-height:92px !important;
+    align-items:center !important;
+  }
+  body:not(.control-app) .header .profile-selector,
+  body:not(.control-app) .header select {
+    max-width:180px !important;
+  }
+  body:not(.control-app) .message.user,
+  body:not(.control-app) .user-message {
+    margin-right:18px !important;
+  }
+  body:not(.control-app) .message.assistant,
+  body:not(.control-app) .assistant-message {
+    margin-left:10px !important;
+  }
+  body:not(.control-app) .input-area {
+    gap:8px !important;
+    padding:8px !important;
+  }
+  body:not(.control-app) .input-area button {
+    min-width:44px !important;
+  }
 }
 </style>
 </head>
@@ -1277,6 +1350,18 @@ button { cursor: pointer; }
                 </div>
                 <small class="permission-note">Full user-level shell. It does not automatically run as root. If you type <code>sudo</code>, Linux asks for your password.</small>
             </section>
+            <section class="admin-card admin-card-wide command-center-card">
+                <div class="agent-foundry-heading">
+                    <div>
+                        <small>COMMAND CENTER</small>
+                        <h2>🧠 Doshie Helper Fleet</h2>
+                        <p>Live view of Doshie specialist brains and activity.</p>
+                    </div>
+                    <button class="tool" onclick="loadHelperCommandCenter()">↻ Refresh</button>
+                </div>
+                <div id="helperFleet" class="agent-list">Loading helper fleet...</div>
+                <div id="helperActivityFeed" class="admin-terminal-output">Loading activity...</div>
+            </section>
             <section class="admin-card admin-card-wide agent-foundry-card">
                 <div class="agent-foundry-heading">
                     <div>
@@ -1291,6 +1376,11 @@ button { cursor: pointer; }
                     <small>Every agent can propose actions. None receives shell, root, or unattended control.</small>
                 </div>
                 <div id="agentFoundryStatus" class="admin-path-status"></div>
+                <div class="helper-command-bar">
+                    <strong>🧠 Doshie Helper Command Center</strong>
+                    <span id="helperCommandSummary">Loading helper crew...</span>
+                    <button type="button" class="tool" onclick="loadAgentFoundry()">↻ Refresh</button>
+                </div>
                 <div id="agentList" class="agent-list">
                     <span class="agent-empty">Loading Agent Foundry...</span>
                 </div>
@@ -3092,6 +3182,7 @@ syncSidebarToggleLabel();
 async function profileLockApi(path, payload) {
     const response = await fetch(path, {
         method: "POST",
+	credentials: "include",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(payload || {})
     });
@@ -3998,6 +4089,13 @@ async function sendText(text) {
 
         const response = await fetch("/chat", {
             method: "POST",
+	credentials: "include",
+	   const response = await fetch("/chat", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+        "Content-Type": "application/json"
+    },
             headers: {
                 "Content-Type": "application/json"
             },
@@ -6879,8 +6977,28 @@ function recordReplyMetric(milliseconds) {
 function closeAdminControl() {
     const panel = document.getElementById("adminPanel");
     if (panel) panel.style.display = "none";
+    stopHelperActivityPolling();
     if (window.showChatHome) window.showChatHome();
 }
+
+async function loadHelperCommandCenter() {
+    const fleet = document.getElementById("helperFleet");
+    const feed = document.getElementById("helperActivityFeed");
+    if (!fleet) return;
+    try {
+        const response = await fetch("/admin/helper-activity");
+        const data = await response.json();
+        fleet.innerHTML = (data.helpers || []).map(item =>
+            `<article class="agent-tile"><strong>${item.name}</strong><p>${item.state || "idle"} ${item.category ? "· " + item.category : ""}</p></article>`
+        ).join("") || "No helpers reported.";
+        feed.textContent = (data.activity || []).map(item =>
+            `${item.time || ""} ${item.helper || ""} ${item.state || ""}`
+        ).join("\n") || "No activity yet.";
+    } catch (error) {
+        fleet.textContent = error.message;
+    }
+}
+
 
 function openAdminControl() {
     const record = profileRecord(activeProfile);
@@ -6901,6 +7019,7 @@ function openAdminControl() {
     refreshAdminControl();
     loadEquipmentHealth();
     loadAgentFoundry();
+    startHelperActivityPolling();
 }
 
 
@@ -7045,6 +7164,47 @@ function agentApiProfile() {
     return encodeURIComponent(activeProfile || "Hermes");
 }
 
+let helperActivityTimer = null;
+
+async function loadHelperActivity() {
+    const panel = document.getElementById("adminPanel");
+    if (!panel || panel.style.display === "none") return;
+    try {
+        const response = await fetch("/admin/helper-activity?profile=" + agentApiProfile());
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) return;
+        const helpers = data.helpers || {};
+        document.querySelectorAll(".agent-tile").forEach(card => {
+            const name = card.querySelector(".agent-identity strong")?.textContent || "";
+            const activity = helpers[name];
+            let badge = card.querySelector(".agent-live-activity");
+            if (!badge) {
+                badge = document.createElement("span");
+                badge.className = "agent-live-activity";
+                card.querySelector(".agent-badges")?.prepend(badge);
+            }
+            if (activity) {
+                const working = activity.state === "working";
+                badge.textContent = working
+                    ? "🟡 Working" + (activity.category ? " · " + activity.category : "")
+                    : "🟢 Idle";
+                card.classList.toggle("agent-working", working);
+            }
+        });
+    } catch (_) {}
+}
+
+function startHelperActivityPolling() {
+    stopHelperActivityPolling();
+    loadHelperActivity();
+    helperActivityTimer = window.setInterval(loadHelperActivity, 1200);
+}
+
+function stopHelperActivityPolling() {
+    if (helperActivityTimer) window.clearInterval(helperActivityTimer);
+    helperActivityTimer = null;
+}
+
 async function loadAgentFoundry() {
     const list = document.getElementById("agentList");
     const status = document.getElementById("agentFoundryStatus");
@@ -7057,6 +7217,14 @@ async function loadAgentFoundry() {
         status.textContent = adminAgents.length
             ? adminAgents.length + " local specialist(s) configured."
             : "No specialists yet. Create the first one.";
+        const helperSummary = document.getElementById("helperCommandSummary");
+        if (helperSummary) {
+            const crew = adminAgents.filter(agent =>
+                ["Hermes", "Tutor", "Researcher", "Home", "Media"].includes(agent.name)
+            );
+            const online = crew.filter(agent => agent.enabled).length;
+            helperSummary.textContent = `${online}/${crew.length} core helpers online`;
+        }
         renderAgentList();
     } catch (error) {
         status.textContent = error.message;
@@ -9795,8 +9963,9 @@ def login_page():
         )
         return redirect("/tech" if record["is_admin"] else "/control", code=302)
     response = send_from_directory(
-        "/home/hermes-duran/Doshie/static", "login.html"
-    )
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "static"),
+    "login.html",
+)
     response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -9819,8 +9988,9 @@ def tech_preview():
         if not record["is_admin"]:
             return redirect("/control", code=302)
     response = send_from_directory(
-        "/home/hermes-duran/Doshie/static", "tech-shell.html"
-    )
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "static"),
+    "tech-shell.html",
+)
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     if request.args.get("reset-cache") == "1":
@@ -9845,7 +10015,12 @@ def canonical_home():
 @app.route("/watch")
 def home():
     if request.path == "/control":
-        return redirect("/tech?panel=control&refresh=" + str(int(time.time())))
+        response = send_from_directory(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "static"),
+            "command-center.html",
+        )
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        return response
     page = HTML
     if request.path == "/control":
         page = page.replace(
@@ -11940,6 +12115,15 @@ def hermes_ai_chat():
         "agent": {"id": agent["id"], "name": agent["name"]},
         "attachments": attachment_items,
     })
+
+
+
+@app.route("/admin/helper-activity", methods=["GET"])
+def admin_helper_activity():
+    _admin, error = _require_invite_admin(request.args.get("profile"))
+    if error:
+        return error
+    return jsonify({"helpers": Doshie_tool_agent.helper_activity_snapshot()})
 
 
 @app.route("/admin/agents", methods=["GET", "POST"])
