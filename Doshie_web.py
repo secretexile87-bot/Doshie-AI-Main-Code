@@ -7026,7 +7026,7 @@ async function loadHelperCommandCenter() {
     try {
         const response = await fetch("/admin/helper-activity");
         const data = await response.json();
-        fleet.innerHTML = (data.helpers || []).map(item =>
+        fleet.innerHTML = (Array.isArray(data.helpers) ? data.helpers : Object.values(data.helpers || {})).map(item =>
             `<article class="agent-tile"><strong>${item.name}</strong><p>${item.state || "idle"} ${item.category ? "· " + item.category : ""}</p></article>`
         ).join("") || "No helpers reported.";
         feed.textContent = (data.activity || []).map(item =>
@@ -12161,7 +12161,11 @@ def admin_helper_activity():
     _admin, error = _require_invite_admin(request.args.get("profile"))
     if error:
         return error
-    return jsonify({"helpers": Doshie_tool_agent.helper_activity_snapshot()})
+    try:
+        helpers = Doshie_tool_agent.helper_activity_snapshot()
+    except Exception:
+        helpers = {}
+    return jsonify({"helpers": helpers, "activity": []})
 
 
 @app.route("/admin/agents", methods=["GET", "POST"])

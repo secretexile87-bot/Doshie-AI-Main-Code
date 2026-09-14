@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "updated_at": "2026-09-14T03:38:29+00:00",
+  "agents": [
+    {
+      "id": "dea427fd2f58",
+      "name": "Hermes",
+      "purpose": "Primary general assistant and system coordinator.",
+      "model_mode": "advanced",
+      "memory_scope": "all",
+      "instructions": "You are Hermes, the primary assistant coordinating Doshie. Provide clear, direct, intelligent responses and coordinate tasks across specialist tools.",
+      "accent": "#35f2d0",
+      "capabilities": [
+        "memory_read",
+        "memory_write",
+        "service_health",
+        "project_read",
+        "code_proposals",
+        "web_research"
+      ],
+      "enabled": true,
+      "approval_required": true,
+      "created_at": "2026-09-14T03:38:29+00:00",
+      "updated_at": "2026-09-14T03:38:29+00:00"
+    },
+    {
+      "id": "3ed296472c34",
+      "name": "Tutor",
+      "purpose": "Patient coding mentor, math tutor, and conceptual explainer.",
+      "model_mode": "coding",
+      "memory_scope": "shared",
+      "instructions": "Explain complex programming, science, and math concepts step-by-step with practical examples. Emphasize best practices and clean code.",
+      "accent": "#4ea8de",
+      "capabilities": [
+        "memory_read",
+        "project_read",
+        "code_proposals",
+        "web_research"
+      ],
+      "enabled": true,
+      "approval_required": true,
+      "created_at": "2026-09-14T03:38:29+00:00",
+      "updated_at": "2026-09-14T03:38:29+00:00"
+    },
+    {
+      "id": "dc1183a71c4d",
+      "name": "Researcher",
+      "purpose": "Deep retrieval, fact-checking, and structured analysis specialist.",
+      "model_mode": "advanced",
+      "memory_scope": "all",
+      "instructions": "Analyze information thoroughly, verify sources, synthesize complex data, and provide well-structured briefings with actionable insights.",
+      "accent": "#9d4edd",
+      "capabilities": [
+        "memory_read",
+        "memory_write",
+        "project_read",
+        "web_research"
+      ],
+      "enabled": true,
+      "approval_required": true,
+      "created_at": "2026-09-14T03:38:29+00:00",
+      "updated_at": "2026-09-14T03:38:29+00:00"
+    },
+    {
+      "id": "e2a3e4f8414b",
+      "name": "Home",
+      "purpose": "Home automation, device status, weather, and schedule manager.",
+      "model_mode": "fast",
+      "memory_scope": "shared",
+      "instructions": "Monitor smart home devices, weather reports, reminders, and daily family plans with concise status updates.",
+      "accent": "#52b788",
+      "capabilities": [
+        "memory_read",
+        "service_health"
+      ],
+      "enabled": true,
+      "approval_required": true,
+      "created_at": "2026-09-14T03:38:29+00:00",
+      "updated_at": "2026-09-14T03:38:29+00:00"
+    },
+    {
+      "id": "c196b651bfb3",
+      "name": "Media",
+      "purpose": "Entertainment, music, multimedia, and media center controller.",
+      "model_mode": "fast",
+      "memory_scope": "shared",
+      "instructions": "Manage Spotify playback, multimedia queries, track recommendations, and media library lookups.",
+      "accent": "#ffb703",
+      "capabilities": [
+        "memory_read",
+        "web_research"
+      ],
+      "enabled": true,
+      "approval_required": true,
+      "created_at": "2026-09-14T03:38:29+00:00",
+      "updated_at": "2026-09-14T03:38:29+00:00"
+    }
+  ]
+}

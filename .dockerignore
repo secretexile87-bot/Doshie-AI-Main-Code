@@ -13,5 +13,7 @@ node_modules/
 *.log
 .git
 .git/
+my_project_env
+my_project_env/
 __pycache__/
 *.pyc

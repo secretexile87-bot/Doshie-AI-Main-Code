@@ -478,3 +478,25 @@ def chat(
             })
 
     return "I could not finish inspecting the project within the safe tool limit."
+
+
+def helper_activity_snapshot():
+    """Return a live snapshot of registered specialist helper agents."""
+    try:
+        import Doshie_agents
+        agents = Doshie_agents.list_agents()
+    except Exception:
+        agents = []
+    snapshot = {}
+    for agent in agents:
+        name = str(agent.get("name") or "").strip()
+        if not name:
+            continue
+        snapshot[name] = {
+            "name": name,
+            "state": "idle",
+            "category": str(agent.get("model_mode") or "auto"),
+            "enabled": bool(agent.get("enabled", True)),
+        }
+    return snapshot
+

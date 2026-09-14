@@ -3,9 +3,12 @@ import json
 import traceback
 
 try:
-    from yoshi_tool_agent import execute_tool
+    from Doshie_tool_agent import execute_tool
 except ImportError:
-    execute_tool = None
+    try:
+        from yoshi_tool_agent import execute_tool
+    except ImportError:
+        execute_tool = None
 
 TOOLS_REGISTRY = [
     {
