@@ -27,3 +27,22 @@ node_modules/
 backups/
 
 capacitor.config.json.*
+
+# Logs
+*.log
+
+# Backups & Saves
+*.save
+*.backup
+*.bak*
+*.before-*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Local DBs
+messaging.db
+

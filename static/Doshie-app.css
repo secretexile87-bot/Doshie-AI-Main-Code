@@ -4437,3 +4437,814 @@ body .header .install-app:not([hidden]) {
   }
 }
 
+
+
+
+/* === Auto-Adjusting Responsive Screen Layout === */
+
+:root {
+
+    --sidebar-w: 264px;
+
+    --content-max-w: 860px;
+
+}
+
+
+
+body.sidebar-collapsed {
+
+    --sidebar-w: 0px;
+
+}
+
+
+
+@media (max-width: 900px) {
+
+    :root, body.sidebar-collapsed {
+
+        --sidebar-w: 0px;
+
+    }
+
+}
+
+
+
+/* Fluid app view that adapts to screen & sidebar */
+
+.app {
+
+    margin-left: var(--sidebar-w) !important;
+
+    width: calc(100% - var(--sidebar-w)) !important;
+
+    max-width: 100% !important;
+
+    display: flex !important;
+
+    flex-direction: column !important;
+
+    height: 100dvh !important;
+
+    position: relative !important;
+
+    transition: margin-left .2s ease, width .2s ease !important;
+
+}
+
+
+
+.header {
+
+    width: 100% !important;
+
+    box-sizing: border-box !important;
+
+}
+
+
+
+/* Centered chat messages column on all displays */
+
+#messages {
+
+    flex: 1 !important;
+
+    overflow-y: auto !important;
+
+    padding: 20px 16px 140px !important;
+
+    display: flex !important;
+
+    flex-direction: column !important;
+
+    align-items: center !important;
+
+    width: 100% !important;
+
+    box-sizing: border-box !important;
+
+}
+
+
+
+/* Message bubbles scale comfortably */
+
+.message {
+
+    width: 100% !important;
+
+    box-sizing: border-box !important;
+
+    margin: 8px 0 !important;
+
+    word-break: break-word !important;
+
+}
+
+
+
+.message.user {
+
+    align-self: flex-end !important;
+
+    max-width: min(85%, 720px) !important;
+
+}
+
+
+
+.message.Doshie, .message.assistant {
+
+    align-self: flex-start !important;
+
+    max-width: min(90%, 820px) !important;
+
+}
+
+
+
+/* Composer box stays centered at bottom on any screen */
+
+.input-area {
+
+    position: fixed !important;
+
+    left: var(--sidebar-w) !important;
+
+    right: 0 !important;
+
+    bottom: max(14px, env(safe-area-inset-bottom)) !important;
+
+    margin: 0 auto !important;
+
+    width: min(calc(100% - var(--sidebar-w) - 32px), var(--content-max-w)) !important;
+
+    max-width: var(--content-max-w) !important;
+
+    z-index: 20 !important;
+
+    transition: left .2s ease, width .2s ease !important;
+
+}
+
+
+
+#status {
+
+    position: fixed !important;
+
+    left: var(--sidebar-w) !important;
+
+    right: 0 !important;
+
+    bottom: 84px !important;
+
+    margin: 0 auto !important;
+
+    width: min(calc(100% - var(--sidebar-w) - 32px), var(--content-max-w)) !important;
+
+    text-align: center !important;
+
+    z-index: 19 !important;
+
+}
+
+
+
+/* Videos and media fluidly fit within the screen */
+
+video, img, iframe {
+
+    max-width: 100% !important;
+
+    height: auto !important;
+
+    border-radius: 12px;
+
+}
+
+
+
+
+/* === Perfectly Centered & Elevated Composer === */
+
+.input-area {
+
+    position: fixed !important;
+
+    left: 50% !important;
+
+    right: auto !important;
+
+    bottom: 24px !important;
+
+    transform: translateX(-50%) !important;
+
+    margin: 0 !important;
+
+    width: min(860px, calc(100% - 48px)) !important;
+
+    max-width: 860px !important;
+
+    z-index: 50 !important;
+
+}
+
+
+
+body.sidebar-collapsed .input-area {
+
+    left: calc(50% + 33px) !important;
+
+    transform: translateX(-50%) !important;
+
+    width: min(860px, calc(100% - 110px)) !important;
+
+}
+
+
+
+@media (max-width: 900px) {
+
+    .input-area,
+
+    body.sidebar-collapsed .input-area {
+
+        left: 50% !important;
+
+        transform: translateX(-50%) !important;
+
+        bottom: 20px !important;
+
+        width: calc(100% - 24px) !important;
+
+    }
+
+}
+
+
+
+
+/* === Clean, Centered & High-Contrast Settings / Panels === */
+
+#settingsPanel,
+
+#adminPanel,
+
+#builderPanel,
+
+#techPanel,
+
+#gamingPanel,
+
+#remindersPanel,
+
+#shoppingPanel,
+
+#familyPanel,
+
+#organizerPanel,
+
+.app > [id$="Panel"] {
+
+    position: fixed !important;
+
+    top: 70px !important;
+
+    bottom: 24px !important;
+
+    left: 50% !important;
+
+    right: auto !important;
+
+    transform: translateX(-50%) !important;
+
+    width: min(760px, calc(100% - 32px)) !important;
+
+    max-width: 760px !important;
+
+    background: #141a17 !important;
+
+    color: #f1f5f3 !important;
+
+    border: 1px solid #2d3e35 !important;
+
+    border-radius: 18px !important;
+
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7) !important;
+
+    z-index: 100 !important;
+
+    overflow-y: auto !important;
+
+    padding: 20px 24px !important;
+
+    box-sizing: border-box !important;
+
+}
+
+
+
+#settingsPanel *,
+
+#adminPanel *,
+
+#builderPanel *,
+
+.app > [id$="Panel"] * {
+
+    color: #f1f5f3 !important;
+
+}
+
+
+
+#settingsPanel .panel-heading {
+
+    display: flex !important;
+
+    justify-content: space-between !important;
+
+    align-items: center !important;
+
+    padding-bottom: 12px !important;
+
+    border-bottom: 1px solid #2d3e35 !important;
+
+    margin-bottom: 16px !important;
+
+    font-size: 18px !important;
+
+}
+
+
+
+#settingsPanel .settings-group {
+
+    background: #1b231f !important;
+
+    border: 1px solid #2d3e35 !important;
+
+    border-radius: 12px !important;
+
+    margin-bottom: 12px !important;
+
+    overflow: hidden !important;
+
+}
+
+
+
+#settingsPanel .settings-group > summary {
+
+    background: #222c27 !important;
+
+    color: #68d391 !important;
+
+    padding: 12px 16px !important;
+
+    font-weight: 600 !important;
+
+    cursor: pointer !important;
+
+}
+
+
+
+#settingsPanel .settings-body {
+
+    padding: 16px !important;
+
+    display: grid !important;
+
+    gap: 14px !important;
+
+    background: #1b231f !important;
+
+}
+
+
+
+#settingsPanel .settings-field,
+
+#settingsPanel .settings-toggle {
+
+    display: grid !important;
+
+    gap: 6px !important;
+
+}
+
+
+
+#settingsPanel .settings-toggle {
+
+    display: flex !important;
+
+    justify-content: space-between !important;
+
+    align-items: center !important;
+
+    padding: 8px 0 !important;
+
+}
+
+
+
+#settingsPanel .settings-field span,
+
+#settingsPanel .settings-toggle span,
+
+#settingsPanel label {
+
+    color: #e2e8f0 !important;
+
+    font-size: 14px !important;
+
+    font-weight: 500 !important;
+
+}
+
+
+
+#settingsPanel input:not([type="checkbox"]),
+
+#settingsPanel select,
+
+#settingsPanel textarea {
+
+    background: #121815 !important;
+
+    color: #ffffff !important;
+
+    border: 1px solid #2d3e35 !important;
+
+    border-radius: 8px !important;
+
+    padding: 10px 12px !important;
+
+    font-size: 15px !important;
+
+    width: 100% !important;
+
+    box-sizing: border-box !important;
+
+}
+
+
+
+#settingsPanel input:focus,
+
+#settingsPanel select:focus,
+
+#settingsPanel textarea:focus {
+
+    border-color: #68d391 !important;
+
+    outline: none !important;
+
+}
+
+
+
+#settingsPanel small,
+
+#settingsPanel .permission-note {
+
+    color: #a0aec0 !important;
+
+    font-size: 12px !important;
+
+    line-height: 1.4 !important;
+
+}
+
+
+
+#settingsPanel .panel-close {
+
+    background: #2d3e35 !important;
+
+    color: #ffffff !important;
+
+    border: 0 !important;
+
+    border-radius: 50% !important;
+
+    width: 32px !important;
+
+    height: 32px !important;
+
+    display: grid !important;
+
+    place-items: center !important;
+
+    cursor: pointer !important;
+
+    font-size: 16px !important;
+
+}
+
+
+
+#settingsPanel .panel-close:hover {
+
+    background: #4a6355 !important;
+
+}
+
+
+
+
+/* === Modern, Centered & Fluid Chat Composer === */
+
+body:not(.control-app) .input-area,
+
+body .input-area,
+
+#composer {
+
+    position: fixed !important;
+
+    left: var(--rail-width, 96px) !important;
+
+    right: 0 !important;
+
+    bottom: 24px !important;
+
+    margin: 0 auto !important;
+
+    width: min(860px, calc(100vw - var(--rail-width, 96px) - 40px)) !important;
+
+    max-width: 860px !important;
+
+    min-width: 0 !important;
+
+    display: flex !important;
+
+    flex-direction: row !important;
+
+    align-items: center !important;
+
+    gap: 8px !important;
+
+    padding: 8px 14px !important;
+
+    background: #141d18 !important;
+
+    border: 1px solid #2d4236 !important;
+
+    border-radius: 28px !important;
+
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
+
+    transform: none !important;
+
+    box-sizing: border-box !important;
+
+    z-index: 50 !important;
+
+}
+
+
+
+@media (max-width: 900px) {
+
+    body:not(.control-app) .input-area,
+
+    body .input-area,
+
+    #composer {
+
+        left: 0 !important;
+
+        right: 0 !important;
+
+        bottom: 16px !important;
+
+        width: calc(100vw - 24px) !important;
+
+        margin: 0 auto !important;
+
+    }
+
+}
+
+
+
+/* Input field stretches cleanly across the bar */
+
+body:not(.control-app) .input-area #input,
+
+body .input-area #input,
+
+#composer #input {
+
+    flex: 1 1 auto !important;
+
+    min-width: 0 !important;
+
+    width: auto !important;
+
+    background: transparent !important;
+
+    border: none !important;
+
+    outline: none !important;
+
+    color: #ffffff !important;
+
+    font-size: 16px !important;
+
+    padding: 8px 10px !important;
+
+}
+
+
+
+body:not(.control-app) .input-area #input::placeholder,
+
+body .input-area #input::placeholder {
+
+    color: #8fa397 !important;
+
+}
+
+
+
+/* Circular action icons */
+
+body:not(.control-app) .input-area > button:not(.send):not(.stop-thinking):not(#thinkingBuddy),
+
+body .input-area > button:not(.send):not(.stop-thinking):not(#thinkingBuddy) {
+
+    flex: 0 0 auto !important;
+
+    width: 38px !important;
+
+    height: 38px !important;
+
+    min-width: 38px !important;
+
+    border-radius: 50% !important;
+
+    background: #1e2b24 !important;
+
+    border: 1px solid #2e4337 !important;
+
+    color: #d1fae5 !important;
+
+    display: grid !important;
+
+    place-items: center !important;
+
+    padding: 0 !important;
+
+    cursor: pointer !important;
+
+    font-size: 16px !important;
+
+}
+
+
+
+body:not(.control-app) .input-area > button:not(.send):not(.stop-thinking):hover {
+
+    background: #283a31 !important;
+
+}
+
+
+
+/* Bright green send button */
+
+body:not(.control-app) .input-area .send,
+
+body .input-area .send {
+
+    flex: 0 0 auto !important;
+
+    height: 40px !important;
+
+    min-height: 40px !important;
+
+    min-width: 72px !important;
+
+    padding: 0 20px !important;
+
+    background: #22c55e !important;
+
+    color: #ffffff !important;
+
+    font-weight: 700 !important;
+
+    font-size: 15px !important;
+
+    border: none !important;
+
+    border-radius: 20px !important;
+
+    cursor: pointer !important;
+
+    display: inline-flex !important;
+
+    align-items: center !important;
+
+    justify-content: center !important;
+
+}
+
+
+
+body:not(.control-app) .input-area .send:hover {
+
+    background: #16a34a !important;
+
+}
+
+
+
+body:not(.control-app) .input-area .composer-collapse,
+
+body .input-area .composer-collapse {
+
+    display: none !important;
+
+}
+
+
+
+#messages {
+
+    padding-bottom: 120px !important;
+
+}
+
+
+
+
+/* === Fix Duplicate Thinking & Clean Single Status Badge === */
+
+/* 1. Remove the duplicate mascot thinking badge */
+
+#thinkingBuddy {
+
+    display: none !important;
+
+}
+
+
+
+/* 2. Single clean floating status pill (only visible when thinking) */
+
+#status {
+
+    position: fixed !important;
+
+    left: 0 !important;
+
+    right: 0 !important;
+
+    bottom: 84px !important;
+
+    margin: 0 auto !important;
+
+    width: fit-content !important;
+
+    max-width: 600px !important;
+
+    background: rgba(18, 27, 22, 0.92) !important;
+
+    backdrop-filter: blur(10px) !important;
+
+    border: 1px solid #2e4438 !important;
+
+    border-radius: 16px !important;
+
+    padding: 6px 18px !important;
+
+    color: #86efac !important;
+
+    font-size: 13px !important;
+
+    font-weight: 500 !important;
+
+    text-align: center !important;
+
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+
+    z-index: 45 !important;
+
+}
+
+
+
+#status:empty {
+
+    display: none !important;
+
+}
+

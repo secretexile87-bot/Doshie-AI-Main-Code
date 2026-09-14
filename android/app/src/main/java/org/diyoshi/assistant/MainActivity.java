@@ -20,7 +20,7 @@ import java.util.concurrent.Executors;
 
 public class MainActivity extends BridgeActivity {
     private static final String UPDATE_ENDPOINT =
-        "https://hermes-duran-tecra-a60-m.tail50b4c5.ts.net:8443/app-version?client=android";
+        "https://hermes-doshie.tail50b4c5.ts.net/app-version?client=android";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,7 +105,7 @@ public class MainActivity extends BridgeActivity {
         try {
             String resolvedUrl = downloadUrl.startsWith("http")
                 ? downloadUrl
-                : "https://hermes-duran-tecra-a60-m.tail50b4c5.ts.net:8443"
+                : "https://hermes-doshie.tail50b4c5.ts.net"
                     + (downloadUrl.startsWith("/") ? "" : "/")
                     + downloadUrl;
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(resolvedUrl)));
@@ -149,7 +149,7 @@ public class MainActivity extends BridgeActivity {
     private void openVerifiedDiYoshiLink(Intent intent) {
         Uri uri = intent == null ? null : intent.getData();
         if (uri == null || !"https".equalsIgnoreCase(uri.getScheme())) return;
-        if (!"hermes-duran-tecra-a60-m.tail50b4c5.ts.net".equalsIgnoreCase(uri.getHost())) return;
+        if (!"hermes-doshie.tail50b4c5.ts.net".equalsIgnoreCase(uri.getHost())) return;
         if (uri.getPath() == null || !uri.getPath().startsWith("/login")) return;
         bridge.getWebView().post(() -> bridge.getWebView().loadUrl(uri.toString()));
     }

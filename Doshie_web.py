@@ -19,6 +19,19 @@ import fcntl
 import os
 import pty
 import re
+
+# Auto-load .env file from project root if present
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.isfile(_env_path):
+    try:
+        with open(_env_path, "r", encoding="utf-8") as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _v = _line.split("=", 1)
+                    os.environ.setdefault(_k.strip(), _v.strip().strip("'\""))
+    except Exception:
+        pass
 import secrets
 import select
 import signal
@@ -74,10 +87,14 @@ app.config.update(
     TRUSTED_HOSTS=[
         "Doshie-home.duckdns.org",
         "hermes-duran-tecra-a60-m.tail50b4c5.ts.net",
+        "hermes-doshie.tail50b4c5.ts.net",
+        "hermes-doshie",
         "127.0.0.1",
         "localhost",
+        "192.168.1.167",
+        "100.109.79.35",
         "100.113.75.55",
-	"yoshi-home.duckdns.org",
+        "yoshi-home.duckdns.org",
     ],
 )
 app.permanent_session_lifetime = timedelta(hours=8)
@@ -96,7 +113,7 @@ HTML = """
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/Doshie-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/Doshie-192.png">
-<link rel="stylesheet" href="/static/Doshie-app.css?v=58">
+<link rel="stylesheet" href="/static/Doshie-app.css?v=85">
 <title>Doshie</title>
 
 <style>
@@ -1875,11 +1892,13 @@ button { cursor: pointer; }
                     <div class="voice-settings-actions">
                         <button type="button" class="tool"
                                 onclick="enableMicrophone()">🎙 Enable microphone</button>
-                        <button type="button" class="tool"
-                                onclick="testVoice()">▶ Test voice</button>
+                        <button type="button" class="tool" id="testVoiceBtn"
+                                onclick="testVoice(this)">▶ Test voice</button>
                         <button type="button" class="tool"
                                 onclick="stopDoshieVoice()">⏹ Stop voice</button>
                     </div>
+                    <div id="voiceTestStatus" class="profile-photo-status" style="color:var(--accent,#10b981);font-weight:600;"
+                         aria-live="polite"></div>
                     <div id="microphoneStatus" class="profile-photo-status"
                          aria-live="polite">Tap Enable microphone once on each device.</div>
                     <small style="color:var(--muted);">
@@ -4089,13 +4108,7 @@ async function sendText(text) {
 
         const response = await fetch("/chat", {
             method: "POST",
-	credentials: "include",
-	   const response = await fetch("/chat", {
-    method: "POST",
-    credentials: "include",
-    headers: {
-        "Content-Type": "application/json"
-    },
+            credentials: "include",
             headers: {
                 "Content-Type": "application/json"
             },
@@ -6521,30 +6534,55 @@ function applyVoicePreset() {
 }
 
 
-function testVoice() {
+function testVoice(btn) {
+    const testBtn = btn || document.getElementById("testVoiceBtn");
+    const voiceStatus = document.getElementById("voiceTestStatus");
+
     DoshieSettings.voice_identity =
         document.getElementById("voiceIdentity")?.value || "hermes";
     DoshieSettings.voice_engine =
-        document.getElementById("voiceEngine").value;
+        document.getElementById("voiceEngine")?.value || "clone";
     DoshieSettings.voice_rate = parseFloat(
-        document.getElementById("voiceRate").value
+        document.getElementById("voiceRate")?.value || "1.0"
     );
     DoshieSettings.voice_pitch = parseFloat(
-        document.getElementById("voicePitch").value
+        document.getElementById("voicePitch")?.value || "1.0"
     );
 
-    statusBox.textContent = DoshieSettings.voice_engine === "clone"
-        ? "Preparing Hermes voice..."
-        : "Playing the device voice...";
+    if (testBtn) {
+        testBtn.disabled = true;
+        testBtn.textContent = "⏳ Generating...";
+    }
+    if (voiceStatus) {
+        voiceStatus.textContent = "Synthesizing voice audio... please wait a moment.";
+    }
+
+    // Unlock audio context on Chrome immediately in the user click event
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === "suspended") {
+            audioCtx.resume();
+        }
+    } catch (_) {}
 
     speakDoshieReply(
-        "Hello Hermes. This is Doshie, speaking with your private local voice."
-    ).finally(() => {
+        "Hello Hermes. This is Doshie, speaking in your voice."
+    ).then(() => {
+        if (voiceStatus) {
+            voiceStatus.textContent = "Playing audio!";
+        }
+    }).catch((err) => {
+        if (voiceStatus) {
+            voiceStatus.textContent = "Voice playback notice: " + (err?.message || err);
+        }
+    }).finally(() => {
+        if (testBtn) {
+            testBtn.disabled = false;
+            testBtn.textContent = "▶ Test voice";
+        }
         setTimeout(() => {
-            if (statusBox.textContent.includes("voice")) {
-                statusBox.textContent = "";
-            }
-        }, 1500);
+            if (voiceStatus) voiceStatus.textContent = "";
+        }, 5000);
     });
 }
 
@@ -6993,7 +7031,7 @@ async function loadHelperCommandCenter() {
         ).join("") || "No helpers reported.";
         feed.textContent = (data.activity || []).map(item =>
             `${item.time || ""} ${item.helper || ""} ${item.state || ""}`
-        ).join("\n") || "No activity yet.";
+        ).join("\\n") || "No activity yet.";
     } catch (error) {
         fleet.textContent = error.message;
     }
@@ -9620,6 +9658,8 @@ def _profile_locked_response(profile):
 PUBLIC_FUNNEL_PORT = 8443
 WEBSITE_HOSTS = {
     "Doshie-home.duckdns.org",
+    "yoshi-home.duckdns.org",
+    "hermes-doshie.tail50b4c5.ts.net",
     "hermes-duran-tecra-a60-m.tail50b4c5.ts.net",
 }
 PUBLIC_OPEN_ENDPOINTS = {
@@ -10001,12 +10041,15 @@ def tech_preview():
 def canonical_home():
     authorized = _public_authorized_profile()
     if _is_public_funnel_request() and authorized:
-        record = next(
-            item for item in profile_catalog() if item["name"] == authorized
-        )
-        if not record["is_admin"]:
-            return redirect("/control", code=302)
-    return tech_preview()
+        try:
+            record = next(
+                item for item in profile_catalog() if item["name"] == authorized
+            )
+            if not record["is_admin"]:
+                return redirect("/control", code=302)
+        except StopIteration:
+            pass
+    return home()
 
 
 @app.route("/control")
@@ -10014,13 +10057,6 @@ def canonical_home():
 @app.route("/search")
 @app.route("/watch")
 def home():
-    if request.path == "/control":
-        response = send_from_directory(
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "static"),
-            "command-center.html",
-        )
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
-        return response
     page = HTML
     if request.path == "/control":
         page = page.replace(
@@ -10044,8 +10080,9 @@ def android_asset_links():
         "relation": ["delegate_permission/common.handle_all_urls"],
         "target": {
             "namespace": "android_app",
-            "package_name": "org.Doshie.assistant",
+            "package_name": "org.diyoshi.assistant",
             "sha256_cert_fingerprints": [
+                "52:FF:8B:58:87:8B:68:C2:CC:98:D6:61:96:DE:2F:48:4F:CB:BD:D5:ED:32:CC:8B:77:8B:1A:7C:48:64:B6:3F",
                 "0F:A0:DB:CA:B8:83:CD:D1:8A:04:87:AB:44:5E:C1:75:4A:09:06:E4:7B:72:D3:CA:F3:C4:26:F4:93:72:BC:77"
             ],
         },
@@ -10693,7 +10730,7 @@ def recovery_reset():
 def family_login():
     data = request.get_json(silent=True)
     data = data if isinstance(data, dict) else {}
-    username = " ".join(str(data.get("username") or "").split()).strip()[:80]
+    username = " ".join(str(data.get("username") or data.get("profile") or "").split()).strip()[:80]
     credential = data.get("credential")
     profile = resolve_profile(username) if username else None
     attempt_profile = profile or username or "unknown-family-account"
@@ -10705,10 +10742,11 @@ def family_login():
             "retry_after": retry_after,
         }), 429
 
+    # Unlocked profiles intentionally require no credential.
+    locked = bool(profile and Doshie_profile_lock.is_locked(profile))
     valid = bool(
         profile
-        and Doshie_profile_lock.is_locked(profile)
-        and Doshie_profile_lock.verify_credential(profile, credential)
+        and (not locked or Doshie_profile_lock.verify_credential(profile, credential))
     )
     if not valid:
         return _credential_failure_response(attempt_profile)
@@ -12074,7 +12112,7 @@ def hermes_ai_chat():
             return jsonify({"error": "Hermes could not queue diagnostics right now."}), 503
     else:
         try:
-            reply = Doshie_memory.ask_Doshie(
+            reply = Doshie_memory.ask_yoshi(
                 model_recent,
                 model_message,
                 raise_on_error=True,
@@ -12190,7 +12228,7 @@ def admin_agent_test(agent_id):
         brain_mode=agent.get("model_mode", "auto"),
     )
     try:
-        reply = Doshie_memory.ask_Doshie(
+        reply = Doshie_memory.ask_yoshi(
             [],
             message,
             raise_on_error=True,
@@ -12424,7 +12462,7 @@ def routines_today():
         SELECT id, routine, weekday, assigned_to
         FROM routines
         WHERE active = 1
-          AND lower(weekday) = lower(?)
+          AND (lower(weekday) = lower(?) OR weekday IS NULL OR lower(weekday) IN ('daily', 'every day', 'everyday', 'all'))
         ORDER BY id
         """,
         (weekday,)
@@ -12529,7 +12567,7 @@ def family_today():
         SELECT r.id, r.routine, r.assigned_to
         FROM routines r
         WHERE r.active = 1
-          AND lower(r.weekday) = lower(?)
+          AND (lower(r.weekday) = lower(?) OR r.weekday IS NULL OR lower(r.weekday) IN ('daily', 'every day', 'everyday', 'all'))
           AND NOT EXISTS (
               SELECT 1
               FROM routine_completions rc
@@ -13208,7 +13246,7 @@ def _chat_impl():
         )
 
     try:
-        reply = Doshie_memory.ask_Doshie(
+        reply = Doshie_memory.ask_yoshi(
             current_history,
             model_text,
             raise_on_error=True,
@@ -13269,6 +13307,14 @@ def stop_owned_model(process):
         pass
 
 
+@app.route("/command-center")
+def command_center():
+    return send_from_directory(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard"),
+        "index.html",
+    )
+
+
 if __name__ == "__main__":
     Doshie_memory.connect_db().close()
     owned_model = None
@@ -13282,7 +13328,7 @@ if __name__ == "__main__":
     try:
         owned_model = Doshie_memory.start_server()
         app.run(
-            host="127.0.0.1",
+            host="0.0.0.0",
             port=5000,
             debug=False
         )
