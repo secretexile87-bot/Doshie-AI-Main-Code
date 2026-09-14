@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Doshie Login</title>
+<link rel="stylesheet" href="/static/Doshie-app.css">
+</head>
+<body>
+<main class="app-shell">
+<section class="card">
+<h1>🦖 Doshie Login</h1>
+<p>Sign in to your Doshie profile.</p>
+<label>Profile</label>
+<input id="profile" placeholder="Hermes">
+<label>PIN or password</label>
+<input id="credential" type="password" placeholder="PIN or password">
+<button onclick="login()">Login</button>
+<p id="status"></p>
+</section>
+</main>
+<script>
+async function login(){
+ const r=await fetch('/family-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile:document.getElementById('profile').value,credential:document.getElementById('credential').value})});
+ const d=await r.json();
+ if(d.ok){location.href='/';} else {document.getElementById('status').textContent=d.error||'Login failed';}
+}
+</script>
+</body>
+</html>

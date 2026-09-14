@@ -1,0 +1,17 @@
+
+{
+
+  "name": "Doshie",
+
+  "short_name": "Doshie",
+
+  "start_url": "/",
+
+  "display": "standalone",
+
+  "background_color": "#07080d",
+
+  "theme_color": "#5c8f73"
+
+}
+

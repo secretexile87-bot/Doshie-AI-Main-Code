@@ -1,0 +1,17 @@
+backups
+backups/
+models
+models/
+.venv
+.venv/
+android
+android/
+node_modules
+node_modules/
+*.tar.gz
+*.zip
+*.log
+.git
+.git/
+__pycache__/
+*.pyc

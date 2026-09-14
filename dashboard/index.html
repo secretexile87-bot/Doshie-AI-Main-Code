@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+<title>Doshie Command Center</title>
+<style>
+body { font-family: system-ui; background:#101418; color:#eee; padding:30px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px; }
+.card { background:#1b232b; border-radius:14px; padding:20px; }
+.ok { color:#61ff8b; }
+.bad { color:#ff6b6b; }
+pre { white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<h1>🦖 Doshie Command Center</h1>
+<div class="grid">
+<div class="card"><h2>🧠 Brain</h2><div id="ollama">Loading...</div></div>
+<div class="card"><h2>🎮 GPU</h2><pre id="gpu">Loading...</pre></div>
+<div class="card"><h2>⚙️ Services</h2><pre id="services">Loading...</pre></div>
+<div class="card"><h2>⏱️ Status</h2><pre id="status">Loading...</pre></div>
+</div>
+<script>
+async function update(){
+ try {
+ const r=await fetch('/api/core/status');
+ const d=await r.json();
+ document.getElementById('ollama').innerHTML=d.ollama.online?'🟢 Ollama Online':'🔴 Ollama Offline';
+ document.getElementById('gpu').textContent=d.gpu;
+ document.getElementById('services').textContent=JSON.stringify(d.services,null,2);
+ document.getElementById('status').textContent=d.timestamp;
+ } catch(e) { document.getElementById('status').textContent=e; }
+}
+update(); setInterval(update,5000);
+</script>
+</body>
+</html>

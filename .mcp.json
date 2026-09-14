@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "diyoshi-core": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-v", "/var/run/docker.sock:/var/run/docker.sock",
+        "-v", "/home/doshie/Doshie:/app/workspace",
+        "diyoshi:latest"
+      ]
+    }
+  }
+}
