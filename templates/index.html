@@ -3,31 +3,337 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Doshie Assistant</title>
+  <title>Doshie AI Assistant</title>
+  <!-- Marked.js for Markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Highlight.js for code syntax highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; height: 100vh; }
-    .chat-container { width: 100%; max-width: 800px; display: flex; flex-direction: column; height: 100vh; background: #1e293b; border-left: 1px solid #334155; border-right: 1px solid #334155; }
-    header { padding: 1rem 1.5rem; background: #0f172a; border-bottom: 1px solid #334155; font-weight: 600; font-size: 1.1rem; }
-    .messages { flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
-    .msg { max-width: 80%; padding: 0.75rem 1rem; border-radius: 8px; line-height: 1.4; word-break: break-word; }
-    .msg.user { align-self: flex-end; background: #2563eb; color: #fff; }
-    .msg.bot { align-self: flex-start; background: #334155; color: #f8fafc; }
-    .input-area { display: flex; padding: 1rem; background: #0f172a; border-top: 1px solid #334155; gap: 0.5rem; }
-    input { flex: 1; padding: 0.75rem 1rem; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #fff; outline: none; }
-    button { padding: 0.75rem 1.25rem; background: #2563eb; border: none; border-radius: 6px; color: #fff; font-weight: 600; cursor: pointer; }
-    button:hover { background: #1d4ed8; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #090d16;
+      color: #f1f5f9;
+      display: flex;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .chat-container {
+      width: 100%;
+      max-width: 950px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: #0f172a;
+      border-left: 1px solid #1e293b;
+      border-right: 1px solid #1e293b;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+    }
+    header {
+      padding: 0.85rem 1.25rem;
+      background: #0a0f1d;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    .brand-icon {
+      font-size: 1.4rem;
+    }
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #334155;
+    }
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+    .btn-reset {
+      background: transparent;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-reset:hover {
+      background: #1e293b;
+      color: #ef4444;
+      border-color: #ef4444;
+    }
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      scroll-behavior: smooth;
+    }
+    .messages::-webkit-scrollbar {
+      width: 6px;
+    }
+    .messages::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    .msg-row {
+      display: flex;
+      gap: 0.75rem;
+      width: 100%;
+    }
+    .msg-row.user {
+      justify-content: flex-end;
+    }
+    .msg-row.bot {
+      justify-content: flex-start;
+    }
+    .msg-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .msg-avatar.bot {
+      background: #1e293b;
+      border: 1px solid #334155;
+    }
+    .msg-avatar.user {
+      background: #2563eb;
+      color: #fff;
+    }
+    .msg-bubble {
+      max-width: 82%;
+      padding: 0.85rem 1.15rem;
+      border-radius: 12px;
+      line-height: 1.55;
+      font-size: 0.95rem;
+      word-break: break-word;
+      position: relative;
+    }
+    .msg-row.user .msg-bubble {
+      background: #2563eb;
+      color: #ffffff;
+      border-bottom-right-radius: 3px;
+    }
+    .msg-row.bot .msg-bubble {
+      background: #131b2e;
+      color: #f1f5f9;
+      border: 1px solid #1e293b;
+      border-bottom-left-radius: 3px;
+    }
+    /* Markdown Styles in Bot responses */
+    .msg-bubble p { margin-bottom: 0.75rem; }
+    .msg-bubble p:last-child { margin-bottom: 0; }
+    .msg-bubble h1, .msg-bubble h2, .msg-bubble h3 {
+      margin-top: 1rem;
+      margin-bottom: 0.5rem;
+      color: #38bdf8;
+    }
+    .msg-bubble ul, .msg-bubble ol {
+      margin-left: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .msg-bubble li { margin-bottom: 0.25rem; }
+    .msg-bubble code:not(pre code) {
+      background: #1e293b;
+      color: #38bdf8;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.85em;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .code-container {
+      position: relative;
+      margin: 0.75rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #334155;
+    }
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.35rem 0.75rem;
+      background: #0a0f1d;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      font-family: monospace;
+      border-bottom: 1px solid #1e293b;
+    }
+    .copy-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 0.75rem;
+      cursor: pointer;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      color: #fff;
+      background: #1e293b;
+    }
+    .code-container pre {
+      margin: 0 !important;
+      padding: 0.85rem !important;
+      background: #0a0f1d !important;
+      overflow-x: auto;
+    }
+    .code-container pre code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+    /* Typing Indicator */
+    .typing-indicator {
+      display: none;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 0.85rem;
+      background: #131b2e;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      width: fit-content;
+      margin-left: 2.75rem;
+      margin-bottom: 0.5rem;
+    }
+    .typing-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #38bdf8;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+    /* Input Area */
+    .input-area {
+      display: flex;
+      padding: 1rem 1.25rem;
+      background: #0a0f1d;
+      border-top: 1px solid #1e293b;
+      gap: 0.75rem;
+      align-items: flex-end;
+    }
+    textarea {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #131b2e;
+      color: #fff;
+      outline: none;
+      resize: none;
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      max-height: 150px;
+      min-height: 44px;
+      transition: border-color 0.2s;
+    }
+    textarea:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+    }
+    button.send-btn {
+      height: 44px;
+      padding: 0 1.25rem;
+      background: #2563eb;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    button.send-btn:hover:not(:disabled) {
+      background: #1d4ed8;
+    }
+    button.send-btn:disabled {
+      background: #334155;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
   </style>
 </head>
 <body>
   <div class="chat-container">
-    <header>Doshie AI Assistant</header>
+    <header>
+      <div class="brand">
+        <span class="brand-icon">🦕</span>
+        <span>Doshie AI Assistant</span>
+      </div>
+      <div class="header-status">
+        <div class="badge" id="stats-badge">
+          <span class="dot"></span>
+          <span id="model-name">gemini-3.8-flash</span>
+        </div>
+        <button class="btn-reset" id="reset-btn" title="Start a fresh chat session">New Chat</button>
+      </div>
+    </header>
+
     <div class="messages" id="messages">
-      <div class="msg bot">Hello Hermes! Doshie is online and ready.</div>
+      <div class="msg-row bot">
+        <div class="msg-avatar bot">🦕</div>
+        <div class="msg-bubble">
+          Hello Hermes! Doshie is online and running locally on Kali Linux with <strong>Gemini 3.8 Flash</strong>. How can I help you hack away at your tasks today?
+        </div>
+      </div>
     </div>
+
+    <div class="typing-indicator" id="typing">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>
+
     <form class="input-area" id="chat-form">
-      <input type="text" id="user-input" placeholder="Type a message or prompt..." autocomplete="off" required>
-      <button type="submit">Send</button>
+      <textarea id="user-input" placeholder="Type a message or prompt... (Enter to send, Shift+Enter for newline)" rows="1" required></textarea>
+      <button type="submit" class="send-btn" id="send-btn">Send</button>
     </form>
   </div>
 
@@ -35,12 +341,112 @@
     const form = document.getElementById('chat-form');
     const input = document.getElementById('user-input');
     const messages = document.getElementById('messages');
+    const typing = document.getElementById('typing');
+    const sendBtn = document.getElementById('send-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const modelBadge = document.getElementById('model-name');
 
-    function appendMessage(text, sender) {
-      const msgDiv = document.createElement('div');
-      msgDiv.className = `msg ${sender}`;
-      msgDiv.textContent = text;
-      messages.appendChild(msgDiv);
+    // Auto-resize textarea
+    input.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+    });
+
+    // Enter to submit, Shift+Enter for new line
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        form.dispatchEvent(new Event('submit'));
+      }
+    });
+
+    // Fetch system stats periodically
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+        if (data.model) modelBadge.textContent = data.model;
+      } catch (_) {}
+    }
+    loadStats();
+
+    // Reset chat
+    resetBtn.addEventListener('click', async () => {
+      if (!confirm('Start a new chat session?')) return;
+      try {
+        await fetch('/api/reset', { method: 'POST' });
+        messages.innerHTML = `
+          <div class="msg-row bot">
+            <div class="msg-avatar bot">🦕</div>
+            <div class="msg-bubble">Fresh chat session initialized. What would you like to work on?</div>
+          </div>
+        `;
+      } catch (err) {
+        alert('Failed to reset session.');
+      }
+    });
+
+    function renderMarkdown(rawText) {
+      const html = marked.parse(rawText);
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+
+      // Wrap pre blocks in a nice code container with language label and copy button
+      temp.querySelectorAll('pre').forEach(pre => {
+        const code = pre.querySelector('code');
+        const lang = code ? (code.className.match(/language-(\w+)/) || [, 'code'])[1] : 'code';
+
+        const container = document.createElement('div');
+        container.className = 'code-container';
+
+        const header = document.createElement('div');
+        header.className = 'code-header';
+        header.innerHTML = `<span>${lang}</span><button class="copy-btn">Copy</button>`;
+
+        const copyBtn = header.querySelector('.copy-btn');
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(code ? code.innerText : pre.innerText).then(() => {
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+          });
+        });
+
+        pre.parentNode.insertBefore(container, pre);
+        container.appendChild(header);
+        container.appendChild(pre);
+
+        if (code) hljs.highlightElement(code);
+      });
+
+      return temp.innerHTML;
+    }
+
+    function appendMessage(content, sender, isRaw = false) {
+      const row = document.createElement('div');
+      row.className = `msg-row ${sender}`;
+
+      const avatar = document.createElement('div');
+      avatar.className = `msg-avatar ${sender}`;
+      avatar.textContent = sender === 'bot' ? '🦕' : '👤';
+
+      const bubble = document.createElement('div');
+      bubble.className = 'msg-bubble';
+
+      if (sender === 'bot' && !isRaw) {
+        bubble.innerHTML = renderMarkdown(content);
+      } else {
+        bubble.textContent = content;
+      }
+
+      if (sender === 'bot') {
+        row.appendChild(avatar);
+        row.appendChild(bubble);
+      } else {
+        row.appendChild(bubble);
+        row.appendChild(avatar);
+      }
+
+      messages.appendChild(row);
       messages.scrollTop = messages.scrollHeight;
     }
 
@@ -51,6 +457,11 @@
 
       appendMessage(text, 'user');
       input.value = '';
+      input.style.height = 'auto';
+
+      sendBtn.disabled = true;
+      typing.style.display = 'flex';
+      messages.scrollTop = messages.scrollHeight;
 
       try {
         const res = await fetch('/chat', {
@@ -59,9 +470,15 @@
           body: JSON.stringify({ message: text })
         });
         const data = await res.json();
-        appendMessage(data.reply, 'bot');
+        if (data.model) modelBadge.textContent = data.model;
+        appendMessage(data.reply || 'No response received.', 'bot');
       } catch (err) {
-        appendMessage('Error: Unable to reach Doshie server.', 'bot');
+        appendMessage('⚠️ Error: Unable to reach Doshie server.', 'bot', true);
+      } finally {
+        typing.style.display = 'none';
+        sendBtn.disabled = false;
+        input.focus();
+        messages.scrollTop = messages.scrollHeight;
       }
     });
   </script>

@@ -1,4 +1,7 @@
 import os
+import platform
+import subprocess
+import time
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify
 from google import genai
@@ -19,7 +22,13 @@ MODELS = [
     "gemini-3.5-flash-lite",
 ]
 
-SYSTEM_INSTRUCTION = "You are Doshie, a helpful, intelligent personal AI assistant running locally on Kali Linux."
+SYSTEM_INSTRUCTION = (
+    "You are Doshie, a helpful, intelligent personal AI assistant running locally on Kali Linux. "
+    "You specialize in Linux administration, automation, programming, and technical problem-solving. "
+    "Format your responses clearly using GitHub-flavored Markdown. "
+    "When providing code, scripts, or terminal commands, always use fenced code blocks with language identifiers. "
+    "Be concise, precise, and practical."
+)
 
 chat_session = None
 current_model = None
@@ -47,7 +56,34 @@ init_chat_session()
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return render_template('index.html', model=current_model or "gemini-3.8-flash")
+
+@app.route('/api/stats')
+def stats():
+    try:
+        mem_info = subprocess.check_output(
+            "free -m | awk 'NR==2{printf \"%s/%sMB (%.1f%%)\", $3,$2,$3*100/$2 }'",
+            shell=True
+        ).decode().strip()
+        uptime = subprocess.check_output("uptime -p", shell=True).decode().strip()
+        host = platform.node()
+    except Exception:
+        mem_info = "N/A"
+        uptime = "N/A"
+        host = "Kali Linux"
+
+    return jsonify({
+        'model': current_model or "gemini-3.8-flash",
+        'memory': mem_info,
+        'uptime': uptime,
+        'host': host
+    })
+
+@app.route('/api/reset', methods=['POST'])
+def reset_chat():
+    global chat_session
+    init_chat_session()
+    return jsonify({'status': 'reset', 'model': current_model})
 
 @app.route('/chat', methods=['POST'])
 def chat():
