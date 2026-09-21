@@ -27,3 +27,9 @@ node_modules/
 backups/
 
 capacitor.config.json.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
