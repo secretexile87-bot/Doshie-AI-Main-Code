@@ -2,114 +2,240 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Doshie AI Assistant</title>
-  <!-- Marked.js for Markdown rendering -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#5c8f73">
+  <title>Doshie</title>
+  <link rel="stylesheet" href="/static/Doshie-app.css">
+  <!-- Markdown & Code Highlighting -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <!-- Highlight.js for code syntax highlighting -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
+    :root {
+      --page: #181a19;
+      --surface: #212422;
+      --surface-soft: #292c2a;
+      --surface-hover: #323633;
+      --text: #f2f4f2;
+      --muted: #a7ada9;
+      --line: #3a3e3b;
+      --accent: #68a985;
+      --accent-strong: #7ab894;
+      --user: #294338;
+      --shadow: 0 14px 40px rgba(0, 0, 0, .28);
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: #090d16;
-      color: #f1f5f9;
-      display: flex;
-      justify-content: center;
-      height: 100vh;
+    html, body {
+      height: 100%;
+      background: var(--page);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       overflow: hidden;
     }
-    .chat-container {
-      width: 100%;
-      max-width: 950px;
+    /* Layout */
+    .layout {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+    }
+    /* Sidebar */
+    .sidebar {
+      width: 264px;
+      height: 100%;
+      background: var(--surface-soft);
+      border-right: 1px solid var(--line);
       display: flex;
       flex-direction: column;
-      height: 100vh;
-      background: #0f172a;
-      border-left: 1px solid #1e293b;
-      border-right: 1px solid #1e293b;
-      box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+      padding: 16px 12px;
+      gap: 14px;
+      flex-shrink: 0;
+      transition: transform .22s ease;
+      z-index: 30;
     }
-    header {
-      padding: 0.85rem 1.25rem;
-      background: #0a0f1d;
-      border-bottom: 1px solid #1e293b;
+    .sidebar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 8px;
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: var(--text);
+    }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      font-size: 1.3rem;
+      box-shadow: var(--shadow);
+    }
+    .new-chat {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+      color: var(--text);
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background .15s;
+    }
+    .new-chat:hover {
+      background: var(--surface-hover);
+    }
+    .sidebar-label {
+      padding: 6px 8px 0;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .side-actions {
+      display: grid;
+      gap: 4px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .side-action {
+      border: 0;
+      border-radius: 9px;
+      padding: 9px 12px;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      font-size: 13.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background .15s;
+    }
+    .side-action:hover {
+      background: var(--surface-hover);
+    }
+    .sidebar-foot {
+      margin-top: auto;
+      padding: 10px 8px;
+      color: var(--muted);
+      font-size: 12px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    /* Main App Area */
+    .app {
+      flex: 1;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: var(--surface);
+    }
+    /* Header */
+    .header {
+      min-height: 60px;
+      padding: 10px 24px;
+      background: color-mix(in srgb, var(--surface) 94%, transparent);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line);
       display: flex;
       align-items: center;
       justify-content: space-between;
+      z-index: 10;
     }
-    .brand {
+    .header-left {
       display: flex;
       align-items: center;
-      gap: 0.65rem;
-      font-size: 1.15rem;
-      font-weight: 700;
-      color: #f8fafc;
+      gap: 12px;
     }
-    .brand-icon {
-      font-size: 1.4rem;
+    .header h1 {
+      font-size: 16px;
+      font-weight: 650;
+      letter-spacing: -0.01em;
     }
-    .header-status {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
+    .header small {
+      color: var(--muted);
+      font-size: 12px;
     }
-    .badge {
+    .model-badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
-      padding: 0.25rem 0.65rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--surface-soft);
+      border: 1px solid var(--line);
+      font-size: 12px;
       font-weight: 600;
-      background: #1e293b;
-      color: #94a3b8;
-      border: 1px solid #334155;
+      color: var(--accent);
     }
     .dot {
       width: 7px;
       height: 7px;
       border-radius: 50%;
-      background: #10b981;
-      box-shadow: 0 0 8px #10b981;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
     }
-    .btn-reset {
-      background: transparent;
-      border: 1px solid #334155;
-      color: #cbd5e1;
-      padding: 0.35rem 0.75rem;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: 500;
+    /* Tools row */
+    .tools {
+      display: flex;
+      gap: 7px;
+      padding: 9px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tools::-webkit-scrollbar { display: none; }
+    .tool {
+      border: 1px solid var(--line);
+      background: var(--surface-soft);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12.5px;
       cursor: pointer;
-      transition: all 0.2s;
+      white-space: nowrap;
+      transition: background .15s, transform .15s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
     }
-    .btn-reset:hover {
-      background: #1e293b;
-      color: #ef4444;
-      border-color: #ef4444;
+    .tool:hover {
+      background: var(--surface-hover);
+      transform: translateY(-1px);
     }
-    .messages {
+    /* Messages Area */
+    .messages-container {
       flex: 1;
       overflow-y: auto;
-      padding: 1.5rem;
+      padding: 24px 24px 130px;
       display: flex;
       flex-direction: column;
-      gap: 1.25rem;
+      align-items: center;
       scroll-behavior: smooth;
     }
-    .messages::-webkit-scrollbar {
-      width: 6px;
-    }
-    .messages::-webkit-scrollbar-thumb {
-      background: #334155;
-      border-radius: 3px;
+    .messages-list {
+      width: 100%;
+      max-width: 820px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
     }
     .msg-row {
       display: flex;
-      gap: 0.75rem;
       width: 100%;
+      gap: 10px;
     }
     .msg-row.user {
       justify-content: flex-end;
@@ -117,87 +243,69 @@
     .msg-row.bot {
       justify-content: flex-start;
     }
-    .msg-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1rem;
-      flex-shrink: 0;
-    }
-    .msg-avatar.bot {
-      background: #1e293b;
-      border: 1px solid #334155;
-    }
-    .msg-avatar.user {
-      background: #2563eb;
-      color: #fff;
-    }
-    .msg-bubble {
-      max-width: 82%;
-      padding: 0.85rem 1.15rem;
-      border-radius: 12px;
+    .message {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 18px;
       line-height: 1.55;
-      font-size: 0.95rem;
+      font-size: 14.5px;
       word-break: break-word;
-      position: relative;
+      box-shadow: 0 1px 2px rgba(0,0,0,.08);
     }
-    .msg-row.user .msg-bubble {
-      background: #2563eb;
+    .msg-row.user .message {
+      background: var(--user);
       color: #ffffff;
-      border-bottom-right-radius: 3px;
+      border-bottom-right-radius: 4px;
     }
-    .msg-row.bot .msg-bubble {
-      background: #131b2e;
-      color: #f1f5f9;
-      border: 1px solid #1e293b;
-      border-bottom-left-radius: 3px;
+    .msg-row.bot .message {
+      background: var(--surface-soft);
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-bottom-left-radius: 4px;
     }
-    /* Markdown Styles in Bot responses */
-    .msg-bubble p { margin-bottom: 0.75rem; }
-    .msg-bubble p:last-child { margin-bottom: 0; }
-    .msg-bubble h1, .msg-bubble h2, .msg-bubble h3 {
-      margin-top: 1rem;
-      margin-bottom: 0.5rem;
-      color: #38bdf8;
+    /* Markdown within Bot messages */
+    .message p { margin-bottom: 0.65rem; }
+    .message p:last-child { margin-bottom: 0; }
+    .message h1, .message h2, .message h3 {
+      margin-top: 0.9rem;
+      margin-bottom: 0.45rem;
+      color: var(--accent-strong);
     }
-    .msg-bubble ul, .msg-bubble ol {
-      margin-left: 1.5rem;
-      margin-bottom: 0.75rem;
+    .message ul, .message ol {
+      margin-left: 1.4rem;
+      margin-bottom: 0.65rem;
     }
-    .msg-bubble li { margin-bottom: 0.25rem; }
-    .msg-bubble code:not(pre code) {
-      background: #1e293b;
-      color: #38bdf8;
-      padding: 0.15rem 0.4rem;
+    .message li { margin-bottom: 0.2rem; }
+    .message code:not(pre code) {
+      background: var(--surface-hover);
+      color: var(--accent-strong);
+      padding: 0.15rem 0.35rem;
       border-radius: 4px;
-      font-size: 0.85em;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.88em;
+      font-family: ui-monospace, monospace;
     }
     .code-container {
       position: relative;
       margin: 0.75rem 0;
       border-radius: 8px;
       overflow: hidden;
-      border: 1px solid #334155;
+      border: 1px solid var(--line);
     }
     .code-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 0.35rem 0.75rem;
-      background: #0a0f1d;
+      background: #141715;
       font-size: 0.75rem;
-      color: #94a3b8;
+      color: var(--muted);
       font-family: monospace;
-      border-bottom: 1px solid #1e293b;
+      border-bottom: 1px solid var(--line);
     }
     .copy-btn {
       background: transparent;
       border: none;
-      color: #94a3b8;
+      color: var(--muted);
       font-size: 0.75rem;
       cursor: pointer;
       padding: 0.2rem 0.5rem;
@@ -206,12 +314,12 @@
     }
     .copy-btn:hover {
       color: #fff;
-      background: #1e293b;
+      background: var(--surface-soft);
     }
     .code-container pre {
       margin: 0 !important;
       padding: 0.85rem !important;
-      background: #0a0f1d !important;
+      background: #141715 !important;
       overflow-x: auto;
     }
     .code-container pre code {
@@ -223,20 +331,20 @@
     .typing-indicator {
       display: none;
       align-items: center;
-      gap: 0.4rem;
-      padding: 0.5rem 0.85rem;
-      background: #131b2e;
-      border: 1px solid #1e293b;
-      border-radius: 12px;
+      gap: 5px;
+      padding: 8px 14px;
+      background: var(--surface-soft);
+      border: 1px solid var(--line);
+      border-radius: 16px;
       width: fit-content;
-      margin-left: 2.75rem;
-      margin-bottom: 0.5rem;
+      margin-left: 8px;
+      margin-bottom: 8px;
     }
     .typing-dot {
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: #38bdf8;
+      background: var(--accent);
       animation: bounce 1.4s infinite ease-in-out both;
     }
     .typing-dot:nth-child(1) { animation-delay: -0.32s; }
@@ -245,114 +353,162 @@
       0%, 80%, 100% { transform: scale(0); }
       40% { transform: scale(1); }
     }
-    /* Input Area */
-    .input-area {
+    /* Floating Composer */
+    .composer-wrap {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 16px 24px max(20px, env(safe-area-inset-bottom));
       display: flex;
-      padding: 1rem 1.25rem;
-      background: #0a0f1d;
-      border-top: 1px solid #1e293b;
-      gap: 0.75rem;
-      align-items: flex-end;
+      justify-content: center;
+      background: linear-gradient(180deg, transparent 0%, var(--surface) 28%);
+      pointer-events: none;
     }
-    textarea {
-      flex: 1;
-      padding: 0.75rem 1rem;
-      border-radius: 8px;
-      border: 1px solid #334155;
-      background: #131b2e;
-      color: #fff;
-      outline: none;
-      resize: none;
-      font-family: inherit;
-      font-size: 0.95rem;
-      line-height: 1.4;
-      max-height: 150px;
-      min-height: 44px;
-      transition: border-color 0.2s;
-    }
-    textarea:focus {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
-    }
-    button.send-btn {
-      height: 44px;
-      padding: 0 1.25rem;
-      background: #2563eb;
-      border: none;
-      border-radius: 8px;
-      color: #fff;
-      font-weight: 600;
-      cursor: pointer;
+    .composer {
+      width: 100%;
+      max-width: 820px;
+      background: var(--surface-soft);
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      padding: 6px 8px 6px 18px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 0.4rem;
-      transition: background 0.2s;
+      gap: 10px;
+      box-shadow: var(--shadow);
+      pointer-events: auto;
+    }
+    .composer textarea {
+      flex: 1;
+      background: transparent;
+      border: 0;
+      color: var(--text);
+      outline: none;
+      resize: none;
+      font-size: 15px;
+      line-height: 1.4;
+      max-height: 140px;
+      min-height: 24px;
+      padding: 8px 0;
+    }
+    .composer button.send {
+      border: 0;
+      border-radius: 20px;
+      padding: 8px 18px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
       flex-shrink: 0;
     }
-    button.send-btn:hover:not(:disabled) {
-      background: #1d4ed8;
+    .composer button.send:hover:not(:disabled) {
+      background: var(--accent-strong);
+      transform: scale(1.02);
     }
-    button.send-btn:disabled {
-      background: #334155;
+    .composer button.send:disabled {
+      opacity: 0.5;
       cursor: not-allowed;
-      opacity: 0.6;
+    }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
     }
   </style>
 </head>
 <body>
-  <div class="chat-container">
-    <header>
-      <div class="brand">
-        <span class="brand-icon">🦕</span>
-        <span>Doshie AI Assistant</span>
+  <div class="layout">
+    <!-- Real Doshie Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-mark">🦕</span>
+        <span>Doshie</span>
       </div>
-      <div class="header-status">
-        <div class="badge" id="stats-badge">
+      <button class="new-chat" id="new-chat-btn">
+        <span>+</span>
+        <span>New Chat</span>
+      </button>
+      <div class="sidebar-label">Capabilities</div>
+      <div class="side-actions">
+        <button class="side-action" onclick="quickPrompt('Summarize our recent conversation')">🧠 Memory</button>
+        <button class="side-action" onclick="quickPrompt('What tools and commands can you run on Kali Linux?')">⚡ System Tools</button>
+        <button class="side-action" onclick="quickPrompt('Check system health and Kali Linux diagnostics')">📊 Health & Stats</button>
+        <button class="side-action" onclick="quickPrompt('Help me write a cybersecurity Python script')">🐍 Python Dev</button>
+      </div>
+      <div class="sidebar-foot">
+        <span id="host-label">Hermeskali</span>
+        <span id="uptime-label">Online</span>
+      </div>
+    </aside>
+
+    <!-- Main App Frame -->
+    <main class="app">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-left">
+          <h1>Doshie</h1>
+          <small>Personal AI Assistant</small>
+        </div>
+        <div class="model-badge">
           <span class="dot"></span>
-          <span id="model-name">gemini-3.8-flash</span>
+          <span id="active-model">gemini-3.8-flash</span>
         </div>
-        <button class="btn-reset" id="reset-btn" title="Start a fresh chat session">New Chat</button>
-      </div>
-    </header>
+      </header>
 
-    <div class="messages" id="messages">
-      <div class="msg-row bot">
-        <div class="msg-avatar bot">🦕</div>
-        <div class="msg-bubble">
-          Hello Hermes! Doshie is online and running locally on Kali Linux with <strong>Gemini 3.8 Flash</strong>. How can I help you hack away at your tasks today?
+      <!-- Authentic Doshie Tools Row -->
+      <div class="tools">
+        <div class="tool" onclick="quickPrompt('Show available tools')">⚡ Tools</div>
+        <div class="tool" onclick="quickPrompt('Show current memory')">🧠 Memory</div>
+        <div class="tool" onclick="quickPrompt('List latest tech news')">📰 News</div>
+        <div class="tool" onclick="quickPrompt('Check system status and resource usage')">📊 Status</div>
+        <div class="tool" onclick="quickPrompt('Clear session preferences')">⚙️ Settings</div>
+      </div>
+
+      <!-- Messages Stream -->
+      <div class="messages-container" id="scroll-container">
+        <div class="messages-list" id="messages">
+          <div class="msg-row bot">
+            <div class="message">
+              Hello Hermes! Doshie is online and running locally on Kali Linux with <strong>Gemini 3.8 Flash</strong>. How can I help you today?
+            </div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="typing-indicator" id="typing">
-      <div class="typing-dot"></div>
-      <div class="typing-dot"></div>
-      <div class="typing-dot"></div>
-    </div>
+      <div class="typing-indicator" id="typing">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      </div>
 
-    <form class="input-area" id="chat-form">
-      <textarea id="user-input" placeholder="Type a message or prompt... (Enter to send, Shift+Enter for newline)" rows="1" required></textarea>
-      <button type="submit" class="send-btn" id="send-btn">Send</button>
-    </form>
+      <!-- Floating Composer -->
+      <div class="composer-wrap">
+        <form class="composer" id="chat-form">
+          <textarea id="user-input" placeholder="Message Doshie... (Enter to send, Shift+Enter for newline)" rows="1" required></textarea>
+          <button type="submit" class="send" id="send-btn">Send</button>
+        </form>
+      </div>
+    </main>
   </div>
 
   <script>
     const form = document.getElementById('chat-form');
     const input = document.getElementById('user-input');
     const messages = document.getElementById('messages');
+    const scrollContainer = document.getElementById('scroll-container');
     const typing = document.getElementById('typing');
     const sendBtn = document.getElementById('send-btn');
-    const resetBtn = document.getElementById('reset-btn');
-    const modelBadge = document.getElementById('model-name');
+    const newChatBtn = document.getElementById('new-chat-btn');
+    const activeModel = document.getElementById('active-model');
+    const hostLabel = document.getElementById('host-label');
+    const uptimeLabel = document.getElementById('uptime-label');
 
-    // Auto-resize textarea
+    // Auto-resize input
     input.addEventListener('input', function() {
       this.style.height = 'auto';
-      this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+      this.style.height = Math.min(this.scrollHeight, 140) + 'px';
     });
 
-    // Enter to submit, Shift+Enter for new line
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -360,38 +516,39 @@
       }
     });
 
-    // Fetch system stats periodically
     async function loadStats() {
       try {
         const res = await fetch('/api/stats');
         const data = await res.json();
-        if (data.model) modelBadge.textContent = data.model;
+        if (data.model) activeModel.textContent = data.model;
+        if (data.host) hostLabel.textContent = data.host;
+        if (data.uptime) uptimeLabel.textContent = data.uptime.replace('up ', '');
       } catch (_) {}
     }
     loadStats();
 
-    // Reset chat
-    resetBtn.addEventListener('click', async () => {
-      if (!confirm('Start a new chat session?')) return;
+    newChatBtn.addEventListener('click', async () => {
+      if (!confirm('Start a fresh Doshie chat?')) return;
       try {
         await fetch('/api/reset', { method: 'POST' });
         messages.innerHTML = `
           <div class="msg-row bot">
-            <div class="msg-avatar bot">🦕</div>
-            <div class="msg-bubble">Fresh chat session initialized. What would you like to work on?</div>
+            <div class="message">Fresh session started. What can I do for you?</div>
           </div>
         `;
-      } catch (err) {
-        alert('Failed to reset session.');
-      }
+      } catch (_) {}
     });
+
+    function quickPrompt(text) {
+      input.value = text;
+      form.dispatchEvent(new Event('submit'));
+    }
 
     function renderMarkdown(rawText) {
       const html = marked.parse(rawText);
       const temp = document.createElement('div');
       temp.innerHTML = html;
 
-      // Wrap pre blocks in a nice code container with language label and copy button
       temp.querySelectorAll('pre').forEach(pre => {
         const code = pre.querySelector('code');
         const lang = code ? (code.className.match(/language-(\w+)/) || [, 'code'])[1] : 'code';
@@ -425,12 +582,8 @@
       const row = document.createElement('div');
       row.className = `msg-row ${sender}`;
 
-      const avatar = document.createElement('div');
-      avatar.className = `msg-avatar ${sender}`;
-      avatar.textContent = sender === 'bot' ? '🦕' : '👤';
-
       const bubble = document.createElement('div');
-      bubble.className = 'msg-bubble';
+      bubble.className = 'message';
 
       if (sender === 'bot' && !isRaw) {
         bubble.innerHTML = renderMarkdown(content);
@@ -438,16 +591,9 @@
         bubble.textContent = content;
       }
 
-      if (sender === 'bot') {
-        row.appendChild(avatar);
-        row.appendChild(bubble);
-      } else {
-        row.appendChild(bubble);
-        row.appendChild(avatar);
-      }
-
+      row.appendChild(bubble);
       messages.appendChild(row);
-      messages.scrollTop = messages.scrollHeight;
+      scrollContainer.scrollTop = scrollContainer.scrollHeight;
     }
 
     form.addEventListener('submit', async (e) => {
@@ -461,7 +607,7 @@
 
       sendBtn.disabled = true;
       typing.style.display = 'flex';
-      messages.scrollTop = messages.scrollHeight;
+      scrollContainer.scrollTop = scrollContainer.scrollHeight;
 
       try {
         const res = await fetch('/chat', {
@@ -470,15 +616,15 @@
           body: JSON.stringify({ message: text })
         });
         const data = await res.json();
-        if (data.model) modelBadge.textContent = data.model;
-        appendMessage(data.reply || 'No response received.', 'bot');
+        if (data.model) activeModel.textContent = data.model;
+        appendMessage(data.reply || 'No reply.', 'bot');
       } catch (err) {
-        appendMessage('⚠️ Error: Unable to reach Doshie server.', 'bot', true);
+        appendMessage('⚠️ Unable to connect to Doshie backend.', 'bot', true);
       } finally {
         typing.style.display = 'none';
         sendBtn.disabled = false;
         input.focus();
-        messages.scrollTop = messages.scrollHeight;
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     });
   </script>
