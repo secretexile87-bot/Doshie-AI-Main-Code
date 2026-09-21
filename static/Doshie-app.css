@@ -2900,8 +2900,36 @@ body.sidebar-collapsed .side-action {
         );
     }
 
+    /* Virtual keyboard active styling */
+    body.keyboard-open .mobile-nav {
+        display: none !important;
+    }
+    body.keyboard-open .input-area {
+        position: fixed !important;
+        bottom: calc(var(--keyboard-offset, 0px) + max(6px, env(safe-area-inset-bottom))) !important;
+        left: 8px !important;
+        right: 8px !important;
+        margin: 0 auto !important;
+        width: calc(100% - 16px) !important;
+        max-width: var(--content-max-w, 820px) !important;
+        z-index: 1000 !important;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.6) !important;
+    }
+    body.keyboard-open #status {
+        position: fixed !important;
+        bottom: calc(var(--keyboard-offset, 0px) + 70px) !important;
+        z-index: 999 !important;
+    }
     body.keyboard-open #messages {
-        padding-bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+        padding-bottom: calc(var(--keyboard-offset, 0px) + 84px) !important;
+    }
+    body.keyboard-open .app {
+        height: var(--Doshie-visual-height, 100dvh) !important;
+        min-height: var(--Doshie-visual-height, 100dvh) !important;
+        max-height: var(--Doshie-visual-height, 100dvh) !important;
+    }
+    body.keyboard-open .app > [id$="Panel"] {
+        bottom: calc(var(--keyboard-offset, 0px) + 8px) !important;
     }
 }
 
@@ -3791,8 +3819,17 @@ body {
 #settingsPanel,
 #adminPanel,
 #builderPanel,
+#spotifyPanel,
+#hermesPanel,
+#searchPanel,
+#watchPanel,
 #techPanel,
-#gamingPanel {
+#gamingPanel,
+#remindersPanel,
+#shoppingPanel,
+#familyPanel,
+#organizerPanel,
+.app > [id$="Panel"] {
   box-sizing: border-box;
   max-width: 100vw;
 }
@@ -4259,17 +4296,37 @@ body.control-app .admin-control-grid {
     grid-column: 1;
     grid-row: 4;
   }
-  body:not(.control-app) .app > [id$="Panel"] {
-    top: 92px !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    max-width: 100vw !important;
-    border-right: 0 !important;
-    border-bottom: 0 !important;
-    border-left: 0 !important;
-    border-radius: 0 !important;
+  body:not(.control-app) .app > [id$="Panel"],
+  #settingsPanel,
+  #adminPanel,
+  #builderPanel,
+  #spotifyPanel,
+  #hermesPanel,
+  #searchPanel,
+  #watchPanel,
+  #techPanel,
+  #gamingPanel,
+  #remindersPanel,
+  #shoppingPanel,
+  #familyPanel,
+  #organizerPanel {
+    position: fixed !important;
+    top: max(60px, calc(env(safe-area-inset-top) + 54px)) !important;
+    bottom: max(12px, env(safe-area-inset-bottom)) !important;
+    left: max(8px, env(safe-area-inset-left)) !important;
+    right: max(8px, env(safe-area-inset-right)) !important;
+    width: auto !important;
+    max-width: min(760px, calc(100vw - 16px)) !important;
+    margin: 0 auto !important;
+    transform: none !important;
+    border-radius: 16px !important;
+    border: 1px solid #2d3e35 !important;
+    background: #141a17 !important;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75) !important;
+    z-index: 200 !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+    padding: 18px 16px !important;
   }
   .message-attachment {
     max-width: min(100%, 260px);
@@ -4716,34 +4773,48 @@ body.sidebar-collapsed .input-area {
 
     bottom: 24px !important;
 
+    bottom: 24px !important;
     left: 50% !important;
-
     right: auto !important;
-
     transform: translateX(-50%) !important;
-
     width: min(760px, calc(100% - 32px)) !important;
-
     max-width: 760px !important;
-
     background: #141a17 !important;
-
     color: #f1f5f3 !important;
-
     border: 1px solid #2d3e35 !important;
-
     border-radius: 18px !important;
-
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7) !important;
-
     z-index: 100 !important;
-
     overflow-y: auto !important;
-
     padding: 20px 24px !important;
-
     box-sizing: border-box !important;
+}
 
+@media (max-width: 800px) {
+    #settingsPanel,
+    #adminPanel,
+    #builderPanel,
+    #spotifyPanel,
+    #hermesPanel,
+    #searchPanel,
+    #watchPanel,
+    #techPanel,
+    #gamingPanel,
+    #remindersPanel,
+    #shoppingPanel,
+    #familyPanel,
+    #organizerPanel,
+    .app > [id$="Panel"] {
+        left: max(8px, env(safe-area-inset-left)) !important;
+        right: max(8px, env(safe-area-inset-right)) !important;
+        transform: none !important;
+        width: auto !important;
+        max-width: calc(100vw - 16px) !important;
+        margin: 0 auto !important;
+        padding: 16px 14px !important;
+        top: max(60px, calc(env(safe-area-inset-top) + 54px)) !important;
+        bottom: max(12px, env(safe-area-inset-bottom)) !important;
+    }
 }
 
 
@@ -5246,5 +5317,196 @@ body .input-area .composer-collapse {
 
     display: none !important;
 
+}
+
+/* ==========================================================================
+   MOBILE CHAT COMPOSER CLEANUP & VISIBILITY (Mobile & Touch Devices)
+   ========================================================================== */
+/* Prevent WebView GPU flicker / layer tearing on mobile & foldables */
+html, body, .app, #messages, .input-area, .sidebar, .message, .panel, .dock-nav {
+    -webkit-backface-visibility: hidden !important;
+    backface-visibility: hidden !important;
+    transform: translateZ(0) !important;
+    -webkit-transform: translateZ(0) !important;
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+    /* Disable continuous 60fps marquee repaint on mobile to eliminate compositor flicker */
+    .news-marquee-track {
+        animation: none !important;
+    }
+
+    /* When virtual keyboard is NOT active, keep composer above the bottom nav dock */
+    body:not(.keyboard-open) .input-area {
+        bottom: calc(var(--mobile-dock-height, 56px) + 8px + env(safe-area-inset-bottom)) !important;
+    }
+    body:not(.keyboard-open) #messages {
+        padding-bottom: calc(var(--mobile-dock-height, 56px) + 78px + env(safe-area-inset-bottom)) !important;
+    }
+
+    /* When keyboard IS open, hide bottom dock and pin composer directly above keyboard */
+    body.keyboard-open .mobile-nav {
+        display: none !important;
+    }
+    body.keyboard-open .input-area {
+        position: fixed !important;
+        left: 8px !important;
+        right: 8px !important;
+        bottom: max(6px, env(safe-area-inset-bottom)) !important;
+        width: calc(100% - 16px) !important;
+        margin: 0 auto !important;
+        z-index: 1000 !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.75) !important;
+    }
+    body.keyboard-open #messages {
+        padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important;
+    }
+
+    /* Ensure composer bar is a clean, modern flex container with plenty of breathing room */
+    .input-area,
+    body:not(.control-app) .input-area,
+    body.control-app .input-area {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 6px !important;
+        padding: 6px 10px !important;
+        min-height: 52px !important;
+        height: auto !important;
+        border-radius: 26px !important;
+        border: 1px solid #2d6b50 !important;
+        background: #0d2218 !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.65) !important;
+        z-index: 50 !important;
+    }
+
+    /* Hide clutter buttons that steal space from typing */
+    .input-area .composer-collapse,
+    .input-area > .composer-collapse,
+    #composerCollapseButton,
+    body .input-area .composer-collapse,
+    body:not(.control-app) .input-area .composer-collapse {
+        display: none !important;
+    }
+
+    .input-area .composer-more,
+    .input-area > .composer-more,
+    #composerMoreButton {
+        display: none !important;
+    }
+
+    /* Streamlined circular icon buttons for Attach and Camera */
+    .input-area .composer-attach,
+    .input-area .composer-camera {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex: 0 0 38px !important;
+        width: 38px !important;
+        height: 38px !important;
+        min-width: 38px !important;
+        max-width: 38px !important;
+        padding: 0 !important;
+        border-radius: 50% !important;
+        border: 1px solid #2e5946 !important;
+        background: #10271e !important;
+        color: #9feec2 !important;
+        font-size: 18px !important;
+        line-height: 1 !important;
+        cursor: pointer !important;
+        transition: transform 0.15s ease, background 0.15s ease !important;
+    }
+
+    .input-area .composer-attach:active,
+    .input-area .composer-camera:active {
+        transform: scale(0.92) !important;
+        background: #173b2d !important;
+    }
+
+    /* Hide voice button inside composer on mobile since bottom nav already provides dedicated voice dock */
+    .input-area .composer-voice,
+    #voiceButton,
+    .composer-voice .mic-label {
+        display: none !important;
+    }
+
+    /* Maximize the text input field */
+    .input-area #input,
+    body:not(.control-app) .input-area > #input,
+    #input {
+        display: block !important;
+        flex: 1 1 auto !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        height: 40px !important;
+        min-height: 40px !important;
+        padding: 8px 14px !important;
+        border-radius: 20px !important;
+        border: 1px solid #285440 !important;
+        background: rgba(14, 34, 25, 0.92) !important;
+        color: #f0fdf4 !important;
+        font-size: 16px !important; /* 16px prevents mobile browser auto-zoom */
+        line-height: 1.4 !important;
+        outline: none !important;
+        box-sizing: border-box !important;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+    }
+
+    .input-area #input::placeholder {
+        color: #6da285 !important;
+        font-size: 15px !important;
+    }
+
+    .input-area #input:focus {
+        border-color: #5ce298 !important;
+        box-shadow: 0 0 0 2px rgba(92, 226, 152, 0.25) !important;
+        background: rgba(18, 42, 32, 0.98) !important;
+    }
+
+    /* High-visibility Send button */
+    .input-area .send,
+    .input-area .stop-thinking,
+    body:not(.control-app) .input-area > .send {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex: 0 0 auto !important;
+        height: 40px !important;
+        min-height: 40px !important;
+        min-width: 64px !important;
+        padding: 0 16px !important;
+        border-radius: 20px !important;
+        background: #16a34a !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        font-size: 15px !important;
+        border: none !important;
+        cursor: pointer !important;
+        box-shadow: 0 2px 8px rgba(22, 163, 74, 0.35) !important;
+        transition: transform 0.15s ease, background 0.15s ease !important;
+    }
+
+    .input-area .send:active {
+        transform: scale(0.94) !important;
+        background: #15803d !important;
+    }
+
+    .input-area .stop-thinking {
+        background: #dc2626 !important;
+        box-shadow: 0 2px 8px rgba(220, 38, 38, 0.35) !important;
+    }
+
+    /* Attachment tray appears neatly stacked within the composer */
+    .input-area .chat-attachment-tray {
+        order: -1 !important;
+        flex-basis: 100% !important;
+        width: 100% !important;
+        max-height: 76px !important;
+        overflow-y: auto !important;
+        padding-bottom: 4px !important;
+    }
 }
 

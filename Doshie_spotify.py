@@ -224,12 +224,9 @@ def redirect_uri_supported(redirect_uri: object) -> bool:
         return False
     if parsed.username or parsed.password:
         return False
-    if parsed.scheme == "https":
-        return bool(parsed.hostname)
-    return (
-        parsed.scheme == "http"
-        and parsed.hostname in {"127.0.0.1", "::1"}
-    )
+    if parsed.scheme in {"http", "https"} and bool(parsed.hostname):
+        return True
+    return False
 
 
 def begin_authorization(profile: object, redirect_uri: object) -> str:
@@ -296,6 +293,24 @@ def _store_token(profile: object, payload: dict, existing: dict | None = None) -
     if refresh_token:
         current["refresh_token"] = str(refresh_token)
     _write_private_json(_token_path(profile), current)
+
+    # Mirror token to Music Player service cache
+    try:
+        mp_cache = Path("/home/doshie/.gemini/antigravity-cli/scratch/music-player/cache/.spotify_cache")
+        mp_cache.parent.mkdir(parents=True, exist_ok=True)
+        mp_data = {
+            "access_token": current["access_token"],
+            "token_type": current.get("token_type", "Bearer"),
+            "expires_in": int(payload.get("expires_in") or 3600),
+            "refresh_token": current.get("refresh_token", ""),
+            "scope": current.get("scope", ""),
+            "expires_at": int(current.get("expires_at", time.time() + 3600))
+        }
+        mp_cache.write_text(json.dumps(mp_data), encoding="utf-8")
+        mp_cache.chmod(0o600)
+    except Exception:
+        pass
+
     return current
 
 

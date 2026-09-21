@@ -11,9 +11,9 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 DATA_FILE = Path.home() / "yoshi" / "profile_locks.json"
 SESSION_KEY_FILE = Path.home() / "yoshi" / "profile_session.key"
-PIN_MIN_LENGTH = 4
-PIN_MAX_LENGTH = 8
-PASSWORD_MIN_LENGTH = 8
+PIN_MIN_LENGTH = 3
+PIN_MAX_LENGTH = 16
+PASSWORD_MIN_LENGTH = 3
 PASSWORD_MAX_LENGTH = 64
 AUTH_TYPES = {"pin", "password"}
 _LOCK = threading.RLock()
@@ -33,24 +33,23 @@ def profile_key(profile):
 
 def validate_credential(credential, auth_type="pin"):
     kind = str(auth_type or "pin").strip().casefold()
-    value = str(credential or "")
+    value = str(credential or "").strip()
+    if not value:
+        raise ValueError("Password or PIN code cannot be empty.")
+
     if kind == "pin":
-        value = value.strip()
-        if (
-            not value.isdigit()
-            or len(value) < PIN_MIN_LENGTH
-            or len(value) > PIN_MAX_LENGTH
-        ):
+        if not value.isdigit() or len(value) < PIN_MIN_LENGTH or len(value) > PIN_MAX_LENGTH:
+            # If user entered text password for a pin, accept as password
+            if len(value) >= PASSWORD_MIN_LENGTH and len(value) <= PASSWORD_MAX_LENGTH:
+                return value
             raise ValueError(
-                f"PIN must be {PIN_MIN_LENGTH}-{PIN_MAX_LENGTH} digits."
+                f"PIN must be {PIN_MIN_LENGTH}-{PIN_MAX_LENGTH} digits or characters."
             )
     elif kind == "password":
         if len(value) < PASSWORD_MIN_LENGTH or len(value) > PASSWORD_MAX_LENGTH:
             raise ValueError(
-                f"Password must be {PASSWORD_MIN_LENGTH}-{PASSWORD_MAX_LENGTH} characters."
+                f"Password must be at least {PASSWORD_MIN_LENGTH} characters."
             )
-    else:
-        raise ValueError("Choose PIN or password protection.")
     return value
 
 

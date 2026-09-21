@@ -187,6 +187,26 @@ def get_headlines(topic="local", force=False, limit=12):
     }
 
 
+def search_news(query, limit=6):
+    clean = _clean_text(query, 120)
+    if not clean:
+        return get_headlines("local", limit=limit)
+    try:
+        url = _google_feed(clean)
+        items = _parse_feed(_fetch_feed(url), "Google News")
+        items = _dedupe(items)
+        if not items:
+            return get_headlines("local", limit=limit)
+        return {
+            "topic": "search",
+            "label": f"NEWS · {clean.upper()}",
+            "items": items[:limit],
+            "fetched_at": int(time.time()),
+        }
+    except Exception:
+        return get_headlines("local", limit=limit)
+
+
 def service_ready():
     return (
         set(TOPICS) == {"local", "national", "tech", "gaming", "family"}
@@ -198,3 +218,4 @@ def service_ready():
 def clear_cache():
     with _CACHE_LOCK:
         _CACHE.clear()
+

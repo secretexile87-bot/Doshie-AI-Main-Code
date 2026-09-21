@@ -1295,6 +1295,92 @@ def _route_tool_rules(
 
         return True, yoshi_memory.get_weather(location)
 
+    # News routing
+    is_news = (
+        normalized in {
+            "news", "new", "the news", "headlines", "the headlines",
+            "daily news", "local news", "tech news", "gaming news",
+            "national news", "world news", "news update", "news updates",
+            "latest news", "today's news", "todays news", "news today",
+            "show news", "get news", "read news", "check news",
+        }
+        or bool(re.search(r"\b(?:news|headlines)\b", lower))
+        or lower.startswith("news ")
+        or lower.endswith(" news")
+    )
+    if is_news:
+        try:
+            import Doshie_news
+            topic = "local"
+            # Check for custom topic queries like "news about tesla" or "news on space"
+            custom_match = re.search(r"(?:news|headlines)\s+(?:about|on|regarding|for)\s+(.+)$", clean, re.IGNORECASE)
+            if custom_match:
+                custom_topic = custom_match.group(1).strip(" ?.!")
+                data = Doshie_news.search_news(custom_topic, limit=6)
+            else:
+                if "tech" in lower or "ai" in lower or "software" in lower:
+                    topic = "tech"
+                elif "gaming" in lower or "game" in lower or "games" in lower:
+                    topic = "gaming"
+                elif "national" in lower or "world" in lower or "us" in lower:
+                    topic = "national"
+                elif "family" in lower or "kids" in lower:
+                    topic = "family"
+                data = Doshie_news.get_headlines(topic=topic, limit=6)
+
+            items = data.get("items", [])
+            if not items:
+                return True, "No news headlines are available right now."
+
+            reply_lines = [f"📰 **{data.get('label', 'NEWS HEADLINES')}**\n"]
+            for idx, item in enumerate(items[:6], 1):
+                title = item.get("title", "")
+                source = item.get("source", "")
+                url = item.get("url", "")
+                if url:
+                    reply_lines.append(f"{idx}. [{title}]({url}) · *{source}*")
+                else:
+                    reply_lines.append(f"{idx}. **{title}** · *{source}*")
+            return True, "\n\n".join(reply_lines)
+        except Exception as error:
+            return True, f"Could not load news: {error}"
+
+    # Web search routing
+    search_match = re.match(
+        r"^(?:search(?:\s+the)?\s+(?:web|internet)|search\s+online\s+for|search\s+for|look\s+up\s+online|google|find\s+online)\s+(?:for\s+)?(.+?)[?.!]?$",
+        clean,
+        flags=re.IGNORECASE,
+    )
+    if not search_match and (lower.startswith("search the web for ") or lower.startswith("search web for ") or lower.startswith("google ")):
+        q = re.sub(r"^(?:search\s+(?:the\s+)?web\s+for|google)\s+", "", clean, flags=re.IGNORECASE).strip(" ?.!")
+        if q:
+            search_match = type("Match", (), {"group": lambda self, n: q})()
+
+    if search_match:
+        search_query = search_match.group(1).strip()
+        if search_query:
+            try:
+                import Doshie_search
+                import Doshie_profile_preferences
+                is_under_18 = Doshie_profile_preferences.is_profile_under_18(profile)
+                res = Doshie_search.web_search(search_query, is_under_18=is_under_18)
+                results = res.get("results", [])
+                if not results:
+                    return True, f"I searched the web for '{search_query}' but found no safe results."
+
+                reply_lines = [f"🔍 **Web search results for *{search_query}***\n"]
+                for idx, item in enumerate(results[:4], 1):
+                    title = item.get("title", "")
+                    snippet = item.get("snippet", "")
+                    url = item.get("url", "")
+                    if url:
+                        reply_lines.append(f"{idx}. [{title}]({url})\n   {snippet}")
+                    else:
+                        reply_lines.append(f"{idx}. **{title}**\n   {snippet}")
+                return True, "\n\n".join(reply_lines)
+            except Exception as error:
+                return True, f"Web search could not be completed: {error}"
+
     return False, None
 
 
@@ -1332,6 +1418,14 @@ def _looks_like_tool_request(text):
         "add ",
         "show my",
         "what do i need",
+        "news",
+        "headline",
+        "headlines",
+        "search",
+        "google",
+        "web search",
+        "search online",
+        "look up",
     )
 
     return any(marker in lower for marker in markers)
@@ -1353,6 +1447,8 @@ none
 battery
 device_status
 weather
+news
+web_search
 list_tasks
 add_task
 add_note
@@ -1368,6 +1464,8 @@ JSON format:
 
 Rules:
 - Use none if normal conversation does not require a local tool.
+- news means local or current news headlines. Put the topic or location in text.
+- web_search means search the internet or web for info. Put the query in text.
 - add_task means create a task.
 - add_note means save a note.
 - add_shopping means add an item to the shopping list.
@@ -1433,7 +1531,7 @@ User request:
         return None
 
 
-def _execute_ai_tool(result, default_location):
+def _execute_ai_tool(result, default_location, profile="Hermes"):
     if not result:
         return False, None
 
@@ -1453,6 +1551,62 @@ def _execute_ai_tool(result, default_location):
         return True, yoshi_memory.get_weather(
             location or default_location
         )
+
+    if intent == "news":
+        try:
+            import Doshie_news
+            topic = "local"
+            if "tech" in value.lower():
+                topic = "tech"
+            elif "gaming" in value.lower() or "game" in value.lower():
+                topic = "gaming"
+            elif "national" in value.lower() or "world" in value.lower():
+                topic = "national"
+            elif "family" in value.lower():
+                topic = "family"
+
+            data = Doshie_news.get_headlines(topic=topic, limit=6)
+            items = data.get("items", [])
+            if not items:
+                return True, "No news headlines are available right now."
+
+            reply_lines = [f"📰 **{data.get('label', 'NEWS HEADLINES')}**\n"]
+            for idx, item in enumerate(items[:6], 1):
+                title = item.get("title", "")
+                source = item.get("source", "")
+                url = item.get("url", "")
+                if url:
+                    reply_lines.append(f"{idx}. [{title}]({url}) · *{source}*")
+                else:
+                    reply_lines.append(f"{idx}. **{title}** · *{source}*")
+            return True, "\n\n".join(reply_lines)
+        except Exception as error:
+            return True, f"Could not load news: {error}"
+
+    if intent == "web_search":
+        if not value:
+            return True, "What would you like me to search for on the web?"
+        try:
+            import Doshie_search
+            import Doshie_profile_preferences
+            is_under_18 = Doshie_profile_preferences.is_profile_under_18(profile)
+            res = Doshie_search.web_search(value, is_under_18=is_under_18)
+            results = res.get("results", [])
+            if not results:
+                return True, f"I searched the web for '{value}' but found no safe results."
+
+            reply_lines = [f"🔍 **Web search results for *{value}***\n"]
+            for idx, item in enumerate(results[:4], 1):
+                title = item.get("title", "")
+                snippet = item.get("snippet", "")
+                url = item.get("url", "")
+                if url:
+                    reply_lines.append(f"{idx}. [{title}]({url})\n   {snippet}")
+                else:
+                    reply_lines.append(f"{idx}. **{title}**\n   {snippet}")
+            return True, "\n\n".join(reply_lines)
+        except Exception as error:
+            return True, f"Web search could not be completed: {error}"
 
     if intent == "list_tasks":
         rows = yoshi_memory.get_tasks()
@@ -1543,6 +1697,8 @@ ALLOWED_TOOL_INTENTS = {
     "battery",
     "device_status",
     "weather",
+    "news",
+    "web_search",
     "list_tasks",
     "add_task",
     "add_note",

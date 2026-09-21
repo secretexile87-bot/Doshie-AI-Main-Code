@@ -11,7 +11,10 @@ import yoshi_profile_lock
 
 
 DATA_FILE = Path.home() / "yoshi" / "profile_preferences.json"
-THEMES = {"forest", "midnight", "jungle", "sunset", "stars", "tron"}
+THEMES = {
+    "forest", "midnight", "jungle", "sunset", "stars", "tron",
+    "emerald", "cyberpunk", "oled", "amber", "crimson", "terminal", "nord", "dracula"
+}
 FONTS = {"system", "tech", "mono", "compact", "classic"}
 FONT_SIZES = {85, 100, 115, 130}
 ACCENTS = {
@@ -45,6 +48,10 @@ DEFAULTS = {
     "news_topic": "local",
     "news_visible": True,
     "access_role": "family",
+    "gui_customization": {},
+    "auto_web_search": True,
+    "safe_search": True,
+    "age": 18,
 }
 
 
@@ -117,55 +124,49 @@ def _validated(values):
     if "custom_css" in values:
         data["custom_css"] = _clean_custom_css(values["custom_css"])
 
-    accent = str(values.get("accent", data["accent"])).strip().casefold()
-    if accent not in ACCENTS:
-        raise ValueError("Choose a supported accent color.")
-    data["accent"] = accent
+    if "gui_customization" in values and isinstance(values["gui_customization"], dict):
+        data["gui_customization"] = dict(values["gui_customization"])
 
-    theme = str(values.get("theme", data["theme"])).strip().casefold()
-    if theme not in THEMES:
-        raise ValueError("Choose a supported profile theme.")
-    data["theme"] = theme
+    raw_accent = str(values.get("accent", data["accent"])).strip().casefold()
+    if raw_accent in ACCENTS:
+        data["accent"] = raw_accent
+
+    raw_theme = str(values.get("theme", data["theme"])).strip().casefold()
+    if raw_theme in THEMES:
+        data["theme"] = raw_theme
+    elif "gui_customization" in values:
+        data["theme"] = raw_theme
 
     color = str(values.get("custom_color", data["custom_color"])).strip()
-    if not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
-        raise ValueError("Choose a valid six-digit interface color.")
-    data["custom_color"] = color.lower()
+    if re.fullmatch(r"#[0-9a-fA-F]{6}", color):
+        data["custom_color"] = color.lower()
 
     font = str(values.get("font_family", data["font_family"])).strip().casefold()
-    if font not in FONTS:
-        raise ValueError("Choose a supported interface font.")
-    data["font_family"] = font
+    if font in FONTS:
+        data["font_family"] = font
 
     font_size = values.get("font_size", data["font_size"])
-    if isinstance(font_size, bool) or font_size not in FONT_SIZES:
-        raise ValueError("Choose a supported interface text size.")
-    data["font_size"] = font_size
+    if not isinstance(font_size, bool) and isinstance(font_size, (int, float)):
+        data["font_size"] = int(font_size)
 
     minutes = values.get("auto_lock_minutes", data["auto_lock_minutes"])
-    if isinstance(minutes, bool) or not isinstance(minutes, int):
-        raise ValueError("Choose a supported auto-lock time.")
-    if minutes not in AUTO_LOCK_MINUTES:
-        raise ValueError("Choose a supported auto-lock time.")
-    data["auto_lock_minutes"] = minutes
+    if not isinstance(minutes, bool) and isinstance(minutes, (int, float)):
+        data["auto_lock_minutes"] = int(minutes)
 
     for field in ("lock_on_close", "news_visible"):
         value = values.get(field, data[field])
-        if not isinstance(value, bool):
-            raise ValueError(f"{field} must be on or off.")
-        data[field] = value
+        if isinstance(value, bool):
+            data[field] = value
 
     topic = str(values.get("news_topic", data["news_topic"])).strip().casefold()
-    if topic not in NEWS_TOPICS:
-        raise ValueError("Choose a supported news topic.")
-    data["news_topic"] = topic
+    if topic in NEWS_TOPICS:
+        data["news_topic"] = topic
 
     access_role = str(
         values.get("access_role", data["access_role"])
     ).strip().casefold()
-    if access_role not in ACCESS_ROLES:
-        raise ValueError("Choose a supported app access level.")
-    data["access_role"] = access_role
+    if access_role in ACCESS_ROLES:
+        data["access_role"] = access_role
     return data
 
 
@@ -282,3 +283,28 @@ def data_file_valid():
         return True
     except ProfilePreferencesError:
         return False
+
+
+def is_profile_under_18(profile):
+    try:
+        import Doshie_roles
+        role_info = Doshie_roles.role_flags(profile)
+        if role_info.get("is_child"):
+            return True
+    except Exception:
+        pass
+
+    prefs = get_preferences(profile)
+    access_role = str(prefs.get("access_role", "")).casefold()
+    if access_role == "child":
+        return True
+
+    age = prefs.get("age", 18)
+    try:
+        if int(age) < 18:
+            return True
+    except (ValueError, TypeError):
+        pass
+
+    return False
+

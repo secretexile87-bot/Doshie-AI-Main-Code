@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doshie MySpace Studio - Linux Edition</title>
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --panel-bg: rgba(15, 23, 42, 0.82);
+      --border-color: rgba(99, 102, 241, 0.3);
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.5);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 10%, #1e1b4b 0%, #06080e 100%);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* App Header */
+    header {
+      background: rgba(10, 15, 30, 0.9);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(12px);
+      -webkit-app-region: drag;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand img {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .brand h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a5b4fc 0%, #ffffff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      -webkit-app-region: no-drag;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      color: white;
+      border-color: #a5b4fc;
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 0 22px rgba(139, 92, 246, 0.8);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.07);
+      color: #cbd5e1;
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: white;
+    }
+
+    /* Main Workspace Split */
+    .workspace {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      width: 220px;
+      background: rgba(8, 12, 22, 0.7);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      padding: 16px 8px;
+      gap: 6px;
+    }
+
+    .nav-item {
+      padding: 10px 14px;
+      border-radius: 8px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: white;
+    }
+
+    .nav-item.active {
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+      border-left: 3px solid var(--accent);
+      font-weight: 600;
+    }
+
+    /* Controls Panel */
+    .controls-panel {
+      flex: 1;
+      max-width: 480px;
+      background: var(--panel-bg);
+      border-right: 1px solid var(--border-color);
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .tab-content {
+      display: none;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .tab-content.active {
+      display: flex;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: -12px;
+      line-height: 1.4;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+
+    input[type="text"], textarea, select {
+      background: rgba(10, 15, 30, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: white;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus, textarea:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .preset-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      text-align: center;
+      font-size: 0.85rem;
+      transition: all 0.2s ease;
+    }
+
+    .preset-card:hover {
+      background: rgba(99, 102, 241, 0.2);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .preset-card.active {
+      border-color: #818cf8;
+      background: rgba(99, 102, 241, 0.25);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    /* Live Preview Screen */
+    .preview-container {
+      flex: 1.2;
+      background: #000;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .preview-bar {
+      background: rgba(15, 23, 42, 0.95);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 8px 16px;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .preview-viewport {
+      flex: 1;
+      overflow-y: auto;
+      padding: 30px 20px;
+      display: flex;
+      justify-content: center;
+      position: relative;
+      background-size: cover !important;
+      background-position: center !important;
+      background-attachment: fixed !important;
+    }
+
+    /* The Simulated MySpace Profile */
+    .myspace-card {
+      width: 100%;
+      max-width: 680px;
+      background: rgba(15, 23, 42, 0.88);
+      border: 2px solid #818cf8;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 0 35px rgba(129, 140, 248, 0.4);
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .profile-top {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .profile-avatar-wrapper {
+      position: relative;
+    }
+
+    .profile-avatar {
+      width: 100px;
+      height: 100px;
+      border-radius: 16px;
+      border: 2px solid #818cf8;
+      box-shadow: 0 0 15px var(--accent-glow);
+      object-fit: cover;
+    }
+
+    .profile-info h2 {
+      font-size: 1.6rem;
+      color: #fff;
+      text-shadow: 0 0 10px rgba(129, 140, 248, 0.8);
+    }
+
+    .profile-status {
+      font-size: 0.95rem;
+      color: #cbd5e1;
+      margin-top: 4px;
+    }
+
+    .badge-online {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(34, 197, 94, 0.2);
+      border: 1px solid #22c55e;
+      color: #4ade80;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    .player-box {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .top8-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .friend-card {
+      text-align: center;
+      font-size: 0.8rem;
+    }
+
+    .friend-avatar {
+      width: 60px;
+      height: 60px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      margin-bottom: 4px;
+      object-fit: cover;
+    }
+
+    /* Style injection container */
+    #custom-style-tag {
+      display: none;
+    }
+  </style>
+  <style id="live-dynamic-css"></style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header>
+    <div class="brand">
+      <img src="icon.png" alt="Doshie">
+      <div>
+        <h1>Doshie MySpace Studio</h1>
+        <small style="color: #94a3b8; font-size: 0.75rem;">Linux Acer Nitro Edition</small>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" id="btn-export">📥 Export Theme</button>
+      <button class="btn btn-primary" id="btn-save-doshie">💾 Apply & Save to Doshie</button>
+    </div>
+  </header>
+
+  <!-- Workspace -->
+  <div class="workspace">
+    <!-- Navigation -->
+    <nav class="sidebar">
+      <div class="nav-item active" data-tab="tab-ai-theme">🔮 Doshie AI Theme</div>
+      <div class="nav-item" data-tab="tab-presets">🎨 Presets & Wallpaper</div>
+      <div class="nav-item" data-tab="tab-profile">👤 Profile & Status</div>
+      <div class="nav-item" data-tab="tab-music">🎵 Profile Music</div>
+      <div class="nav-item" data-tab="tab-top8">👥 Top 8 Friends</div>
+      <div class="nav-item" data-tab="tab-css">💻 Custom CSS Editor</div>
+      <div class="nav-item" data-tab="tab-terminal">⌨️ Terminal & APK Builder</div>
+    </nav>
+
+    <!-- Controls Panel -->
+    <main class="controls-panel">
+      
+      <!-- Tab 1: AI Theme Generator -->
+      <section id="tab-ai-theme" class="tab-content active">
+        <div class="section-title">🔮 Ask Doshie AI to Write Theme</div>
+        <p class="section-desc">Type any aesthetic, 90s nostalgia, cyber neon, lightning storm, or retro concept. Doshie writes and tests the CSS live!</p>
+
+        <div class="form-group">
+          <label>Describe Your Aesthetic Idea</label>
+          <textarea id="ai-theme-prompt" placeholder="e.g. 90 vibes with background of lightning, neon violet glowing borders, and electric buttons"></textarea>
+        </div>
+
+        <button class="btn btn-primary" id="btn-generate-ai">⚡ Generate Theme with Doshie AI</button>
+        <div id="ai-status" style="font-size: 0.85rem; color: #a5b4fc; margin-top: 4px;"></div>
+      </section>
+
+      <!-- Tab 2: Presets & Backgrounds -->
+      <section id="tab-presets" class="tab-content">
+        <div class="section-title">🎨 Aesthetic Presets</div>
+        <p class="section-desc">Pick instant retro curated presets or drop your own image/GIF URL.</p>
+
+        <div class="preset-grid">
+          <div class="preset-card active" data-preset="90s-lightning">⚡ 90s Electric Lightning</div>
+          <div class="preset-card" data-preset="synthwave">🌆 Neon Synthwave</div>
+          <div class="preset-card" data-preset="myspace-stars">✨ 2000s Space Stars</div>
+          <div class="preset-card" data-preset="matrix">💻 Matrix Rain</div>
+          <div class="preset-card" data-preset="glam-pink">💖 Glitter Velvet Pink</div>
+          <div class="preset-card" data-preset="goth-dark">🖤 Gothic Obsidian</div>
+        </div>
+
+        <div class="form-group" style="margin-top: 10px;">
+          <label>Custom Wallpaper / Animated GIF URL</label>
+          <input type="text" id="custom-wallpaper-url" placeholder="https://... or any animated GIF URL">
+        </div>
+      </section>
+
+      <!-- Tab 3: Profile & Bio -->
+      <section id="tab-profile" class="tab-content">
+        <div class="section-title">👤 MySpace Profile Info</div>
+        <p class="section-desc">Customize your profile blurb, mood tagline, and visitor count.</p>
+
+        <div class="form-group">
+          <label>Display Name</label>
+          <input type="text" id="profile-name-input" value="Doshie & Family">
+        </div>
+
+        <div class="form-group">
+          <label>Mood / Status Tagline</label>
+          <input type="text" id="profile-status-input" value="⚡ rocking 90s electric vibes on Acer Nitro">
+        </div>
+
+        <div class="form-group">
+          <label>About Me / Bio</label>
+          <textarea id="profile-bio-input">Welcome to my custom Doshie MySpace profile! Built right into the Acer Nitro Linux workstation.</textarea>
+        </div>
+      </section>
+
+      <!-- Tab 4: Profile Music -->
+      <section id="tab-music" class="tab-content">
+        <div class="section-title">🎵 Profile Music Player</div>
+        <p class="section-desc">Add a profile theme track or audio stream that plays when visiting.</p>
+
+        <div class="form-group">
+          <label>Song Title & Artist</label>
+          <input type="text" id="song-title-input" value="⚡ Midnight Electric - 90s Eurobeat Remix">
+        </div>
+
+        <div class="form-group">
+          <label>Direct Audio MP3 / Stream URL</label>
+          <input type="text" id="song-url-input" placeholder="https://... (direct mp3 or audio link)">
+        </div>
+      </section>
+
+      <!-- Tab 5: Top 8 Friends -->
+      <section id="tab-top8" class="tab-content">
+        <div class="section-title">👥 Top 8 Friends</div>
+        <p class="section-desc">Who gets the top spot on your profile?</p>
+
+        <div class="form-group">
+          <label>Friend #1 (Tom Spot)</label>
+          <input type="text" id="friend-1-input" value="Doshie Core">
+        </div>
+        <div class="form-group">
+          <label>Friend #2</label>
+          <input type="text" id="friend-2-input" value="Hermes">
+        </div>
+        <div class="form-group">
+          <label>Friend #3</label>
+          <input type="text" id="friend-3-input" value="Acer Nitro">
+        </div>
+        <div class="form-group">
+          <label>Friend #4</label>
+          <input type="text" id="friend-4-input" value="Voice Studio">
+        </div>
+      </section>
+
+      <!-- Tab 6: Raw CSS Editor -->
+      <section id="tab-css" class="tab-content">
+        <div class="section-title">💻 Custom CSS Editor</div>
+        <p class="section-desc">Full access to edit raw MySpace CSS with live real-time rendering.</p>
+
+        <div class="form-group">
+          <textarea id="raw-css-editor" style="height: 320px;"></textarea>
+        </div>
+      </section>
+
+      <!-- Tab 7: Terminal & APK Builder -->
+      <section id="tab-terminal" class="tab-content">
+        <div class="section-title">⌨️ Doshie Terminal & Configuration Console</div>
+        <p class="section-desc">Run CLI commands, inspect system health, manage configurations, and compile Android APKs right here.</p>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;" onclick="runQuickCmd('status')">📊 status</button>
+          <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;" onclick="runQuickCmd('theme list')">🎨 theme list</button>
+          <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;" onclick="runQuickCmd('build-apk')">📱 build-apk</button>
+          <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;" onclick="runQuickCmd('help')">❓ help</button>
+        </div>
+
+        <div style="background: #040810; border: 1px solid #1e293b; border-radius: 8px; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; height: 260px; overflow-y: auto; color: #38bdf8;" id="terminal-output">
+          <div><span style="color: #4ade80;">doshie@acer-nitro:~$</span> Welcome to Doshie Linux Console. Type <span style="color: #facc15;">help</span> for commands.</div>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="terminal-input" placeholder="Type a command (e.g. build-apk, theme set 90s-lightning, status)..." style="flex: 1; font-family: monospace;">
+          <button class="btn btn-primary" id="btn-terminal-run">Run</button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Live Preview Viewport -->
+    <div class="preview-container">
+      <div class="preview-bar">
+        <span>🔴 LIVE PREVIEW MOCKUP</span>
+        <span id="preview-status-tag">Theme: 90s Electric Lightning</span>
+      </div>
+
+      <div class="preview-viewport" id="preview-viewport">
+        <!-- Live Mockup Card -->
+        <div class="myspace-card" id="mockup-card">
+          <div class="profile-top">
+            <div class="profile-avatar-wrapper">
+              <img src="icon.png" class="profile-avatar" id="mockup-avatar" alt="Avatar">
+            </div>
+            <div class="profile-info">
+              <h2 id="mockup-name">Doshie & Family</h2>
+              <div class="profile-status" id="mockup-status">⚡ rocking 90s electric vibes on Acer Nitro</div>
+              <div class="badge-online">● ONLINE NOW</div>
+            </div>
+          </div>
+
+          <!-- Music Player -->
+          <div class="player-box">
+            <div>
+              <div style="font-size: 0.75rem; color: #94a3b8;">PROFILE SONG</div>
+              <div style="font-weight: 700; font-size: 0.9rem;" id="mockup-song">⚡ Midnight Electric - 90s Eurobeat Remix</div>
+            </div>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;">▶ PLAY</button>
+          </div>
+
+          <!-- About Me -->
+          <div>
+            <h4 style="color: #a5b4fc; margin-bottom: 6px;">About Me:</h4>
+            <p id="mockup-bio" style="font-size: 0.9rem; line-height: 1.5; color: #e2e8f0;">
+              Welcome to my custom Doshie MySpace profile! Built right into the Acer Nitro Linux workstation.
+            </p>
+          </div>
+
+          <!-- Top 8 -->
+          <div>
+            <h4 style="color: #a5b4fc; margin-bottom: 6px;">Top Friends:</h4>
+            <div class="top8-grid">
+              <div class="friend-card">
+                <img src="icon.png" class="friend-avatar">
+                <div id="mockup-f1">Doshie Core</div>
+              </div>
+              <div class="friend-card">
+                <img src="icon.png" class="friend-avatar">
+                <div id="mockup-f2">Hermes</div>
+              </div>
+              <div class="friend-card">
+                <img src="icon.png" class="friend-avatar">
+                <div id="mockup-f3">Acer Nitro</div>
+              </div>
+              <div class="friend-card">
+                <img src="icon.png" class="friend-avatar">
+                <div id="mockup-f4">Voice Studio</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="studio.js"></script>
+</body>
+</html>

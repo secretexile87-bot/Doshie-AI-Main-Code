@@ -325,47 +325,75 @@ def _vision_chat(
             message["images"] = list(images)
             break
 
-    payload = json.dumps({
-        "model": model,
-        "messages": vision_messages,
-        "stream": False,
-        "think": False,
-        "keep_alive": "10m",
-        "options": {
-            "temperature": 0.25,
-            "num_predict": 300,
-        },
-    }).encode("utf-8")
-    request = urllib.request.Request(
-        native_url,
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    response = urllib.request.urlopen(request, timeout=timeout)
-    key = str(request_id or "").strip()
-    if key:
-        with _ACTIVE_RESPONSES_LOCK:
-            _ACTIVE_RESPONSES[key] = response
-    try:
-        data = json.loads(response.read().decode("utf-8"))
-    finally:
+    candidates = []
+    # If the user selected model is a vision model, try it first
+    if any(keyword in model.lower() for keyword in ("vision", "vl", "moondream", "llava", "minicpm")):
+        candidates.append(model)
+
+    # Add standard vision models installed or supported locally
+    for alt in ("moondream", "moondream:latest", "llava", "llama3.2-vision", "qwen2.5-vl"):
+        if alt not in candidates:
+            candidates.append(alt)
+
+    # Fallback to requested model if not already in list
+    if model not in candidates:
+        candidates.append(model)
+
+    last_error = None
+    for candidate_model in candidates:
+        payload = json.dumps({
+            "model": candidate_model,
+            "messages": vision_messages,
+            "stream": False,
+            "think": False,
+            "keep_alive": "24h",
+            "options": {
+                "temperature": 0.25,
+                "num_predict": 500,
+            },
+        }).encode("utf-8")
+        request = urllib.request.Request(
+            native_url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            response = urllib.request.urlopen(request, timeout=timeout)
+        except Exception as error:
+            last_error = error
+            continue
+
+        key = str(request_id or "").strip()
         if key:
             with _ACTIVE_RESPONSES_LOCK:
-                if _ACTIVE_RESPONSES.get(key) is response:
-                    _ACTIVE_RESPONSES.pop(key, None)
-        response.close()
-    model_message = data.get("message") or {}
-    visible = str(model_message.get("content") or "").strip()
-    if visible:
-        return visible
-    # Some local Qwen builds place vision descriptions in reasoning even when
-    # thinking is disabled. Surface that text rather than returning blank.
-    fallback = str(model_message.get("thinking") or "")
-    fallback = re.sub(r"</?think>", "", fallback).strip()
-    sentences = re.findall(r"[^.!?]+[.!?]", fallback)
-    if sentences:
-        return " ".join(sentences[-2:]).strip()
+                _ACTIVE_RESPONSES[key] = response
+        try:
+            data = json.loads(response.read().decode("utf-8"))
+        except Exception as error:
+            last_error = error
+            continue
+        finally:
+            if key:
+                with _ACTIVE_RESPONSES_LOCK:
+                    if _ACTIVE_RESPONSES.get(key) is response:
+                        _ACTIVE_RESPONSES.pop(key, None)
+            response.close()
+
+        model_message = data.get("message") or {}
+        visible = str(model_message.get("content") or "").strip()
+        if visible:
+            return visible
+        # Some local Qwen builds place vision descriptions in reasoning even when
+        # thinking is disabled. Surface that text rather than returning blank.
+        fallback = str(model_message.get("thinking") or "")
+        fallback = re.sub(r"</?think>", "", fallback).strip()
+        if fallback:
+            sentences = re.findall(r"[^.!?]+[.!?]", fallback)
+            if sentences:
+                return " ".join(sentences[-2:]).strip()
+            return fallback
+
     return "I received the image, but the local vision model returned no description."
 
 
@@ -389,7 +417,7 @@ def chat(
             "max_tokens": 300,
             "reasoning_effort": "none",
             "think": False,
-            "keep_alive": "10m"
+            "keep_alive": "24h"
         }
 
         inside_hermes = any(

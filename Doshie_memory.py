@@ -47,7 +47,7 @@ def _environment_float(name, default, minimum=0.0, maximum=2.0):
 
 MODEL = os.environ.get(
     "YOSHI_MODEL",
-    "qwen3.5:9b"
+    "qwen2.5:14b"
 )
 CODING_MODEL = os.environ.get(
     "YOSHI_CODING_MODEL",
@@ -59,17 +59,26 @@ FAST_MODEL = os.environ.get(
 )
 ADVANCED_MODEL = os.environ.get(
     "YOSHI_ADVANCED_MODEL",
-    "qwen3.5:9b"
+    "deepseek-r1:14b"
+)
+HEAVYWEIGHT_MODEL = os.environ.get(
+    "YOSHI_HEAVYWEIGHT_MODEL",
+    "deepseek-r1:32b"
 )
 VISION_MODEL = os.environ.get(
     "YOSHI_VISION_MODEL",
-    "qwen3-vl:4b"
+    "moondream"
+)
+FALLBACK_VISION_MODEL = os.environ.get(
+    "YOSHI_FALLBACK_VISION_MODEL",
+    "moondream"
 )
 BRAIN_MODELS = {
     "fast": FAST_MODEL,
     "balanced": MODEL,
     "coding": CODING_MODEL,
     "advanced": ADVANCED_MODEL,
+    "heavyweight": HEAVYWEIGHT_MODEL,
     "vision": VISION_MODEL,
 }
 PORT = _environment_int("YOSHI_MODEL_PORT", 11434, minimum=1024)
@@ -2047,8 +2056,40 @@ Keep the tone relaxed and playful while staying accurate and useful.
     else:
         memory_text = "- No saved long-term memories."
 
+    persona = settings.get("persona_tone", "humble_kind")
+    custom_directive = str(settings.get("custom_system_prompt", "")).strip()
+
+    persona_directives = {
+        "humble_kind": """
+PERSONALITY & DEMEANOR: HUMBLE, GENTLE & KIND
+- Speak with genuine warmth, deep humility, empathy, and heartfelt kindness.
+- Always be patient, encouraging, and supportive in every interaction.
+- Never act condescending, boastful, or impatient.
+- Offer constructive, helpful guidance with respect and humble attentiveness.
+""",
+        "supportive": """
+PERSONALITY & DEMEANOR: COMPASSIONATE COMPANION
+- Act as a deeply supportive, empathetic, and encouraging friend.
+- Validate feelings, celebrate small wins, and provide gentle encouragement.
+""",
+        "direct_tech": """
+PERSONALITY & DEMEANOR: PRECISE & CONCISE TECHNICIAN
+- Deliver direct, high-precision, technical analysis with minimal fluff.
+""",
+        "playful": """
+PERSONALITY & DEMEANOR: CHEERFUL & WITTY
+- Be enthusiastic, witty, energetic, and engaging while staying helpful.
+"""
+    }
+
+    persona_text = persona_directives.get(persona, persona_directives["humble_kind"])
+    if custom_directive:
+        persona_text += f"\nCUSTOM USER INSTRUCTION FROM HERMES:\n{custom_directive}\n"
+
     return f"""
 {identity}
+
+{persona_text}
 
 {mode_text}
 
@@ -2081,6 +2122,7 @@ RESPONSE QUALITY RULES:
 - Do not offer extra help unless {profile} asks for it.
 - For technical help, use the DEPENDABLE TECHNICIAN workflow below and preserve {profile}'s existing work.
 - Check names, numbers, and internal consistency before answering.
+- You are equipped with live real-time tools (weather, local & national news feeds, live web search, tasks, notes, Spotify). Never claim you do not have access to news or the internet, as the workstation automatically routes and fetches live web data and news whenever needed.
 
 WRITING AND LITERATURE RULES:
 
@@ -2355,6 +2397,21 @@ VISION MODE:
     room_context = _compact_text(system_context, 800)
     if room_context:
         system_prompt += "\n\nACTIVE ROOM:\n" + room_context
+
+    try:
+        import Doshie_profile_preferences
+        if Doshie_profile_preferences.is_profile_under_18(profile):
+            system_prompt += """
+
+🛡️ CHILD SAFETY GUARDRAILS (USER IS UNDER 18):
+- The current user profile belongs to a minor (under 18 years old).
+- Maintain strict age-appropriate, wholesome, educational, encouraging, patient, and safe content.
+- Under no circumstances produce adult, sexually explicit, violent, illegal, dangerous, self-harm, drug-related, or profane content.
+- If the user asks about sensitive, mature, or harmful topics, provide a gentle, safe, age-appropriate educational explanation or guide them to consult a parent/guardian.
+- Always maintain a supportive, kind, and completely safe tone.
+""".rstrip()
+    except Exception:
+        pass
 
     try:
         summary = yoshi_summary.load_summary(conversation_profile)

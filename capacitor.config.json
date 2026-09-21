@@ -3,8 +3,9 @@
   "appName": "Doshie",
   "webDir": "www",
   "server": {
-    "url": "https://hermes-doshie.tail50b4c5.ts.net/mansion?app=android-0.7.8",
+    "url": "https://acer-nitro.tail50b4c5.ts.net/mansion?app=android-0.9.2",
     "allowNavigation": [
+      "acer-nitro.tail50b4c5.ts.net",
       "hermes-doshie.tail50b4c5.ts.net",
       "yoshi-home.duckdns.org",
       "hermes-duran-tecra-a60-m.tail50b4c5.ts.net",

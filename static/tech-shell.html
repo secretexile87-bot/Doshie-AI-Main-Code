@@ -2,26 +2,524 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Doshie Home Base</title>
-<link rel="stylesheet" href="/static/Doshie-app.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#08120d">
+<title>🦖 Doshie Tech Command Center</title>
+<style>
+:root {
+  --bg: #07130d;
+  --surface: #0e2218;
+  --surface-hover: #153424;
+  --border: #1e4530;
+  --accent: #10b981;
+  --accent-glow: rgba(16, 185, 129, 0.25);
+  --text: #f0fdf4;
+  --muted: #6ee7b7;
+  --muted-dark: #3b7654;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top, 12px) max(12px, env(safe-area-inset-right, 12px)) max(12px, env(safe-area-inset-bottom, 12px)) max(12px, env(safe-area-inset-left, 12px));
+  line-height: 1.5;
+}
+
+.shell-container {
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.brand-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  background: var(--surface-hover);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn:hover {
+  background: #1b452f;
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.btn-primary {
+  background: #16a34a;
+  border-color: #22c55e;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: #15803d;
+  border-color: #4ade80;
+}
+
+.grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+
+.card h2 {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(30, 69, 48, 0.6);
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  color: #9ebdb0;
+}
+
+.stat-val {
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+}
+
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #1b3829;
+  color: #6ee7b7;
+  border: 1px solid #2d6345;
+}
+
+.badge-pill.online {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border-color: #059669;
+}
+
+.badge-pill.offline {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-color: #dc2626;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Quick Terminal & Chat Area */
+.console-card {
+  background: #06110b;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  height: 380px;
+  overflow: hidden;
+}
+
+.console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #0a1b12;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.console-output {
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.log-entry {
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.log-entry.user {
+  color: #93c5fd;
+}
+
+.log-entry.doshie {
+  color: #6ee7b7;
+  white-space: pre-wrap;
+}
+
+.log-entry.system {
+  color: #9ca3af;
+  font-size: 0.75rem;
+}
+
+.console-quick-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #091710;
+  overflow-x: auto;
+  border-top: 1px solid rgba(30, 69, 48, 0.6);
+  scrollbar-width: none;
+}
+
+.quick-chip {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  background: #11281d;
+  color: #a7f3d0;
+  border: 1px solid #1e4530;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.quick-chip:hover {
+  background: #193c2c;
+  border-color: var(--accent);
+}
+
+.console-input-dock {
+  padding: 10px 12px;
+  background: #0c2016;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.console-input {
+  flex: 1;
+  background: #06120b;
+  border: 1px solid #235239;
+  border-radius: 20px;
+  padding: 8px 14px;
+  color: #ffffff;
+  font-size: 16px; /* 16px avoids auto-zoom on mobile */
+  outline: none;
+}
+
+.console-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.console-send-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: #16a34a;
+  color: white;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform 0.1s;
+}
+
+.console-send-btn:active {
+  transform: scale(0.92);
+}
+
+@media (max-width: 640px) {
+  .brand { font-size: 1.1rem; }
+  .nav-actions { width: 100%; justify-content: space-between; }
+  .btn { padding: 6px 10px; font-size: 0.8rem; }
+  .console-card { height: 320px; }
+}
+</style>
 </head>
 <body>
-<main class="app-shell">
-<h1>🦖 Doshie Home Base</h1>
-<p>Interface reset complete</p>
-<section class="card">
-<h2>Brain Status</h2>
-<p>🧠 Main: Qwen3.5 9B</p>
-<p>💻 Coding: Qwen2.5 Coder 7B</p>
-<p>⚡ Fast: Qwen3.5 4B</p>
-<p>🌐 Web: Online</p>
-</section>
-<section class="card">
-<h2>Control</h2>
-<a href="/control">Open Command Center</a><br>
-<a href="/memory-center">Memory Center</a>
-</section>
-</main>
+
+<div class="shell-container">
+  <header>
+    <div class="brand">
+      <span class="brand-icon">🦖</span>
+      <span>Doshie Command Center</span>
+    </div>
+    <div class="nav-actions">
+      <a href="/control" class="btn btn-primary">💬 Open Full Chat</a>
+      <a href="/memory-center" class="btn">🧠 Memories</a>
+      <button id="refresh-btn" class="btn" onclick="fetchTelemetry()">🔄 Refresh</button>
+    </div>
+  </header>
+
+  <div class="grid-cards">
+    <!-- GPU & Hardware Card -->
+    <div class="card">
+      <h2>
+        <span>🚀 GPU & Hardware</span>
+        <span id="gpu-pill" class="badge-pill online"><span class="dot"></span>ACTIVE</span>
+      </h2>
+      <div class="stat-row">
+        <span class="stat-label">GPU</span>
+        <span id="gpu-name" class="stat-val">RTX 5070</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">VRAM Usage</span>
+        <span id="gpu-vram" class="stat-val">Loading...</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Temperature</span>
+        <span id="gpu-temp" class="stat-val">--°C</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">System Host</span>
+        <span id="sys-host" class="stat-val">acer-nitro</span>
+      </div>
+    </div>
+
+    <!-- AI Brain & Models Card -->
+    <div class="card">
+      <h2>
+        <span>🧠 Local AI Brain</span>
+        <span id="ollama-pill" class="badge-pill online"><span class="dot"></span>ONLINE</span>
+      </h2>
+      <div class="stat-row">
+        <span class="stat-label">Main Conversational</span>
+        <span class="stat-val text-emerald-400">qwen3.5:9b</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Coding Specialist</span>
+        <span class="stat-val">qwen2.5-coder:7b</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Fast Brain</span>
+        <span class="stat-val">qwen3.5:4b</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Vision</span>
+        <span class="stat-val">moondream / qwen</span>
+      </div>
+    </div>
+
+    <!-- System Services Card -->
+    <div class="card">
+      <h2>
+        <span>⚙️ Services & Network</span>
+        <span id="network-pill" class="badge-pill online"><span class="dot"></span>MESHED</span>
+      </h2>
+      <div class="stat-row">
+        <span class="stat-label">Tailscale Mesh</span>
+        <span id="ts-status" class="stat-val text-emerald-400">Connected</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Hermes Voice Engine</span>
+        <span id="voice-status" class="stat-val">Port 5051 (Ready)</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">System Uptime</span>
+        <span id="sys-uptime" class="stat-val">--</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Storage Free</span>
+        <span id="sys-storage" class="stat-val">--</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Terminal / Quick Chat -->
+  <div class="console-card">
+    <div class="console-header">
+      <span>💻 Tech Shell Terminal & Quick Chat</span>
+      <span id="status-indicator" style="font-size:0.75rem; color:#34d399;">● Connected</span>
+    </div>
+
+    <div id="console-logs" class="console-output">
+      <div class="log-entry system">System initialized. Doshie Tech Shell is online and ready.</div>
+      <div class="log-entry doshie">🦖 Doshie: Ready for commands! You can ask me questions, inspect system status, or tap quick actions below.</div>
+    </div>
+
+    <div class="console-quick-actions">
+      <button class="quick-chip" onclick="quickSend('/status')">📊 /status</button>
+      <button class="quick-chip" onclick="quickSend('/battery')">🔋 /battery</button>
+      <button class="quick-chip" onclick="quickSend('/weather')">☀️ /weather</button>
+      <button class="quick-chip" onclick="quickSend('/memories')">🧠 /memories</button>
+      <button class="quick-chip" onclick="quickSend('Who are you and what is your status?')">💬 Status Check</button>
+    </div>
+
+    <div class="console-input-dock">
+      <input id="cli-input" class="console-input" type="text" placeholder="Type a message or /command..." enterkeyhint="send" autocomplete="off" />
+      <button id="cli-send" class="console-send-btn" onclick="sendConsoleMessage()">➤</button>
+    </div>
+  </div>
+</div>
+
+<script>
+async function fetchTelemetry() {
+  try {
+    const res = await fetch('/api/control-panel/telemetry');
+    if (!res.ok) throw new Error('Network response failed');
+    const data = await res.json();
+
+    if (data.gpu) {
+      document.getElementById('gpu-name').textContent = data.gpu.name || 'RTX 5070';
+      document.getElementById('gpu-vram').textContent = `${(data.gpu.memory_used_mb/1024).toFixed(1)} GB / ${(data.gpu.memory_total_mb/1024).toFixed(1)} GB (${data.gpu.memory_percent || 0}%)`;
+      document.getElementById('gpu-temp').textContent = `${data.gpu.temperature_c || 0}°C`;
+    }
+
+    if (data.host) {
+      document.getElementById('sys-host').textContent = data.host.hostname || 'acer-nitro';
+      document.getElementById('sys-uptime').textContent = data.host.uptime || '--';
+    }
+
+    if (data.disk) {
+      document.getElementById('sys-storage').textContent = `${data.disk.free_gb || 0} GB Free`;
+    }
+
+    if (data.voice) {
+      document.getElementById('voice-status').textContent = `Port ${data.voice.port || 5051} (${data.voice.status || 'Ready'})`;
+    }
+  } catch (err) {
+    console.warn('Telemetry poll error:', err);
+  }
+}
+
+function appendLog(role, text) {
+  const container = document.getElementById('console-logs');
+  const div = document.createElement('div');
+  div.className = `log-entry ${role}`;
+  div.textContent = (role === 'user' ? '👤 User: ' : role === 'doshie' ? '🦖 Doshie: ' : '') + text;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+async function sendConsoleMessage() {
+  const input = document.getElementById('cli-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  appendLog('user', text);
+  input.value = '';
+  document.getElementById('cli-input').focus();
+
+  try {
+    const res = await fetch('/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, profile: 'Hermes' })
+    });
+
+    if (!res.ok) {
+      appendLog('system', `Error: Server responded with status ${res.status}`);
+      return;
+    }
+
+    const data = await res.json();
+    appendLog('doshie', data.reply || 'No response.');
+  } catch (err) {
+    appendLog('system', `Error contacting Doshie server: ${err.message}`);
+  }
+}
+
+function quickSend(cmd) {
+  document.getElementById('cli-input').value = cmd;
+  sendConsoleMessage();
+}
+
+document.getElementById('cli-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    sendConsoleMessage();
+  }
+});
+
+fetchTelemetry();
+setInterval(fetchTelemetry, 10000);
+</script>
 </body>
 </html>

@@ -30,6 +30,21 @@ SENSITIVE_SUFFIXES = {
 _WEB_CACHE = {}
 _CACHE_LOCK = threading.RLock()
 
+# Content safety filter for under 18 / minor profiles
+UNSAFE_TERMS = {
+    "porn", "xxx", "nsfw", "erotic", "hentai", "nude", "nudity", "adult",
+    "sex", "sexual", "escort", "playboy", "onlyfans", "gambling", "casino",
+    "betting", "poker", "jackpot", "suicide", "self-harm", "cutting",
+    "meth", "cocaine", "heroin", "fentanyl", "weed", "cannabis", "ecstasy",
+    "gore", "decapitation", "beheading", "torrent", "piratebay", "darknet",
+}
+
+def is_safe_for_minors(text):
+    if not text:
+        return True
+    lower = str(text).lower()
+    return not any(term in lower for term in UNSAFE_TERMS)
+
 
 def _clean_query(value, maximum=180):
     query = " ".join(str(value or "").split()).strip()
@@ -118,9 +133,21 @@ class _DuckDuckGoParser(HTMLParser):
             self._snippet_parts = []
 
 
-def web_search(value):
+def web_search(value, is_under_18=False):
     query = _clean_query(value)
-    key = query.casefold()
+
+    if is_under_18 and not is_safe_for_minors(query):
+        return {
+            "query": query,
+            "results": [],
+            "providers": _provider_urls(query),
+            "source": "Safety Filter",
+            "warning": "Search query was filtered for child safety.",
+            "safe_mode": True,
+            "cached": False,
+        }
+
+    key = f"{query.casefold()}:under18={is_under_18}"
     now = time.time()
     with _CACHE_LOCK:
         cached = _WEB_CACHE.get(key)
@@ -129,53 +156,99 @@ def web_search(value):
             payload["cached"] = True
             return payload
 
-    endpoint = (
-        "https://www.bing.com/search?format=rss&q=" +
-        urllib.parse.quote_plus(query)
-    )
-    web_request = urllib.request.Request(
-        endpoint,
-        headers={
-            "User-Agent": "Mozilla/5.0 DiYoshi/1.0",
-            "Accept": "application/rss+xml,application/xml,text/xml",
-        },
-    )
-    try:
-        with urllib.request.urlopen(
-            web_request,
-            timeout=WEB_TIMEOUT_SECONDS,
-        ) as response:
-            content_type = response.headers.get("Content-Type", "")
-            if "xml" not in content_type.casefold():
-                raise RuntimeError("Unexpected search response.")
-            raw = response.read(WEB_RESPONSE_LIMIT + 1)
-            if len(raw) > WEB_RESPONSE_LIMIT:
-                raise RuntimeError("Search response was too large.")
-        root = ElementTree.fromstring(raw)
-    except Exception as error:
-        raise RuntimeError("Web search is temporarily unavailable.") from error
-
     results = []
-    for item in root.findall(".//item")[:8]:
-        title = " ".join((item.findtext("title") or "").split())
-        url = _safe_external_url(item.findtext("link"))
-        snippet = " ".join(
-            html.unescape(item.findtext("description") or "").split()
+    # Primary: DuckDuckGo HTML for high-accuracy direct web links
+    try:
+        ddg_params = {'q': query, 'kl': 'us-en'}
+        if is_under_18:
+            ddg_params['kp'] = '1'
+        ddg_data = urllib.parse.urlencode(ddg_params).encode('utf-8')
+        ddg_req = urllib.request.Request(
+            'https://html.duckduckgo.com/html/',
+            data=ddg_data,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+                'Referer': 'https://html.duckduckgo.com/',
+            }
         )
-        if not title or not url:
-            continue
-        results.append({
-            "title": title[:220],
-            "url": url,
-            "domain": urllib.parse.urlparse(url).hostname or "",
-            "snippet": snippet[:360],
-        })
+        with urllib.request.urlopen(ddg_req, timeout=WEB_TIMEOUT_SECONDS) as response:
+            content = response.read(WEB_RESPONSE_LIMIT).decode('utf-8', errors='ignore')
+            parser = _DuckDuckGoParser()
+            parser.feed(content)
+            for item in parser.results:
+                title = item.get("title", "").strip()
+                url = item.get("url", "").strip()
+                snippet = item.get("snippet", "").strip()
+                if not title or not url or "duckduckgo.com" in url or "ad_domain" in url:
+                    continue
+                if is_under_18 and not is_safe_for_minors(f"{title} {snippet} {url}"):
+                    continue
+                results.append({
+                    "title": title[:220],
+                    "url": url,
+                    "domain": urllib.parse.urlparse(url).hostname or "",
+                    "snippet": snippet[:360],
+                })
+                if len(results) >= 8:
+                    break
+    except Exception:
+        pass
+
+    # Fallback: Bing RSS if DuckDuckGo returned no results
+    if not results:
+        safe_param = "&adlt=strict" if is_under_18 else ""
+        endpoint = (
+            f"https://www.bing.com/search?format=rss{safe_param}&q=" +
+            urllib.parse.quote_plus(query)
+        )
+        web_request = urllib.request.Request(
+            endpoint,
+            headers={
+                "User-Agent": "Mozilla/5.0 DiYoshi/1.0",
+                "Accept": "application/rss+xml,application/xml,text/xml",
+            },
+        )
+        try:
+            with urllib.request.urlopen(
+                web_request,
+                timeout=WEB_TIMEOUT_SECONDS,
+            ) as response:
+                content_type = response.headers.get("Content-Type", "")
+                if "xml" in content_type.casefold():
+                    raw = response.read(WEB_RESPONSE_LIMIT + 1)
+                    if len(raw) <= WEB_RESPONSE_LIMIT:
+                        root = ElementTree.fromstring(raw)
+                        for item in root.findall(".//item")[:12]:
+                            title = " ".join((item.findtext("title") or "").split())
+                            url = _safe_external_url(item.findtext("link"))
+                            snippet = " ".join(
+                                html.unescape(item.findtext("description") or "").split()
+                            )
+                            if not title or not url:
+                                continue
+                            if is_under_18 and not is_safe_for_minors(f"{title} {snippet} {url}"):
+                                continue
+                            results.append({
+                                "title": title[:220],
+                                "url": url,
+                                "domain": urllib.parse.urlparse(url).hostname or "",
+                                "snippet": snippet[:360],
+                            })
+                            if len(results) >= 8:
+                                break
+        except Exception:
+            pass
+
+    source_label = "DuckDuckGo" if results else "Bing"
+    if is_under_18:
+        source_label += " (SafeSearch Active)"
 
     payload = {
         "query": query,
         "results": results,
         "providers": _provider_urls(query),
-        "source": "Bing",
+        "source": source_label,
+        "safe_mode": is_under_18,
         "cached": False,
     }
     with _CACHE_LOCK:

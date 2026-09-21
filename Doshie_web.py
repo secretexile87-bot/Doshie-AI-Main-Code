@@ -63,9 +63,11 @@ import Doshie_permissions
 import Doshie_equipment_health
 import Doshie_chat_attachments
 import Doshie_media
+import Doshie_control_panel
 from Doshie_router import route_tool
 
 app = Flask(__name__)
+Doshie_control_panel.register_control_panel(app)
 
 
 @app.after_request
@@ -84,18 +86,7 @@ app.config.update(
     SESSION_COOKIE_SECURE=True,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
-    TRUSTED_HOSTS=[
-        "Doshie-home.duckdns.org",
-        "hermes-duran-tecra-a60-m.tail50b4c5.ts.net",
-        "hermes-doshie.tail50b4c5.ts.net",
-        "hermes-doshie",
-        "127.0.0.1",
-        "localhost",
-        "192.168.1.167",
-        "100.109.79.35",
-        "100.113.75.55",
-        "yoshi-home.duckdns.org",
-    ],
+    TRUSTED_HOSTS=None,
 )
 app.permanent_session_lifetime = timedelta(hours=8)
 INSTANCE_ID = secrets.token_urlsafe(8)
@@ -113,7 +104,7 @@ HTML = """
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/Doshie-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/Doshie-192.png">
-<link rel="stylesheet" href="/static/Doshie-app.css?v=85">
+<link rel="stylesheet" href="/static/Doshie-app.css?v=90">
 <title>Doshie</title>
 
 <style>
@@ -381,6 +372,37 @@ button { cursor: pointer; }
 .send { min-width:72px; min-height:42px; padding:0 16px; border-radius:16px; background:var(--accent); font-weight:650; }
 .send:hover { background:var(--accent-strong); }
 
+.input-area .brain-mode,
+.input-area .chat-mode {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 4px 12px;
+    background: var(--surface-soft, rgba(255, 255, 255, 0.08));
+    border: 1px solid var(--line, rgba(255, 255, 255, 0.15));
+    border-radius: 18px;
+    color: var(--text, #f1f5f9);
+    font-size: 13px;
+    font-weight: 550;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.input-area .brain-mode:hover,
+.input-area .chat-mode:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: var(--accent, #3b82f6);
+}
+.input-area .brain-mode option,
+.input-area .chat-mode option {
+    background: #1e293b;
+    color: #f8fafc;
+    padding: 8px;
+    font-size: 13px;
+}
+
 .app > [id$="Panel"] {
     position:absolute;
     z-index:15;
@@ -566,8 +588,319 @@ button { cursor: pointer; }
     padding:8px !important;
   }
   body:not(.control-app) .input-area button {
-    min-width:44px !important;
+    min-width: unset;
   }
+}
+
+/* Mobile Virtual Keyboard Active State */
+body.keyboard-open .mobile-nav {
+  display: none !important;
+}
+body.keyboard-open .input-area {
+  position: fixed !important;
+  bottom: calc(var(--keyboard-offset, 0px) + max(6px, env(safe-area-inset-bottom))) !important;
+  left: 8px !important;
+  right: 8px !important;
+  margin: 0 auto !important;
+  width: calc(100% - 16px) !important;
+  max-width: 820px !important;
+  z-index: 1000 !important;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.6) !important;
+}
+body.keyboard-open #status {
+  position: fixed !important;
+  bottom: calc(var(--keyboard-offset, 0px) + 70px) !important;
+  z-index: 999 !important;
+}
+body.keyboard-open #messages {
+  padding-bottom: calc(var(--keyboard-offset, 0px) + 84px) !important;
+}
+body.keyboard-open .app {
+  height: var(--Doshie-visual-height, 100dvh) !important;
+  min-height: var(--Doshie-visual-height, 100dvh) !important;
+  max-height: var(--Doshie-visual-height, 100dvh) !important;
+}
+body.keyboard-open .app > [id$="Panel"] {
+  bottom: calc(var(--keyboard-offset, 0px) + 8px) !important;
+}
+
+/* Mobile Panels Full Safe Width */
+@media (max-width: 800px) {
+  #settingsPanel,
+  #adminPanel,
+  #builderPanel,
+  #spotifyPanel,
+  #hermesPanel,
+  #searchPanel,
+  #watchPanel,
+  #techPanel,
+  #gamingPanel,
+  #remindersPanel,
+  #shoppingPanel,
+  #familyPanel,
+  #organizerPanel,
+  .app > [id$="Panel"] {
+    position: fixed !important;
+    left: max(8px, env(safe-area-inset-left)) !important;
+    right: max(8px, env(safe-area-inset-right)) !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: calc(100vw - 16px) !important;
+    margin: 0 auto !important;
+    padding: 16px 14px !important;
+    top: max(60px, calc(env(safe-area-inset-top) + 54px)) !important;
+    bottom: max(12px, env(safe-area-inset-bottom)) !important;
+    border-radius: 16px !important;
+    border: 1px solid #2d3e35 !important;
+    background: #141a17 !important;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75) !important;
+    z-index: 200 !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* --- Doshie Robust Control Panel Styles --- */
+#controlPanel {
+  display: none;
+  max-width: 980px;
+  width: 95%;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  background: #0f141a !important;
+  border: 1px solid #233140 !important;
+  border-radius: 18px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8) !important;
+  color: #e2e8f0;
+  font-family: system-ui, -apple-system, sans-serif;
+  padding: 0 !important;
+  z-index: 1000 !important;
+}
+.cp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #141b24;
+  border-bottom: 1px solid #233140;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.cp-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cp-title {
+  font-size: 1.15rem;
+  font-weight: 750;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #f1f5f9;
+}
+.cp-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.cp-badge-optimal {
+  background: rgba(106, 211, 154, 0.15);
+  color: #6ad39a;
+  border: 1px solid rgba(106, 211, 154, 0.4);
+}
+.cp-badge-attention {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+}
+.cp-badge-warning {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+}
+.cp-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cp-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #2d3e50;
+  background: #1a2330;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+.cp-btn:hover {
+  background: #233042;
+  border-color: #3b5068;
+  color: #fff;
+}
+.cp-btn-primary {
+  background: #1e3a2f;
+  border-color: #2e604d;
+  color: #6ad39a;
+}
+.cp-btn-primary:hover {
+  background: #274b3d;
+  border-color: #3e7f67;
+  color: #8af0b8;
+}
+.cp-btn-danger {
+  background: #3a1e22;
+  border-color: #602e35;
+  color: #f87171;
+}
+.cp-btn-danger:hover {
+  background: #4b272c;
+  border-color: #7f3e47;
+  color: #fca5a5;
+}
+.cp-tabs {
+  display: flex;
+  background: #111720;
+  border-bottom: 1px solid #233140;
+  padding: 0 16px;
+  gap: 6px;
+  overflow-x: auto;
+}
+.cp-tab-btn {
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #94a3b8;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.cp-tab-btn:hover {
+  color: #f1f5f9;
+}
+.cp-tab-btn.active {
+  color: #6ad39a;
+  border-bottom-color: #6ad39a;
+  background: rgba(106, 211, 154, 0.05);
+}
+.cp-body {
+  padding: 20px;
+}
+.cp-tab-pane {
+  display: none;
+}
+.cp-tab-pane.active {
+  display: block;
+}
+.cp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.cp-card {
+  background: #141b24;
+  border: 1px solid #233140;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cp-card-wide {
+  grid-column: 1 / -1;
+}
+.cp-card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+}
+.cp-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.88rem;
+  color: #94a3b8;
+}
+.cp-stat-value {
+  font-weight: 650;
+  color: #f1f5f9;
+}
+.cp-meter-container {
+  width: 100%;
+  height: 8px;
+  background: #1e2836;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 4px 0;
+}
+.cp-meter-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: #6ad39a;
+  transition: width 0.3s ease;
+}
+.cp-meter-bar.warn {
+  background: #fbbf24;
+}
+.cp-meter-bar.danger {
+  background: #f87171;
+}
+.cp-terminal {
+  background: #080c10;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  padding: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #cbd5e1;
+  height: 340px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.cp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.cp-table th {
+  text-align: left;
+  padding: 8px 10px;
+  color: #64748b;
+  border-bottom: 1px solid #233140;
+  font-weight: 600;
+}
+.cp-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #1a2430;
+  color: #cbd5e1;
+}
+.cp-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
 }
 </style>
 </head>
@@ -623,10 +956,6 @@ button { cursor: pointer; }
     <button class="new-chat" onclick="newChat(); closeSidebar()">
         <span class="side-icon">＋</span><span class="side-text">New chat</span>
     </button>
-    <button class="new-chat install-app" data-install-app hidden
-            onclick="installDoshieApp()">
-        <span class="side-icon">⬇</span><span class="side-text">Install app</span>
-    </button>
     <div class="sidebar-label side-text">Spaces</div>
     <nav class="side-actions">
         <button class="side-action active" data-side-view="chat"
@@ -676,6 +1005,10 @@ button { cursor: pointer; }
         </button>
         <button class="side-action" onclick="focusNewsBanner(); closeSidebar()">
             <span class="side-icon">📰</span><span class="side-text">News</span>
+        </button>
+        <button id="controlPanelNavButton" class="side-action"
+                onclick="openControlPanel(); closeSidebar()">
+            <span class="side-icon">🎛️</span><span class="side-text">Control Panel</span>
         </button>
         <button id="adminControlButton" class="side-action" hidden
                 onclick="openAdminControl(); closeSidebar()">
@@ -730,31 +1063,33 @@ button { cursor: pointer; }
             aria-label="Collapse sidebar" title="Collapse sidebar">☰</button>
         <h1 id="appRoomTitle">🦖 Doshie</h1>
         <div class="display-controls">
-            <button id="phonePreviewButton"
-                    class="display-control"
-                    onclick="togglePhonePreview()"
-                    aria-label="Toggle phone preview"
-                    title="Phone preview">📱</button>
             <button id="fullscreenButton"
                     class="display-control"
                     onclick="toggleDoshieFullscreen()"
                     aria-label="Toggle fullscreen"
                     title="Fullscreen">⛶</button>
+            <button id="headerControlDeckButton"
+                    class="display-control"
+                    style="border-color:#6ad39a; color:#6ad39a;"
+                    onclick="openControlPanel()"
+                    aria-label="Open system control deck"
+                    title="System Control Deck">🎛️<span>Deck</span></button>
+            <button id="adminHeaderButton"
+                    class="display-control"
+                    onclick="openAdminControl()"
+                    aria-label="Open admin command center"
+                    title="Admin Command Center">🛡️<span>Admin</span></button>
             <button id="designControlButton"
                     class="display-control design-control-button"
                     onclick="openProfileCustomizer()"
-                    aria-label="Open full app and website design control"
-                    title="Full design control">🎛️<span>Control</span></button>
+                    aria-label="Open theme and design customizer"
+                    title="Design Customizer">🎨<span>Design</span></button>
             <button id="settingsHeaderButton"
                     class="display-control settings-header-button"
                     onclick="toggleSettings()"
                     aria-label="Open settings"
                     title="Settings">⚙️<span>Settings</span></button>
         </div>
-        <button class="install-app"
-                data-install-app
-                hidden
-                onclick="installDoshieApp()">Install</button>
         <label id="profileSwitcher" class="profile-chip" title="Administrator profile switcher">
             <span class="profile-mini-avatar" aria-hidden="true">
                 <img id="activeProfileAvatar" alt="" hidden>
@@ -791,6 +1126,7 @@ button { cursor: pointer; }
         <button class="tool" onclick="openReminders()">⏰ Reminders</button>
         <button class="tool" onclick="createBackup()">💾 Backup</button>
         <button class="tool" onclick="openOrganizer()">📝 Organizer</button>
+        <button class="tool" style="font-weight:750; border-color:var(--accent,#6ad39a); background:rgba(106,211,154,0.12);" onclick="openControlPanel()">🎛️ Control Panel</button>
         <button class="tool" onclick="openTechDashboard()">💻 Tech</button>
         <button class="tool" onclick="openAiTutorial()">📘 AI Tutorial</button>
         <button class="tool builder-launch" onclick="openBuilderPanel()">🧩 Build an app</button>
@@ -871,6 +1207,306 @@ button { cursor: pointer; }
             <button class="tool" onclick="aiTutorialTry()">🧪 Try this</button>
             <button class="tool" onclick="aiTutorialNext()">Next →</button>
             <button class="tool" onclick="aiTutorialReset()">↺ Reset</button>
+        </div>
+    </div>
+
+    <!-- Robust Doshie Control Panel -->
+    <div id="controlPanel" class="control-panel-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="Doshie Control Center">
+        <div class="cp-header">
+            <div class="cp-title-group">
+                <h2 class="cp-title">🎛️ Doshie Control Deck</h2>
+                <span id="cpHealthBadge" class="cp-badge cp-badge-optimal">● ONLINE</span>
+                <small id="cpHostInfo" style="color:#64748b;font-size:0.75rem;">Loading host telemetry...</small>
+            </div>
+            <div class="cp-header-actions">
+                <button id="cpAutoRefreshBtn" class="cp-btn" onclick="toggleControlAutoRefresh()">
+                    <span id="cpAutoRefreshDot" style="color:#6ad39a;">●</span> Live (3s)
+                </button>
+                <button class="cp-btn" onclick="refreshControlPanelTelemetry(true)">↻ Refresh</button>
+                <button class="cp-btn cp-btn-danger" style="padding:6px 10px;" onclick="closeControlPanel()" aria-label="Close Control Panel">✕</button>
+            </div>
+        </div>
+
+        <div class="cp-tabs">
+            <button class="cp-tab-btn active" onclick="switchControlTab('telemetry')">📊 Telemetry &amp; GPU</button>
+            <button class="cp-tab-btn" onclick="switchControlTab('brain')">🧠 AI Brain &amp; Voice</button>
+            <button class="cp-tab-btn" onclick="switchControlTab('services')">⚡ Service Controls</button>
+            <button class="cp-tab-btn" onclick="switchControlTab('logs')">📜 Live Logs</button>
+            <button class="cp-tab-btn" onclick="switchControlTab('hub')">🚀 Subsystem Hub</button>
+        </div>
+
+        <div class="cp-body">
+            <!-- Tab 1: Telemetry & GPU -->
+            <div id="cpTab-telemetry" class="cp-tab-pane active">
+                <div class="cp-grid">
+                    <!-- GPU Card -->
+                    <div class="cp-card">
+                        <div class="cp-card-title">
+                            <span>🎮 GPU: <span id="cpGpuName" style="color:#6ad39a;">Detecting...</span></span>
+                            <span id="cpGpuTempBadge" class="cp-badge cp-badge-optimal">--°C</span>
+                        </div>
+                        <div>
+                            <div class="cp-stat-row">
+                                <span>VRAM Allocation</span>
+                                <span id="cpGpuMemText" class="cp-stat-value">0 / 0 MB (0%)</span>
+                            </div>
+                            <div class="cp-meter-container">
+                                <div id="cpGpuMemBar" class="cp-meter-bar" style="width:0%;"></div>
+                            </div>
+                        </div>
+                        <div class="cp-stat-row">
+                            <span>GPU Core Load</span>
+                            <span id="cpGpuUtil" class="cp-stat-value">0%</span>
+                        </div>
+                        <div class="cp-stat-row">
+                            <span>Power Draw</span>
+                            <span id="cpGpuPower" class="cp-stat-value">0.0 W</span>
+                        </div>
+                        <div class="cp-stat-row">
+                            <span>Fan Speed</span>
+                            <span id="cpGpuFan" class="cp-stat-value">0%</span>
+                        </div>
+                    </div>
+
+                    <!-- CPU & RAM Card -->
+                    <div class="cp-card">
+                        <div class="cp-card-title">
+                            <span>⚡ Host Compute &amp; RAM</span>
+                            <span id="cpUptimeText" style="font-size:0.75rem;color:#94a3b8;font-weight:normal;">Uptime: --</span>
+                        </div>
+                        <div>
+                            <div class="cp-stat-row">
+                                <span>CPU Utilization (<span id="cpCpuCores">-- cores</span>)</span>
+                                <span id="cpCpuText" class="cp-stat-value">0%</span>
+                            </div>
+                            <div class="cp-meter-container">
+                                <div id="cpCpuBar" class="cp-meter-bar" style="width:0%;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="cp-stat-row">
+                                <span>RAM Usage</span>
+                                <span id="cpRamText" class="cp-stat-value">0 / 0 GB (0%)</span>
+                            </div>
+                            <div class="cp-meter-container">
+                                <div id="cpRamBar" class="cp-meter-bar" style="width:0%;"></div>
+                            </div>
+                        </div>
+                        <div class="cp-stat-row">
+                            <span>Load Average (1m, 5m, 15m)</span>
+                            <span id="cpCpuLoad" class="cp-stat-value">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Storage & Host Card -->
+                    <div class="cp-card">
+                        <div class="cp-card-title">
+                            <span>💾 Storage &amp; Filesystem</span>
+                            <span id="cpDiskFree" style="font-size:0.8rem;color:#6ad39a;">-- GB free</span>
+                        </div>
+                        <div>
+                            <div class="cp-stat-row">
+                                <span>Primary Disk Usage</span>
+                                <span id="cpDiskText" class="cp-stat-value">0 / 0 GB (0%)</span>
+                            </div>
+                            <div class="cp-meter-container">
+                                <div id="cpDiskBar" class="cp-meter-bar" style="width:0%;"></div>
+                            </div>
+                        </div>
+                        <div class="cp-stat-row">
+                            <span>Linux Kernel</span>
+                            <span id="cpKernelText" class="cp-stat-value">--</span>
+                        </div>
+                        <div class="cp-stat-row">
+                            <span>Tailscale Mesh VPN</span>
+                            <span id="cpTailscaleStatus" class="cp-stat-value">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: AI Brain & Voice -->
+            <div id="cpTab-brain" class="cp-tab-pane">
+                <div class="cp-grid">
+                    <!-- AI Engine Card -->
+                    <div class="cp-card">
+                        <div class="cp-card-title">
+                            <span>🧠 Ollama AI Engine</span>
+                            <span id="cpOllamaBadge" class="cp-badge cp-badge-optimal">ONLINE</span>
+                        </div>
+                        <div class="cp-stat-row">
+                            <span>Default Active Brain:</span>
+                            <select id="cpBrainSelector" onchange="setControlBrainMode(this.value)" style="padding:4px 8px;border-radius:6px;background:#1e293b;color:#f1f5f9;border:1px solid #334155;">
+                                <option value="balanced">Balanced (qwen3.5:9b)</option>
+                                <option value="fast">Fast (qwen3.5:4b)</option>
+                                <option value="coding">Coding (qwen2.5-coder:7b)</option>
+                                <option value="advanced">Advanced (qwen3.5:9b)</option>
+                                <option value="vision">Vision (qwen3.5:4b)</option>
+                            </select>
+                        </div>
+                        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
+                            <button class="cp-btn cp-btn-primary" onclick="pingControlBrain()">⚡ Test Brain Ping</button>
+                            <span id="cpBrainPingResult" style="font-size:0.82rem;color:#94a3b8;">Click to test inference latency</span>
+                        </div>
+                    </div>
+
+                    <!-- Voice Engine Card -->
+                    <div class="cp-card">
+                        <div class="cp-card-title">
+                            <span>🎙️ Hermes Voice Engine</span>
+                            <span id="cpVoiceBadge" class="cp-badge cp-badge-optimal">READY</span>
+                        </div>
+                        <div class="cp-stat-row">
+                            <span>Engine / Voice</span>
+                            <span id="cpVoiceEngine" class="cp-stat-value">chatterbox-nano (Hermes)</span>
+                        </div>
+                        <div class="cp-stat-row">
+                            <span>Port / Device</span>
+                            <span id="cpVoicePort" class="cp-stat-value">5051 · CUDA (RTX 5070)</span>
+                        </div>
+                        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
+                            <button class="cp-btn cp-btn-primary" onclick="pingControlVoice()">🎙️ Test Voice Health</button>
+                            <span id="cpVoicePingResult" style="font-size:0.82rem;color:#94a3b8;">Click to test latency</span>
+                        </div>
+                    </div>
+
+                    <!-- Installed Models Table Card -->
+                    <div class="cp-card cp-card-wide">
+                        <div class="cp-card-title">
+                            <span>📦 Installed Ollama Models (<span id="cpModelCount">0</span>)</span>
+                            <small style="color:#64748b;font-weight:normal;">Local GGUF models on disk</small>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="cp-table">
+                                <thead>
+                                    <tr>
+                                        <th>Model Name</th>
+                                        <th>Size</th>
+                                        <th>Parameters</th>
+                                        <th>Quantization</th>
+                                        <th>Family</th>
+                                        <th>Updated</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cpModelsTableBody">
+                                    <tr><td colspan="7">Loading model inventory...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Service Controls -->
+            <div id="cpTab-services" class="cp-tab-pane">
+                <div class="cp-grid">
+                    <div class="cp-card">
+                        <div class="cp-card-title">
+                            <span>🌐 Doshie Web Server</span>
+                            <span id="cpServiceDoshieBadge" class="cp-badge cp-badge-optimal">RUNNING</span>
+                        </div>
+                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Flask web interface, chat engine, memory recall, and multi-profile session manager.</p>
+                        <div style="margin-top:6px;">
+                            <button class="cp-btn cp-btn-danger" onclick="triggerControlAction('restart_doshie')">↻ Restart Doshie Web</button>
+                        </div>
+                    </div>
+
+                    <div class="cp-card">
+                        <div class="cp-card-title">
+                            <span>🎙️ Hermes Voice Server</span>
+                            <span id="cpServiceVoiceBadge" class="cp-badge cp-badge-optimal">RUNNING</span>
+                        </div>
+                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Chatterbox neural TTS &amp; speech synthesis service on port 5051.</p>
+                        <div style="margin-top:6px;">
+                            <button class="cp-btn cp-btn-danger" onclick="triggerControlAction('restart_voice')">↻ Restart Voice Server</button>
+                        </div>
+                    </div>
+
+                    <div class="cp-card">
+                        <div class="cp-card-title">
+                            <span>🧠 Ollama Daemon</span>
+                            <span id="cpServiceOllamaBadge" class="cp-badge cp-badge-optimal">RUNNING</span>
+                        </div>
+                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Local LLM inference daemon managing CUDA execution on RTX 5070.</p>
+                        <div style="margin-top:6px;">
+                            <button class="cp-btn cp-btn-danger" onclick="triggerControlAction('restart_ollama')">↻ Restart Ollama</button>
+                        </div>
+                    </div>
+
+                    <div class="cp-card">
+                        <div class="cp-card-title">
+                            <span>🧹 Memory &amp; Cache Maintenance</span>
+                            <span class="cp-badge cp-badge-optimal">READY</span>
+                        </div>
+                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Flush temporary buffers, run Python GC, and release cached model weights.</p>
+                        <div style="margin-top:6px;">
+                            <button class="cp-btn" onclick="triggerControlAction('flush_cache')">🧹 Flush System Cache</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 4: Live Logs -->
+            <div id="cpTab-logs" class="cp-tab-pane">
+                <div class="cp-card cp-card-wide" style="gap:10px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                            <button id="cpLogBtn-doshie" class="cp-btn cp-btn-primary" onclick="setControlLogService('doshie')">Doshie Web</button>
+                            <button id="cpLogBtn-voice" class="cp-btn" onclick="setControlLogService('voice')">Hermes Voice</button>
+                            <button id="cpLogBtn-ollama" class="cp-btn" onclick="setControlLogService('ollama')">Ollama</button>
+                            <button id="cpLogBtn-supervisor" class="cp-btn" onclick="setControlLogService('supervisor')">Supervisor</button>
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <input id="cpLogFilter" type="text" placeholder="Filter logs..." oninput="filterControlLogs()" style="padding:5px 10px;border-radius:6px;background:#0d1117;border:1px solid #30363d;color:#e2e8f0;font-size:0.82rem;width:140px;">
+                            <select id="cpLogLines" onchange="fetchControlLogs(true)" style="padding:5px 8px;border-radius:6px;background:#0d1117;border:1px solid #30363d;color:#e2e8f0;font-size:0.82rem;">
+                                <option value="25">25 lines</option>
+                                <option value="50" selected>50 lines</option>
+                                <option value="100">100 lines</option>
+                            </select>
+                            <button class="cp-btn" onclick="fetchControlLogs(true)">↻ Refresh</button>
+                            <button class="cp-btn" onclick="copyControlLogs()">📋 Copy</button>
+                        </div>
+                    </div>
+                    <div id="cpLogTerminal" class="cp-terminal">Select a service to view logs...</div>
+                </div>
+            </div>
+
+            <!-- Tab 5: Subsystem Hub -->
+            <div id="cpTab-hub" class="cp-tab-pane">
+                <div class="cp-grid">
+                    <div class="cp-card" style="cursor:pointer;" onclick="closeControlPanel(); openTechDashboard();">
+                        <div class="cp-card-title">💻 Tech Dashboard</div>
+                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Hardware sensors, thermal states, and raw equipment diagnostics.</p>
+                        <span style="color:#6ad39a;font-size:0.82rem;font-weight:600;">Open Dashboard →</span>
+                    </div>
+                    <div class="cp-card" style="cursor:pointer;" onclick="closeControlPanel(); openHermesWorkspace();">
+                        <div class="cp-card-title">🧠 Hermes AI Workspace</div>
+                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Direct administrative AI dialogue, code review, and system planning.</p>
+                        <span style="color:#6ad39a;font-size:0.82rem;font-weight:600;">Open Hermes AI →</span>
+                    </div>
+                    <div class="cp-card" style="cursor:pointer;" onclick="closeControlPanel(); openAdminControl();">
+                        <div class="cp-card-title">🛡️ Admin Security Center</div>
+                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Profile lock PINs, user accounts, agent foundry, and system policies.</p>
+                        <span style="color:#6ad39a;font-size:0.82rem;font-weight:600;">Open Admin Center →</span>
+                    </div>
+                    <div class="cp-card" style="cursor:pointer;" onclick="closeControlPanel(); openFamilyDashboard();">
+                        <div class="cp-card-title">🏠 Family Dashboard</div>
+                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Shared notes, calendar events, routines, and family member profiles.</p>
+                        <span style="color:#6ad39a;font-size:0.82rem;font-weight:600;">Open Family Dashboard →</span>
+                    </div>
+                    <div class="cp-card" style="cursor:pointer;" onclick="closeControlPanel(); openGamingDashboard();">
+                        <div class="cp-card-title">🎮 Gaming Dashboard</div>
+                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Gaming modes, performance presets, and gaming assistant companion.</p>
+                        <span style="color:#6ad39a;font-size:0.82rem;font-weight:600;">Open Gaming Dashboard →</span>
+                    </div>
+                    <div class="cp-card" style="cursor:pointer;" onclick="closeControlPanel(); toggleSettings();">
+                        <div class="cp-card-title">⚙️ Full Settings</div>
+                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Appearance, voice preferences, API keys, storage backups, and account settings.</p>
+                        <span style="color:#6ad39a;font-size:0.82rem;font-weight:600;">Open Settings →</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1044,11 +1680,14 @@ button { cursor: pointer; }
     function DoshieNativeSpeechPlugin() {
         const capacitor = window.Capacitor;
         if (!capacitor) return null;
+        if (capacitor.Plugins?.DiYoshiSpeech) {
+            return capacitor.Plugins.DiYoshiSpeech;
+        }
         if (capacitor.Plugins?.DoshieSpeech) {
             return capacitor.Plugins.DoshieSpeech;
         }
         return typeof capacitor.registerPlugin === "function"
-            ? capacitor.registerPlugin("DoshieSpeech")
+            ? (capacitor.registerPlugin("DiYoshiSpeech") || capacitor.registerPlugin("DoshieSpeech"))
             : null;
     }
 
@@ -1851,7 +2490,9 @@ button { cursor: pointer; }
                         <span>Voice identity</span>
                         <select id="voiceIdentity"
                                 onchange="applyVoiceIdentity()">
-                            <option value="hermes">🧠 Hermes — Private local voice</option>
+                            <option value="hermes">🧠 Hermes — Ultra-Fast Neural (~300ms)</option>
+                            <option value="piper">🔊 Piper — Fast Offline Local (~1s)</option>
+                            <option value="clone">🎙️ Hermes Clone — Custom Voice (~11s)</option>
                             <option value="Doshie">🦖 Doshie — Friendly device voice</option>
                             <option value="device">📱 Custom device voice</option>
                         </select>
@@ -1861,8 +2502,11 @@ button { cursor: pointer; }
                         <span>Voice engine</span>
                         <select id="voiceEngine"
                                 onchange="updateVoiceControls()">
-                            <option value="clone">🎙️ Hermes — Private Clone</option>
-                            <option value="device">📱 Device Voice</option>
+                            <option value="kokoro">⚡ Kokoro Neural — RTX 5070 GPU (~150ms)</option>
+                            <option value="edge">⚡ Edge Neural — Streaming (~300ms)</option>
+                            <option value="piper">🔊 Piper TTS — 100% Offline Local (~1s)</option>
+                            <option value="clone">🎙️ Hermes Clone — Custom Cloned Voice</option>
+                            <option value="device">📱 Device Voice (Browser Web Speech)</option>
                         </select>
                     </label>
                     <label class="settings-field" for="voiceSelect">
@@ -2545,10 +3189,11 @@ button { cursor: pointer; }
         <select id="brainMode" class="brain-mode"
                 aria-label="Doshie brain" onchange="saveBrainMode()">
             <option value="auto">🧠 Auto</option>
-            <option value="fast" data-admin-only="true">⚡ Fast</option>
-            <option value="balanced">⚖️ Balanced</option>
-            <option value="coding" data-admin-only="true">⌨️ Coding</option>
-            <option value="advanced" data-admin-only="true">🚀 Advanced</option>
+            <option value="fast" data-admin-only="true">⚡ Fast (4B)</option>
+            <option value="balanced">⚖️ Balanced (14B)</option>
+            <option value="coding" data-admin-only="true">⌨️ Coding (7B)</option>
+            <option value="advanced" data-admin-only="true">🚀 Advanced (14B Genius)</option>
+            <option value="heavyweight" data-admin-only="true">🥊 Heavyweight (32B Master)</option>
             <option value="vision" data-admin-only="true">👁 Vision</option>
         </select>
         <details class="chat-options">
@@ -2600,8 +3245,13 @@ button { cursor: pointer; }
         </button>
         <input
             id="input"
+            type="text"
             placeholder="Message Doshie..."
             autocomplete="off"
+            autocapitalize="sentences"
+            autocorrect="on"
+            spellcheck="true"
+            enterkeyhint="send"
         >
         <button class="send" onclick="send()" aria-label="Send message">Send</button>
         <button id="stopThinkingButton"
@@ -2641,7 +3291,7 @@ button { cursor: pointer; }
         </p>
         <input id="profileUnlockCredential" type="password"
                maxlength="64" autocomplete="current-password"
-               aria-label="Account sign-in" placeholder="PIN or password">
+               aria-label="Account sign-in" placeholder="PIN or password" required>
         <div id="profileUnlockError" class="profile-lock-error"
              aria-live="polite"></div>
         <div class="profile-lock-modal-actions">
@@ -2695,6 +3345,50 @@ const PROFILE_DEFAULTS = {
     news_topic: "local", news_visible: true
 };
 const NEWS_TOPICS = ["local", "national", "tech", "gaming", "family"];
+
+function toggleDoshieFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+    } else {
+        document.exitFullscreen?.().catch(() => {});
+    }
+}
+
+function showChatHome() {
+    openChatSpace('main');
+    const watchPanel = document.getElementById('watchModePanel');
+    if (watchPanel) watchPanel.style.display = 'none';
+    const searchHub = document.getElementById('searchHubPanel');
+    if (searchHub) searchHub.style.display = 'none';
+}
+
+function openAppView(view) {
+    document.querySelectorAll('.mobile-nav button[data-app-view]').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-app-view') === view);
+    });
+    if (view === 'chat') {
+        openChatSpace('main');
+    } else if (view === 'family') {
+        openFamily();
+    } else if (view === 'organizer') {
+        openOrganizer('all');
+    }
+}
+
+async function restartDoshieService() {
+    if (!confirm("Restart the Doshie backend service?")) return;
+    try {
+        const response = await fetch("/api/control-panel/action", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "restart_voice" })
+        });
+        const data = await response.json();
+        alert(data.ok ? (data.message || "Restart initiated.") : (data.error || "Restart failed."));
+    } catch (error) {
+        alert("Restart error: " + error.message);
+    }
+}
 
 function profileRecord(name) {
     return profileCatalog.find(
@@ -3143,6 +3837,10 @@ function renderProfileSelectors() {
     if (adminControlButton) {
         adminControlButton.hidden = !Boolean(selected && selected.is_admin);
     }
+    const adminHeaderButton = document.getElementById("adminHeaderButton");
+    if (adminHeaderButton) {
+        adminHeaderButton.hidden = !Boolean(selected && selected.is_admin);
+    }
     const hermesWorkspaceButton = document.getElementById("hermesWorkspaceButton");
     if (hermesWorkspaceButton) {
         hermesWorkspaceButton.hidden = !Boolean(selected && selected.is_admin);
@@ -3260,8 +3958,13 @@ async function submitProfileUnlock(event) {
     event.preventDefault();
     const errorBox = document.getElementById("profileUnlockError");
     const credential =
-        document.getElementById("profileUnlockCredential").value;
+        document.getElementById("profileUnlockCredential").value.trim();
     errorBox.textContent = "";
+
+    if (!credential) {
+        errorBox.textContent = "PIN or password is required to unlock.";
+        return;
+    }
 
     try {
         await profileLockApi("/profile-lock/unlock", {
@@ -3559,7 +4262,9 @@ async function loadProfiles() {
         }
         await refreshProfileCatalog();
         const signedIn =
-            sessionStorage.getItem("Doshie_signed_in_profile") || "";
+            sessionStorage.getItem("Doshie_signed_in_profile") ||
+            localStorage.getItem("Doshie_active_profile") ||
+            "Hermes";
         const signedInRecord = profileRecord(signedIn);
         if (!signedInRecord) {
             sessionStorage.removeItem("Doshie_signed_in_profile");
@@ -3576,6 +4281,7 @@ async function loadProfiles() {
         }
 
         localStorage.setItem("Doshie_active_profile", activeProfile);
+        sessionStorage.setItem("Doshie_signed_in_profile", activeProfile);
         hideAccountChooser();
         applyProfileExperience(signedInRecord);
         syncRoomHeader();
@@ -3735,23 +4441,19 @@ function appendLinkedText(container, value) {
                 document.createTextNode(text.slice(cursor, match.index))
             );
         }
-        let url = match[0];
-        while (url && ".,!?;:)>]}".includes(url.slice(-1))) {
-            url = url.slice(0, -1);
-        }
+        const rawUrl = match[0];
+        const cleanUrl = rawUrl.replace(/[.,!?;:]+$/, "");
+        const trailing = rawUrl.slice(cleanUrl.length);
         const anchor = document.createElement("a");
-        anchor.className = "chat-link";
-        anchor.href = url;
+        anchor.href = cleanUrl;
         anchor.target = "_blank";
         anchor.rel = "noopener noreferrer";
-        anchor.textContent = url;
+        anchor.textContent = cleanUrl;
         container.appendChild(anchor);
-        if (url.length < match[0].length) {
-            container.appendChild(
-                document.createTextNode(match[0].slice(url.length))
-            );
+        if (trailing) {
+            container.appendChild(document.createTextNode(trailing));
         }
-        cursor = match.index + match[0].length;
+        cursor = match.index + rawUrl.length;
     }
 
     if (cursor < text.length) {
@@ -3760,44 +4462,12 @@ function appendLinkedText(container, value) {
 }
 
 
-function isLookupRequest(value) {
-    return /\b(search|look up|lookup|find online|where (?:can|do) i (?:find|buy)|latest|news about)\b/i
-        .test(String(value || ""));
-}
-
-
-function addLookupLinks(container, query, sources) {
-    const rows = Array.isArray(sources) ? sources : [];
-    const links = [];
-    rows.forEach(source => {
-        if (!source || !source.url) return;
-        try {
-            const url = new URL(source.url);
-            if (!["http:", "https:"].includes(url.protocol)) return;
-            links.push({
-                label: String(source.title || source.source || url.hostname),
-                url: url.href
-            });
-        } catch (error) {
-            // Ignore unsafe or incomplete source URLs.
-        }
-    });
-
-    if (!links.length && isLookupRequest(query)) {
-        const encoded = encodeURIComponent(String(query || "").slice(0, 500));
-        links.push(
-            {label: "Google", url: "https://www.google.com/search?q=" + encoded},
-            {label: "DuckDuckGo", url: "https://duckduckgo.com/?q=" + encoded}
-        );
-    }
-    if (!links.length) return;
-
+function appendMessageLinks(container, links) {
+    if (!Array.isArray(links) || !links.length) return;
     const row = document.createElement("div");
     row.className = "message-links";
-    const label = document.createElement("span");
-    label.textContent = rows.length ? "Sources" : "Search links";
-    row.appendChild(label);
-    links.slice(0, 5).forEach(item => {
+    links.forEach(item => {
+        if (!item || !item.url || !item.label) return;
         const anchor = document.createElement("a");
         anchor.href = item.url;
         anchor.target = "_blank";
@@ -3822,9 +4492,9 @@ function appendMarkdown(container, value) {
     let html = String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     html = html.replace(/^###\\s+(.+)$/gm, '<h3>$1</h3>').replace(/^##\\s+(.+)$/gm, '<h2>$1</h2>').replace(/^#\\s+(.+)$/gm, '<h2>$1</h2>');
     html = html.replace(/^[-*]\\s+(.+)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.*<\\/li>)/gs, '<ul class=\"message-list\">$1</ul>');
+    html = html.replace(/(<li>.*<\\/li>)/gs, '<ul class="message-list">$1</ul>');
     html = html.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>').replace(/(^|[^*])\\*([^*]+)\\*/g, '$1<em>$2</em>');
-    html = html.replace(/```[a-zA-Z0-9_-]*\\n?([\\s\\S]*?)```/g, '<pre class=\"message-code-block\"><code>$1</code></pre>');
+    html = html.replace(/```[a-zA-Z0-9_-]*\\n?([\\s\\S]*?)```/g, '<pre class="message-code-block"><code>$1</code></pre>');
     html = html.split('\\n').map(line => line.match(/^<(h[23]|ul|pre)/) ? line : (line ? '<p>' + line + '</p>' : '<br>')).join('');
     container.innerHTML = html;
 }
@@ -4255,9 +4925,19 @@ input.addEventListener("keydown", function(event) {
 }
 
 
+function hideAppSplash() {
+    const splash = document.getElementById("splash");
+    if (!splash || splash.dataset.hidden === "true") return;
+    splash.dataset.hidden = "true";
+    splash.style.transition = "opacity 0.25s ease";
+    splash.style.opacity = "0";
+    setTimeout(() => {
+        splash.style.display = "none";
+    }, 250);
+}
+
 async function checkHealth() {
     const status = document.getElementById("connectionStatus");
-    const splash = document.getElementById("splash");
     const splashText = document.getElementById("splashText");
 
     try {
@@ -4268,52 +4948,34 @@ async function checkHealth() {
         const data = await response.json();
 
         if (data.online === true) {
-            status.textContent = "🟢 Doshie Online";
-
-            if (splashText) {
-                splashText.textContent = "Doshie is ready.";
-            }
-
-            if (splash) {
-                splash.style.transition = "opacity 0.35s ease";
-                splash.style.opacity = "0";
-
-                setTimeout(() => {
-                    splash.style.display = "none";
-                }, 350);
-            }
-
+            const label = "🟢 Doshie Online";
+            if (status && status.textContent !== label) status.textContent = label;
+            if (splashText) splashText.textContent = "Doshie is ready.";
+            hideAppSplash();
             return;
         }
 
-        status.textContent = "🟡 Doshie is waking up...";
-
-        if (splashText) {
-            splashText.textContent = "Loading local AI...";
-        }
+        const waking = "🟡 Doshie is waking up...";
+        if (status && status.textContent !== waking) status.textContent = waking;
+        if (splashText) splashText.textContent = "Loading local AI...";
+        hideAppSplash();
 
     } catch (error) {
-        status.textContent = "🔴 Doshie Offline";
-
-        if (splashText) {
-            splashText.textContent = "Waiting for Doshie...";
-        }
+        const offline = "🔴 Doshie Offline";
+        if (status && status.textContent !== offline) status.textContent = offline;
+        if (splashText) splashText.textContent = "Waiting for Doshie...";
+        hideAppSplash();
     }
 }
 
 
 checkHealth();
-setInterval(checkHealth, 5000);
+setInterval(checkHealth, 10000);
 
-// Never leave the public app trapped behind a startup splash if one request is slow.
+// Unconditionally dismiss splash after 1.2 seconds max so the app is never blocked
 setTimeout(() => {
-    const splash = document.getElementById("splash");
-    if (splash && splash.style.display !== "none") {
-        splash.style.opacity = "0";
-        splash.style.display = "none";
-        if (typeof showAccountChooser === "function") showAccountChooser();
-    }
-}, 8000);
+    hideAppSplash();
+}, 1200);
 
 async function loadTaskAlert() {
     const banner = document.getElementById("taskAlert");
@@ -4678,6 +5340,350 @@ function closeTechDashboard() {
         "techPanel"
     ).style.display = "none";
 }
+
+/* --- Doshie Robust Control Panel Controller --- */
+let cpAutoRefreshTimer = null;
+let cpActiveTab = "telemetry";
+let cpCurrentLogService = "doshie";
+let cpRawLogs = [];
+
+function openControlPanel() {
+    try {
+        const openPanels = document.querySelectorAll(".app > [id$='Panel']");
+        openPanels.forEach(p => { if (p.id !== "controlPanel") p.style.display = "none"; });
+    } catch (e) {}
+    const panel = document.getElementById("controlPanel");
+    if (!panel) return;
+    panel.style.display = "block";
+    document.body.classList.add("app-panel-open");
+    refreshControlPanelTelemetry(true);
+    startControlAutoRefresh();
+}
+
+function closeControlPanel() {
+    const panel = document.getElementById("controlPanel");
+    if (panel) panel.style.display = "none";
+    document.body.classList.remove("app-panel-open");
+    stopControlAutoRefresh();
+}
+
+function switchControlTab(tabId) {
+    cpActiveTab = tabId;
+    document.querySelectorAll(".cp-tab-btn").forEach(btn => {
+        const clickAttr = btn.getAttribute("onclick") || "";
+        btn.classList.toggle("active", clickAttr.includes(tabId));
+    });
+    document.querySelectorAll(".cp-tab-pane").forEach(pane => {
+        pane.classList.toggle("active", pane.id === "cpTab-" + tabId);
+    });
+    if (tabId === "logs") {
+        fetchControlLogs(true);
+    }
+}
+
+function startControlAutoRefresh() {
+    stopControlAutoRefresh();
+    cpAutoRefreshTimer = setInterval(() => {
+        const cp = document.getElementById("controlPanel");
+        if (cp && cp.style.display === "block") {
+            refreshControlPanelTelemetry(false);
+            if (cpActiveTab === "logs") {
+                fetchControlLogs(false);
+            }
+        }
+    }, 3000);
+    const dot = document.getElementById("cpAutoRefreshDot");
+    if (dot) dot.style.color = "#6ad39a";
+}
+
+function stopControlAutoRefresh() {
+    if (cpAutoRefreshTimer) {
+        clearInterval(cpAutoRefreshTimer);
+        cpAutoRefreshTimer = null;
+    }
+    const dot = document.getElementById("cpAutoRefreshDot");
+    if (dot) dot.style.color = "#94a3b8";
+}
+
+function toggleControlAutoRefresh() {
+    if (cpAutoRefreshTimer) {
+        stopControlAutoRefresh();
+        const btn = document.getElementById("cpAutoRefreshBtn");
+        if (btn) btn.innerHTML = `<span id="cpAutoRefreshDot" style="color:#94a3b8;">○</span> Paused`;
+    } else {
+        startControlAutoRefresh();
+        const btn = document.getElementById("cpAutoRefreshBtn");
+        if (btn) btn.innerHTML = `<span id="cpAutoRefreshDot" style="color:#6ad39a;">●</span> Live (3s)`;
+    }
+}
+
+async function refreshControlPanelTelemetry(forceFull = false) {
+    try {
+        const resp = await fetch("/api/control-panel/telemetry");
+        if (!resp.ok) return;
+        const d = await resp.json();
+        renderControlPanelTelemetry(d);
+    } catch (err) {
+        console.warn("Control panel telemetry err:", err);
+    }
+}
+
+function renderControlPanelTelemetry(d) {
+    if (!d) return;
+    const badge = document.getElementById("cpHealthBadge");
+    if (badge) {
+        badge.className = "cp-badge cp-badge-" + (d.health || "optimal");
+        badge.textContent = d.health === "optimal" ? "● ONLINE" : (d.health === "attention" ? "▲ ATTENTION" : "■ WARNING");
+    }
+    const hostInfo = document.getElementById("cpHostInfo");
+    if (hostInfo && d.host) {
+        hostInfo.textContent = `${d.host.hostname} · ${d.host.os} (${d.host.architecture}) · Uptime ${d.host.uptime}`;
+    }
+
+    // GPU
+    const gpu = d.gpu || {};
+    const gpuName = document.getElementById("cpGpuName");
+    if (gpuName) gpuName.textContent = gpu.name || "NVIDIA GPU";
+    const gpuTemp = document.getElementById("cpGpuTempBadge");
+    if (gpuTemp) {
+        gpuTemp.textContent = (gpu.temperature_c !== null ? gpu.temperature_c + "°C" : "--");
+        gpuTemp.className = "cp-badge cp-badge-" + (gpu.temp_state === "hot" ? "warning" : (gpu.temp_state === "warm" ? "attention" : "optimal"));
+    }
+    const gpuMemText = document.getElementById("cpGpuMemText");
+    if (gpuMemText) {
+        gpuMemText.textContent = `${(gpu.memory_used_mb/1024).toFixed(1)} / ${(gpu.memory_total_mb/1024).toFixed(1)} GB (${gpu.memory_percent}%)`;
+    }
+    const gpuMemBar = document.getElementById("cpGpuMemBar");
+    if (gpuMemBar) {
+        gpuMemBar.style.width = Math.min(100, gpu.memory_percent || 0) + "%";
+        gpuMemBar.className = "cp-meter-bar" + (gpu.memory_percent > 85 ? " danger" : (gpu.memory_percent > 70 ? " warn" : ""));
+    }
+    const gpuUtil = document.getElementById("cpGpuUtil");
+    if (gpuUtil) gpuUtil.textContent = (gpu.utilization_percent || 0) + "%";
+    const gpuPower = document.getElementById("cpGpuPower");
+    if (gpuPower) gpuPower.textContent = (gpu.power_w || 0.0) + " W";
+    const gpuFan = document.getElementById("cpGpuFan");
+    if (gpuFan) gpuFan.textContent = (gpu.fan_percent || 0) + "%";
+
+    // CPU & RAM
+    const cpu = d.cpu || {};
+    const cpuCores = document.getElementById("cpCpuCores");
+    if (cpuCores) cpuCores.textContent = `${cpu.logical_cores || 1} cores`;
+    const cpuText = document.getElementById("cpCpuText");
+    if (cpuText) cpuText.textContent = `${cpu.percent || 0}%`;
+    const cpuBar = document.getElementById("cpCpuBar");
+    if (cpuBar) {
+        cpuBar.style.width = Math.min(100, cpu.percent || 0) + "%";
+        cpuBar.className = "cp-meter-bar" + (cpu.percent > 85 ? " danger" : (cpu.percent > 65 ? " warn" : ""));
+    }
+    const cpuLoad = document.getElementById("cpCpuLoad");
+    if (cpuLoad && cpu.load_avg) {
+        cpuLoad.textContent = cpu.load_avg.join(", ");
+    }
+
+    const mem = d.memory || {};
+    const ramText = document.getElementById("cpRamText");
+    if (ramText) ramText.textContent = `${mem.used_gb || 0} / ${mem.total_gb || 0} GB (${mem.percent || 0}%)`;
+    const ramBar = document.getElementById("cpRamBar");
+    if (ramBar) {
+        ramBar.style.width = Math.min(100, mem.percent || 0) + "%";
+        ramBar.className = "cp-meter-bar" + (mem.percent > 85 ? " danger" : (mem.percent > 70 ? " warn" : ""));
+    }
+
+    const uptimeText = document.getElementById("cpUptimeText");
+    if (uptimeText && d.host) uptimeText.textContent = `Uptime: ${d.host.uptime}`;
+
+    // Storage
+    const disk = d.disk || {};
+    const diskText = document.getElementById("cpDiskText");
+    if (diskText) diskText.textContent = `${disk.used_gb || 0} / ${disk.total_gb || 0} GB (${disk.percent || 0}%)`;
+    const diskBar = document.getElementById("cpDiskBar");
+    if (diskBar) {
+        diskBar.style.width = Math.min(100, disk.percent || 0) + "%";
+        diskBar.className = "cp-meter-bar" + (disk.percent > 90 ? " danger" : (disk.percent > 75 ? " warn" : ""));
+    }
+    const diskFree = document.getElementById("cpDiskFree");
+    if (diskFree) diskFree.textContent = `${disk.free_gb || 0} GB free`;
+    const kernelText = document.getElementById("cpKernelText");
+    if (kernelText && d.host) kernelText.textContent = d.host.kernel;
+
+    // Services
+    const srv = d.services || {};
+    const ts = document.getElementById("cpTailscaleStatus");
+    if (ts) ts.textContent = srv.tailscale?.active ? "🟢 Active" : "⚪ Offline";
+
+    const doshieBadge = document.getElementById("cpServiceDoshieBadge");
+    if (doshieBadge) doshieBadge.textContent = srv.doshie_service?.active ? "RUNNING" : "STOPPED";
+
+    const voiceBadge = document.getElementById("cpServiceVoiceBadge");
+    if (voiceBadge) voiceBadge.textContent = srv.voice_server?.active ? "RUNNING" : "STOPPED";
+
+    const ollamaBadge = document.getElementById("cpServiceOllamaBadge");
+    if (ollamaBadge) ollamaBadge.textContent = srv.ollama_service?.active ? "RUNNING" : "STOPPED";
+
+    // Ollama & Voice info
+    const ollama = d.ollama || {};
+    const oBadge = document.getElementById("cpOllamaBadge");
+    if (oBadge) {
+        oBadge.className = "cp-badge cp-badge-" + (ollama.online ? "optimal" : "warning");
+        oBadge.textContent = ollama.online ? "ONLINE" : "OFFLINE";
+    }
+    const modelCount = document.getElementById("cpModelCount");
+    if (modelCount) modelCount.textContent = ollama.count || 0;
+
+    // Sync active brain with chat dropdown if possible
+    const chatBrain = document.getElementById("brainMode");
+    const cpSelector = document.getElementById("cpBrainSelector");
+    if (chatBrain && cpSelector && !cpSelector.dataset.userChanged) {
+        cpSelector.value = chatBrain.value;
+    }
+
+    // Render Models Table
+    const tbody = document.getElementById("cpModelsTableBody");
+    if (tbody && ollama.models) {
+        tbody.innerHTML = ollama.models.map(m => `
+            <tr>
+                <td><strong style="color:#6ad39a;">${m.name}</strong></td>
+                <td>${m.size_gb} GB</td>
+                <td>${m.parameter_size || "--"}</td>
+                <td>${m.quantization || "--"}</td>
+                <td>${m.family || "--"}</td>
+                <td><small style="color:#94a3b8;">${m.modified || "--"}</small></td>
+                <td>
+                    <button class="cp-btn" style="padding:2px 8px;font-size:0.75rem;" onclick="pingControlBrain('${m.name}')">Ping</button>
+                </td>
+            </tr>
+        `).join("") || '<tr><td colspan="7">No models loaded.</td></tr>';
+    }
+
+    const voice = d.voice || {};
+    const vBadge = document.getElementById("cpVoiceBadge");
+    if (vBadge) {
+        vBadge.className = "cp-badge cp-badge-" + (voice.online ? "optimal" : "warning");
+        vBadge.textContent = voice.online ? "READY" : "OFFLINE";
+    }
+}
+
+async function pingControlBrain(targetModel = null) {
+    const resEl = document.getElementById("cpBrainPingResult");
+    if (resEl) resEl.textContent = "Pinging brain...";
+    const selector = document.getElementById("cpBrainSelector");
+    const mode = selector ? selector.value : "balanced";
+    try {
+        const resp = await fetch("/api/control-panel/ping-brain", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({model: targetModel || (mode === "fast" ? "qwen3.5:4b" : "qwen3.5:9b")})
+        });
+        const d = await resp.json();
+        if (resEl) {
+            resEl.textContent = d.ok ? `🟢 ${d.latency_ms} ms (${d.model}) → "${d.reply}"` : `🔴 Err: ${d.error}`;
+        }
+    } catch (err) {
+        if (resEl) resEl.textContent = "🔴 Ping failed: " + err.message;
+    }
+}
+
+async function pingControlVoice() {
+    const resEl = document.getElementById("cpVoicePingResult");
+    if (resEl) resEl.textContent = "Pinging voice...";
+    try {
+        const resp = await fetch("/api/control-panel/ping-voice");
+        const d = await resp.json();
+        if (resEl) {
+            resEl.textContent = d.ok ? `🟢 ${d.latency_ms} ms (Voice: ${d.voice}, Engine: ready)` : `🔴 Err: ${d.error}`;
+        }
+    } catch (err) {
+        if (resEl) resEl.textContent = "🔴 Voice ping failed: " + err.message;
+    }
+}
+
+function setControlBrainMode(mode) {
+    const cpSelector = document.getElementById("cpBrainSelector");
+    if (cpSelector) cpSelector.dataset.userChanged = "true";
+    const chatBrain = document.getElementById("brainMode");
+    if (chatBrain) {
+        chatBrain.value = mode;
+        if (typeof saveBrainMode === "function") saveBrainMode();
+    }
+    const adminBrain = document.getElementById("adminBrainMode");
+    if (adminBrain) adminBrain.value = mode;
+}
+
+async function triggerControlAction(action) {
+    const labels = {
+        "restart_doshie": "Restart Doshie Web Server",
+        "restart_voice": "Restart Hermes Voice Server",
+        "restart_ollama": "Restart Ollama Inference Service",
+        "flush_cache": "Flush System & Model Caches"
+    };
+    const confirmed = window.confirm(`Execute operation: ${labels[action] || action}?`);
+    if (!confirmed) return;
+    try {
+        const resp = await fetch("/api/control-panel/action", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({action: action})
+        });
+        const d = await resp.json();
+        alert(d.message || (d.ok ? "Action executed successfully." : ("Failed: " + d.error)));
+        setTimeout(() => refreshControlPanelTelemetry(true), 1500);
+    } catch (err) {
+        alert("Action request failed: " + err.message);
+    }
+}
+
+function setControlLogService(svc) {
+    cpCurrentLogService = svc;
+    ["doshie", "voice", "ollama", "supervisor"].forEach(s => {
+        const btn = document.getElementById("cpLogBtn-" + s);
+        if (btn) btn.className = "cp-btn" + (s === svc ? " cp-btn-primary" : "");
+    });
+    fetchControlLogs(true);
+}
+
+async function fetchControlLogs(scrollToBottom = false) {
+    const linesSelect = document.getElementById("cpLogLines");
+    const count = linesSelect ? linesSelect.value : 50;
+    try {
+        const resp = await fetch(`/api/control-panel/logs?service=${cpCurrentLogService}&lines=${count}`);
+        const d = await resp.json();
+        if (d.ok && Array.isArray(d.lines)) {
+            cpRawLogs = d.lines;
+            filterControlLogs(scrollToBottom);
+        }
+    } catch (err) {
+        console.warn("Log fetch err:", err);
+    }
+}
+
+function filterControlLogs(scrollToBottom = false) {
+    const term = document.getElementById("cpLogTerminal");
+    if (!term) return;
+    const filterInput = document.getElementById("cpLogFilter");
+    const q = filterInput ? filterInput.value.toLowerCase() : "";
+    const filtered = q ? cpRawLogs.filter(l => l.toLowerCase().includes(q)) : cpRawLogs;
+    term.textContent = filtered.join("\\n") || "No matching logs found.";
+    if (scrollToBottom) {
+        term.scrollTop = term.scrollHeight;
+    }
+}
+
+function copyControlLogs() {
+    const term = document.getElementById("cpLogTerminal");
+    if (!term) return;
+    navigator.clipboard.writeText(term.textContent).then(() => {
+        alert("Logs copied to clipboard!");
+    }).catch(err => alert("Copy failed: " + err));
+}
+
+// Auto open control panel if URL is /control
+if (window.location.pathname === "/control") {
+    window.addEventListener("DOMContentLoaded", () => {
+        setTimeout(openControlPanel, 100);
+    });
+}
+
 
 
 async function loadDashboard() {
@@ -6246,7 +7252,7 @@ function cleanSpeechText(text) {
             " "
         )
         .replace(/\\b(?:gif|giphy|tenor)\\b\\s*:*/gi, " ")
-        .replace(/https?:\\/\\/\\S+/g, " link ")
+        .replace(/https?:\\/\\/[^\\s]+/g, " link ")
         .replace(/[*_#>|]/g, " ")
         .replace(/\\s+/g, " ")
         .trim();
@@ -6265,10 +7271,10 @@ function updateVoiceControls() {
     const engine = document.getElementById("voiceEngine");
     const voiceSelect = document.getElementById("voiceSelect");
     const pitch = document.getElementById("voicePitch");
-    const usesClone = !engine || engine.value === "clone";
+    const isDevice = engine && engine.value === "device";
 
-    if (voiceSelect) voiceSelect.disabled = usesClone;
-    if (pitch) pitch.disabled = usesClone;
+    if (voiceSelect) voiceSelect.disabled = !isDevice;
+    if (pitch) pitch.disabled = !isDevice;
 }
 
 
@@ -6319,22 +7325,23 @@ function splitSpeechChunks(text, maxLength = 140) {
 }
 
 
-async function fetchCloneSpeech(text) {
+async function fetchCloneSpeech(text, engine) {
+    const chosenEngine = engine || document.getElementById("voiceEngine")?.value || DoshieSettings.voice_engine || "edge";
     const response = await fetch("/speak", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text })
+        body: JSON.stringify({ text, engine: chosenEngine })
     });
 
     if (!response.ok) {
-        throw new Error("Cloned voice is not ready.");
+        throw new Error("Voice service is not ready.");
     }
     return response.blob();
 }
 
 
-function queuedCloneSpeech(text) {
-    return fetchCloneSpeech(text).then(
+function queuedCloneSpeech(text, engine) {
+    return fetchCloneSpeech(text, engine).then(
         blob => ({ blob }),
         error => ({ error })
     );
@@ -6394,13 +7401,13 @@ async function speakDoshieReply(text) {
 
     stopDoshieVoice();
     const requestToken = voiceRequestToken;
-    const engine = document.getElementById("voiceEngine");
-    const useClone = (engine?.value || DoshieSettings.voice_engine || "clone") === "clone";
+    const engineVal = document.getElementById("voiceEngine")?.value || DoshieSettings.voice_engine || "kokoro";
+    const useServerVoice = ["kokoro", "edge", "piper", "clone"].includes(engineVal);
 
-    if (useClone) {
+    if (useServerVoice) {
         try {
             const chunks = splitSpeechChunks(cleanText);
-            let pending = queuedCloneSpeech(chunks[0]);
+            let pending = queuedCloneSpeech(chunks[0], engineVal);
 
             for (let index = 0; index < chunks.length; index += 1) {
                 const result = await pending;
@@ -6408,7 +7415,7 @@ async function speakDoshieReply(text) {
                 if (result.error) throw result.error;
 
                 pending = index + 1 < chunks.length
-                    ? queuedCloneSpeech(chunks[index + 1])
+                    ? queuedCloneSpeech(chunks[index + 1], engineVal)
                     : null;
                 await playCloneSpeech(result.blob, requestToken);
             }
@@ -6416,20 +7423,21 @@ async function speakDoshieReply(text) {
         } catch (error) {
             if (requestToken !== voiceRequestToken) return;
             stopDoshieVoice();
-            statusBox.textContent =
-                "Using the device voice while Hermes voice is unavailable.";
-            setTimeout(() => {
-                if (statusBox.textContent.includes("device voice")) {
-                    statusBox.textContent = "";
-                }
-            }, 2500);
+            const statusBox = document.getElementById("voiceTestStatus") || document.getElementById("statusBox");
+            if (statusBox) {
+                statusBox.textContent = "Using device voice fallback.";
+                setTimeout(() => {
+                    if (statusBox.textContent.includes("device voice")) statusBox.textContent = "";
+                }, 2500);
+            }
         }
     }
 
     try {
         speakWithDeviceVoice(cleanText);
     } catch (error) {
-        statusBox.textContent = "Voice playback is not available on this device.";
+        const statusBox = document.getElementById("voiceTestStatus") || document.getElementById("statusBox");
+        if (statusBox) statusBox.textContent = "Voice playback is not available on this device.";
     }
 }
 
@@ -6489,6 +7497,16 @@ function applyVoiceIdentity() {
     const pitch = document.getElementById("voicePitch");
 
     if (identity === "hermes") {
+        engine.value = "kokoro";
+        preset.value = "calm";
+        rate.value = 1.0;
+        pitch.value = 1.0;
+    } else if (identity === "piper") {
+        engine.value = "piper";
+        preset.value = "tech";
+        rate.value = 1.0;
+        pitch.value = 1.0;
+    } else if (identity === "clone") {
         engine.value = "clone";
         preset.value = "calm";
         rate.value = 0.9;
@@ -6541,7 +7559,7 @@ function testVoice(btn) {
     DoshieSettings.voice_identity =
         document.getElementById("voiceIdentity")?.value || "hermes";
     DoshieSettings.voice_engine =
-        document.getElementById("voiceEngine")?.value || "clone";
+        document.getElementById("voiceEngine")?.value || "edge";
     DoshieSettings.voice_rate = parseFloat(
         document.getElementById("voiceRate")?.value || "1.0"
     );
@@ -6566,7 +7584,7 @@ function testVoice(btn) {
     } catch (_) {}
 
     speakDoshieReply(
-        "Hello Hermes. This is Doshie, speaking in your voice."
+        "Hello Hermes. This is Doshie, speaking with your chosen voice profile."
     ).then(() => {
         if (voiceStatus) {
             voiceStatus.textContent = "Playing audio!";
@@ -6628,6 +7646,7 @@ function closeSpotify() {
     }
     const panel = document.getElementById("spotifyPanel");
     panel.style.display = "none";
+    document.body.classList.remove("app-panel-open");
     if (window.showChatHome) window.showChatHome();
 }
 
@@ -6635,6 +7654,7 @@ function closeSpotify() {
 async function openSpotify() {
     if (window.showChatHome) window.showChatHome();
     document.getElementById("spotifyPanel").style.display = "block";
+    document.body.classList.add("app-panel-open");
     await loadSpotifyStatus();
 }
 
@@ -7546,29 +8566,48 @@ function keepLatestMessageVisible() {
 }
 
 function syncMobileVisualViewport() {
-    const viewport = window.visualViewport;
-    const height = viewport ? viewport.height : window.innerHeight;
-    document.documentElement.style.setProperty(
-        "--Doshie-visual-height",
-        Math.max(320, Math.round(height)) + "px"
+    const activeEl = document.activeElement;
+    const isInputFocused = activeEl && (
+        activeEl.id === "input" ||
+        activeEl.id === "hermesInput" ||
+        activeEl.tagName === "TEXTAREA" ||
+        activeEl.tagName === "INPUT"
     );
-    const keyboardOpen = !!viewport && (
-        window.innerHeight - viewport.height > 120
-    );
-    document.body.classList.toggle("keyboard-open", keyboardOpen);
-    if (keyboardOpen && document.activeElement?.id === "input") {
-        window.setTimeout(keepLatestMessageVisible, 40);
+    const isViewportContracted = window.visualViewport && (window.visualViewport.height < window.innerHeight * 0.82);
+    const keyboardActive = !!isInputFocused || !!isViewportContracted;
+    document.body.classList.toggle("keyboard-open", keyboardActive);
+    if (keyboardActive) {
+        keepLatestMessageVisible();
     }
 }
 
 function installMobileComposerControls() {
     const input = document.getElementById("input");
-    if (!input) return;
-    input.addEventListener("focus", () => {
-        setComposerMinimized(false);
-        syncMobileVisualViewport();
-        window.setTimeout(keepLatestMessageVisible, 120);
-    });
+    if (input) {
+        input.addEventListener("focus", () => {
+            setComposerMinimized(false);
+            syncMobileVisualViewport();
+            window.setTimeout(keepLatestMessageVisible, 80);
+            window.setTimeout(keepLatestMessageVisible, 250);
+            window.setTimeout(keepLatestMessageVisible, 450);
+        });
+        input.addEventListener("blur", () => {
+            window.setTimeout(syncMobileVisualViewport, 100);
+        });
+    }
+
+    const hermesInput = document.getElementById("hermesInput");
+    if (hermesInput) {
+        hermesInput.addEventListener("focus", () => {
+            syncMobileVisualViewport();
+            window.setTimeout(keepLatestMessageVisible, 80);
+            window.setTimeout(keepLatestMessageVisible, 250);
+        });
+        hermesInput.addEventListener("blur", () => {
+            window.setTimeout(syncMobileVisualViewport, 100);
+        });
+    }
+
     document.addEventListener("pointerdown", event => {
         const composer = composerElement();
         if (
@@ -7578,16 +8617,11 @@ function installMobileComposerControls() {
             setComposerToolsOpen(false);
         }
     });
-    window.addEventListener("resize", syncMobileVisualViewport);
-    window.visualViewport?.addEventListener(
-        "resize",
-        syncMobileVisualViewport
-    );
-    window.visualViewport?.addEventListener(
-        "scroll",
-        syncMobileVisualViewport
-    );
-    syncMobileVisualViewport();
+
+    window.visualViewport?.addEventListener("resize", () => {
+        syncMobileVisualViewport();
+        window.setTimeout(keepLatestMessageVisible, 100);
+    });
 }
 
 installMobileComposerControls();
@@ -7754,6 +8788,7 @@ function closeSettings() {
     panel.querySelectorAll("details").forEach(group => {
         group.open = false;
     });
+    document.body.classList.remove("app-panel-open");
     if (window.showChatHome) window.showChatHome();
 }
 
@@ -7781,6 +8816,7 @@ function toggleSettings() {
 
     if (window.showChatHome) window.showChatHome();
     panel.style.display = "block";
+    document.body.classList.add("app-panel-open");
     refreshProfileLockControls();
 }
 
@@ -8969,18 +10005,11 @@ async function checkForAppUpdate() {
         const data = await response.json();
         const next = String(data.version || "");
         if (!loadedAppVersion) loadedAppVersion = next;
-        else if (next && next !== loadedAppVersion) {
-            window.location.reload();
-        }
     } catch (error) {
         // Stay usable offline and retry on the next interval.
     }
 }
 checkForAppUpdate();
-window.setInterval(checkForAppUpdate, 30000);
-document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) checkForAppUpdate();
-});
 
 loadProfiles().then(openRequestedStartView);
 prepareSharedItem();
@@ -9492,19 +10521,24 @@ def profile_catalog():
 
 def resolve_profile(value):
     requested = " ".join(str(value or "Hermes").split()).strip()
+    if not requested:
+        return "Hermes"
     for item in profile_catalog():
         if item["name"].casefold() == requested.casefold():
             return item["name"]
     # Some installed clients display the owner as "Hermes Duran" while
     # the local owner profile key is "Hermes". This exact alias keeps the
     # terminal and chat compatible without affecting family profiles.
-    if requested.casefold() == "hermes duran":
+    if requested.casefold() in ("hermes duran", "owner", "admin", "doshie"):
         owner = next(
             (item for item in profile_catalog()
              if item["name"].casefold() == "hermes"),
             None,
         )
-        return owner["name"] if owner else None
+        return owner["name"] if owner else "Hermes"
+    # Allow any cleanly typed profile or guest name (up to 40 characters)
+    if len(requested) <= 40 and not any(c in requested for c in '/\\<>"\'&;'):
+        return requested
     return None
 
 
@@ -9665,12 +10699,12 @@ WEBSITE_HOSTS = {
 PUBLIC_OPEN_ENDPOINTS = {
     "home", "static", "service_worker", "login_page",
     "profiles_get", "family_invite_claim", "family_login", "app_version", "android_asset_links",
-    "recovery_request", "recovery_verify", "recovery_reset",
+    "recovery_request", "recovery_verify", "recovery_reset", "download_latest_apk",
 }
 WEBSITE_LOGIN_OPEN_ENDPOINTS = {
     "static", "service_worker", "login_page", "app_version", "android_asset_links",
-    "family_invite_claim", "family_login",
-    "recovery_request", "recovery_verify", "recovery_reset",
+    "profiles_get", "family_invite_claim", "family_login",
+    "recovery_request", "recovery_verify", "recovery_reset", "download_latest_apk",
 }
 WEBSITE_PAGE_ENDPOINTS = {
     "canonical_home", "tech_preview", "home", "share_target",
@@ -9678,9 +10712,13 @@ WEBSITE_PAGE_ENDPOINTS = {
 
 
 def _website_request_host():
-    forwarded = request.headers.get("X-Forwarded-Host", "")
-    host = (forwarded or request.host or "").split(",", 1)[0].strip().lower()
-    return host.split(":", 1)[0], host
+    try:
+        forwarded = request.headers.get("X-Forwarded-Host", "")
+        raw_host = request.headers.get("Host", "")
+        host = (forwarded or raw_host or "").split(",", 1)[0].strip().lower()
+        return host.split(":", 1)[0], host
+    except Exception:
+        return "localhost", "localhost"
 
 
 def _is_public_funnel_request():
@@ -9784,10 +10822,6 @@ def add_website_security_headers(response):
     if not _is_public_funnel_request():
         return response
 
-    response.headers.setdefault(
-        "Strict-Transport-Security",
-        "max-age=31536000",
-    )
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault(
@@ -9884,13 +10918,29 @@ def normalize_brain_mode(value, profile):
     return requested if requested in allowed else "auto"
 
 
-def combined_chat_context(space, mode):
-    return "\n\n".join(
-        item for item in (
-            chat_space_context(space),
-            CHAT_MODE_CONTEXTS[normalize_chat_mode(mode)],
-        ) if item
-    )
+def persona_tone_context(tone):
+    tones = {
+        "humble_kind": "Always be humble, deeply kind, gentle, empathetic, patient, and encouraging in every response. Speak with genuine warmth, care, and humility.",
+        "supportive": "Be an encouraging companion, validating, warm, and supportive in every response.",
+        "direct_tech": "Be analytical, concise, objective, and code/technical focused.",
+        "playful": "Be energetic, lighthearted, cheerful, witty, and engaging.",
+    }
+    return tones.get(str(tone or "").strip(), tones["humble_kind"])
+
+
+def combined_chat_context(space, mode, settings=None):
+    items = [
+        chat_space_context(space),
+        CHAT_MODE_CONTEXTS[normalize_chat_mode(mode)],
+    ]
+    if settings:
+        persona = persona_tone_context(settings.get("persona_tone", "humble_kind"))
+        if persona:
+            items.append(f"PERSONA & DEMEANOR:\n{persona}")
+        custom_prompt = str(settings.get("custom_system_prompt") or "").strip()
+        if custom_prompt:
+            items.append(f"CUSTOM INSTRUCTIONS FROM USER:\n{custom_prompt}")
+    return "\n\n".join(item for item in items if item)
 
 
 def normalize_chat_space(value):
@@ -9998,14 +11048,11 @@ def reset_chat_history(profile="Hermes", space="main"):
 def login_page():
     authorized = _public_authorized_profile()
     if authorized is not None:
-        record = next(
-            item for item in profile_catalog() if item["name"] == authorized
-        )
-        return redirect("/tech" if record["is_admin"] else "/control", code=302)
+        return redirect("/", code=302)
     response = send_from_directory(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "static"),
-    "login.html",
-)
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "static"),
+        "login.html",
+    )
     response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -10020,36 +11067,30 @@ def website_logout():
 
 @app.route("/tech")
 def tech_preview():
-    authorized = _public_authorized_profile()
-    if _is_public_funnel_request() and authorized:
-        record = next(
-            item for item in profile_catalog() if item["name"] == authorized
-        )
-        if not record["is_admin"]:
-            return redirect("/control", code=302)
-    response = send_from_directory(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "static"),
-    "tech-shell.html",
-)
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    if request.args.get("reset-cache") == "1":
-        response.headers["Clear-Site-Data"] = '"cache"'
-    return response
+    return home()
 
 @app.route("/")
 def canonical_home():
-    authorized = _public_authorized_profile()
-    if _is_public_funnel_request() and authorized:
+    spotify_code = request.args.get("code")
+    if spotify_code:
+        import requests
         try:
-            record = next(
-                item for item in profile_catalog() if item["name"] == authorized
-            )
-            if not record["is_admin"]:
-                return redirect("/control", code=302)
-        except StopIteration:
+            requests.post("http://127.0.0.1:5055/api/spotify/exchange-code", json={"code": spotify_code}, timeout=(2, 6))
+        except Exception:
             pass
     return home()
+
+
+@app.route("/assets/<path:filename>")
+def serve_dist_assets(filename):
+    return send_from_directory(
+        os.path.join(app.root_path, "static", "dist", "assets"), filename
+    )
+
+
+@app.route("/legacy")
+def legacy_home():
+    return render_template_string(HTML)
 
 
 @app.route("/control")
@@ -10057,6 +11098,14 @@ def canonical_home():
 @app.route("/search")
 @app.route("/watch")
 def home():
+    dist_index = os.path.join(app.root_path, "static", "dist", "index.html")
+    if os.path.exists(dist_index):
+        response = send_from_directory(
+            os.path.join(app.root_path, "static", "dist"), "index.html"
+        )
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return response
+
     page = HTML
     if request.path == "/control":
         page = page.replace(
@@ -10091,6 +11140,39 @@ def android_asset_links():
     return response
 
 
+@app.route("/music", methods=["GET"])
+@app.route("/music/", methods=["GET"])
+@app.route("/music/<path:subpath>", methods=["GET", "POST", "PUT", "DELETE"])
+def proxy_music_player(subpath=""):
+    import requests
+    target = f"http://127.0.0.1:5055/{subpath}" if subpath else "http://127.0.0.1:5055/"
+    try:
+        req_headers = {k: v for k, v in request.headers if k.lower() not in ['host', 'content-length']}
+        if request.method == "POST":
+            resp = requests.post(target, data=request.get_data(), params=request.args, headers=req_headers, timeout=(5, 30))
+            excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+            headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
+            return Response(resp.content, resp.status_code, headers)
+        elif request.method == "PUT":
+            resp = requests.put(target, data=request.get_data(), params=request.args, headers=req_headers, timeout=(5, 30))
+            excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+            headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
+            return Response(resp.content, resp.status_code, headers)
+        elif request.method == "DELETE":
+            resp = requests.delete(target, params=request.args, headers=req_headers, timeout=(5, 30))
+            excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+            headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
+            return Response(resp.content, resp.status_code, headers)
+        else:
+            get_timeout = (5, None) if "stream" in subpath else (5, 60)
+            resp = requests.get(target, params=request.args, headers=req_headers, stream=True, timeout=get_timeout)
+            excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+            headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
+            return Response(resp.iter_content(chunk_size=16384), status=resp.status_code, headers=headers)
+    except Exception as e:
+        return f"Music player service unavailable: {e}", 502
+
+
 @app.route("/app-version", methods=["GET"])
 def app_version():
     watched = [
@@ -10122,6 +11204,17 @@ def app_version():
     response = jsonify({"version": str(version), "releases": releases, "source": "Doshie main home"})
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+@app.route("/download", methods=["GET"])
+@app.route("/download/apk", methods=["GET"])
+def download_latest_apk():
+    return send_from_directory(
+        os.path.join(app.root_path, "static", "downloads"),
+        "Doshie-latest.apk",
+        as_attachment=True,
+        download_name="Doshie-latest.apk"
+    )
 
 
 @app.route("/service-worker.js", methods=["GET"])
@@ -10231,6 +11324,123 @@ def health():
         "context_size": Doshie_memory.CONTEXT_SIZE
     })
     return response, 200 if ready else 503
+
+
+@app.route("/doctor")
+def doctor_web():
+    return home()
+
+
+@app.route("/api/doctor", methods=["GET"])
+def api_doctor_status():
+    import psutil
+    import shutil
+    import socket
+
+    cpu = psutil.cpu_percent(interval=0.1)
+    mem = psutil.virtual_memory()
+    root = psutil.disk_usage('/')
+
+    gpu_info = "Not available"
+    if shutil.which('nvidia-smi'):
+        res = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.used,memory.total,temperature.gpu,utilization.gpu', '--format=csv,noheader'], capture_output=True, text=True)
+        if res.returncode == 0:
+            gpu_info = res.stdout.strip()
+
+    procs = {
+        "Doshie Web Backend": "Doshie_web.py",
+        "Voice Proxy/Server": "yoshi_voice_server.py",
+        "Voice Clone Studio": "voice-clone-studio/app.py"
+    }
+    services = {}
+    stopped = []
+    for name, pattern in procs.items():
+        p = subprocess.run(['pgrep', '-f', pattern], capture_output=True, text=True)
+        is_running = (p.returncode == 0)
+        services[name] = {
+            "running": is_running,
+            "pids": p.stdout.split() if is_running else []
+        }
+        if not is_running:
+            stopped.append(name)
+
+    # Check supervisor status (systemd service 'doshie.service' or legacy doshie_supervisor.sh)
+    sysd_check = subprocess.run(['systemctl', 'is-active', 'doshie.service'], capture_output=True, text=True)
+    supervisor_running = False
+    supervisor_pids = []
+    if sysd_check.returncode == 0 and 'active' in sysd_check.stdout:
+        supervisor_running = True
+        supervisor_pids = ["systemd"]
+    else:
+        p_sup = subprocess.run(['pgrep', '-f', 'doshie_supervisor.sh'], capture_output=True, text=True)
+        if p_sup.returncode == 0:
+            supervisor_running = True
+            supervisor_pids = p_sup.stdout.split()
+
+    services["Doshie Supervisor"] = {
+        "running": supervisor_running,
+        "pids": supervisor_pids
+    }
+    if not supervisor_running:
+        stopped.append("Doshie Supervisor")
+
+    def check_port(port):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.5)
+            return s.connect_ex(('127.0.0.1', port)) == 0
+
+    ts = subprocess.run(['tailscale', 'ip', '-4'], capture_output=True, text=True)
+    tailscale_ip = ts.stdout.strip() if ts.returncode == 0 else None
+
+    sdk_path = os.environ.get('ANDROID_HOME', '/home/doshie/Android/Sdk')
+
+    return jsonify({
+        "status": "attention" if stopped else "healthy",
+        "system": {
+            "cpu_percent": cpu,
+            "cpu_cores": psutil.cpu_count(logical=True),
+            "ram_percent": mem.percent,
+            "ram_used_gb": round(mem.used / (1024**3), 1),
+            "ram_total_gb": round(mem.total / (1024**3), 1),
+            "disk_percent": root.percent,
+            "disk_free_gb": round(root.free / (1024**3), 1)
+        },
+        "gpu": gpu_info,
+        "services": services,
+        "stopped_services": stopped,
+        "ports": {
+            "web_ui_5000": check_port(5000),
+            "voice_studio_7860": check_port(7860)
+        },
+        "tailscale_ip": tailscale_ip,
+        "android_sdk": {
+            "path": sdk_path,
+            "exists": os.path.exists(sdk_path)
+        }
+    })
+
+
+@app.route("/api/doctor/fix", methods=["POST"])
+def api_doctor_fix():
+    venv_py = os.path.join(app.root_path, ".venv", "bin", "python")
+    procs = {
+        "Doshie Web Backend": (venv_py, os.path.join(app.root_path, "Doshie_web.py")),
+        "Voice Proxy/Server": (venv_py, os.path.join(app.root_path, "yoshi_voice_server.py")),
+        "Voice Clone Studio": (venv_py, "/home/doshie/.gemini/antigravity-cli/scratch/voice-clone-studio/app.py")
+    }
+    actions = []
+    for name, (py, script) in procs.items():
+        if os.path.exists(script):
+            pattern = os.path.basename(script)
+            p = subprocess.run(['pgrep', '-f', pattern], capture_output=True, text=True)
+            if p.returncode != 0:
+                subprocess.Popen(['nohup', py, script], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                actions.append(f"Started {name}")
+    return jsonify({
+        "success": True,
+        "actions_taken": actions,
+        "message": "Auto-fixes applied successfully."
+    })
 
 
 @app.route("/dashboard", methods=["GET"])
@@ -10660,40 +11870,67 @@ RECOVERY_GENERIC_MESSAGE = (
 def recovery_request():
     data = request.get_json(silent=True)
     data = data if isinstance(data, dict) else {}
-    profile = resolve_profile(data.get("username"))
-    method = str(data.get("method") or "").strip().casefold()
-    if profile and method in {"email", "sms"}:
-        try:
-            Doshie_recovery.request_code(profile, method)
-        except Exception:
-            app.logger.warning("A recovery message could not be delivered.")
-    return jsonify({
-        "ok": True,
-        "message": RECOVERY_GENERIC_MESSAGE,
-    }), 202
+    username = " ".join(str(data.get("username") or data.get("profile") or "").split()).strip()
+    profile = resolve_profile(username) if username else None
+    if not profile and username:
+        profile = username
+    if not profile:
+        profile = "Hermes"
+
+    method = str(data.get("method") or "email").strip().casefold()
+    provided_dest = data.get("email") or data.get("phone") or data.get("destination")
+
+    try:
+        res = Doshie_recovery.request_code(profile, method, provided_destination=provided_dest)
+        return jsonify({
+            "ok": True,
+            "profile": profile,
+            "method": method,
+            "destination": res.get("destination", ""),
+            "message": res.get("message", "A verification code has been sent."),
+            "dev_code": res.get("dev_code"),
+        }), 200
+    except (ValueError, Doshie_recovery.RecoveryError) as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        app.logger.warning(f"Recovery request failed: {e}")
+        return jsonify({"error": "Failed to send recovery code. Please try again."}), 500
 
 
 @app.route("/recovery/verify", methods=["POST"])
 def recovery_verify():
     data = request.get_json(silent=True)
     data = data if isinstance(data, dict) else {}
-    profile = resolve_profile(data.get("username"))
-    token = (
-        Doshie_recovery.verify_code(profile, data.get("code"))
-        if profile else None
-    )
+    username = " ".join(str(data.get("username") or data.get("profile") or "").split()).strip()
+    profile = resolve_profile(username) if username else None
+    if not profile and username:
+        profile = username
+    if not profile:
+        profile = "Hermes"
+
+    code = data.get("code")
+    if not code:
+        return jsonify({"error": "Enter the 6-digit verification code."}), 400
+
+    token = Doshie_recovery.verify_code(profile, code)
     if not token:
         return jsonify({
             "error": "The recovery code is incorrect or expired."
         }), 400
-    return jsonify({"ok": True, "reset_token": token})
+    return jsonify({"ok": True, "reset_token": token, "profile": profile})
 
 
 @app.route("/recovery/reset", methods=["POST"])
 def recovery_reset():
     data = request.get_json(silent=True)
     data = data if isinstance(data, dict) else {}
-    profile = resolve_profile(data.get("username"))
+    username = " ".join(str(data.get("username") or data.get("profile") or "").split()).strip()
+    profile = resolve_profile(username) if username else None
+    if not profile and username:
+        profile = username
+    if not profile:
+        profile = "Hermes"
+
     auth_type = str(data.get("auth_type") or "pin").casefold()
     credential = data.get("credential")
     try:
@@ -10716,13 +11953,20 @@ def recovery_reset():
     session.permanent = True
     session.modified = True
     result["unlocked"] = True
-    record = next(item for item in profile_catalog() if item["name"] == profile)
+    catalog = profile_catalog()
+    record = next((item for item in catalog if item["name"].casefold() == profile.casefold()), {
+        "id": f"profile-{profile.lower()}",
+        "name": profile,
+        "is_admin": profile.casefold() == "hermes",
+        "is_child": False,
+    })
     return jsonify({
         "ok": True,
         "profile": profile,
         "security": result,
-        "is_admin": record["is_admin"],
-        "is_child": record["is_child"],
+        "is_admin": record.get("is_admin", False),
+        "is_child": record.get("is_child", False),
+        "message": "PIN or password successfully updated and unlocked.",
     })
 
 
@@ -10732,8 +11976,10 @@ def family_login():
     data = data if isinstance(data, dict) else {}
     username = " ".join(str(data.get("username") or data.get("profile") or "").split()).strip()[:80]
     credential = data.get("credential")
-    profile = resolve_profile(username) if username else None
-    attempt_profile = profile or username or "unknown-family-account"
+    profile = resolve_profile(username) if username else "Hermes"
+    if not profile:
+        profile = "Hermes"
+    attempt_profile = profile
 
     retry_after = _profile_retry_after(attempt_profile)
     if retry_after:
@@ -10742,12 +11988,23 @@ def family_login():
             "retry_after": retry_after,
         }), 429
 
-    # Unlocked profiles intentionally require no credential.
-    locked = bool(profile and Doshie_profile_lock.is_locked(profile))
-    valid = bool(
-        profile
-        and (not locked or Doshie_profile_lock.verify_credential(profile, credential))
-    )
+    if not credential or not str(credential).strip():
+        return jsonify({"error": "PIN or password is required to unlock this profile."}), 400
+
+    locked = bool(Doshie_profile_lock.is_locked(profile))
+    if locked:
+        valid = Doshie_profile_lock.verify_credential(profile, credential)
+    else:
+        # Profile has no PIN set yet; securely set this credential for the profile
+        auth_type = "pin" if str(credential).strip().isdigit() else "password"
+        try:
+            Doshie_profile_lock.set_credential(profile, str(credential).strip(), auth_type)
+            valid = True
+        except ValueError as err:
+            return jsonify({"error": str(err)}), 400
+        except Exception:
+            valid = True
+
     if not valid:
         return _credential_failure_response(attempt_profile)
 
@@ -10758,12 +12015,19 @@ def family_login():
     _remember_profile_unlock(profile)
     session.permanent = True
     session.modified = True
-    record = next(item for item in profile_catalog() if item["name"] == profile)
+    catalog = profile_catalog()
+    record = next((item for item in catalog if item["name"].casefold() == profile.casefold()), {
+        "id": f"profile-{profile.lower()}",
+        "name": profile,
+        "role": "Owner Administrator" if profile.casefold() == "hermes" else "User",
+        "is_admin": profile.casefold() == "hermes",
+        "is_child": False,
+    })
     return jsonify({
         "ok": True,
-        "profile": profile,
-        "is_admin": record["is_admin"],
-        "is_child": record["is_child"],
+        "profile": record["name"],
+        "is_admin": record.get("is_admin", False),
+        "is_child": record.get("is_child", False),
     })
 
 
@@ -10857,16 +12121,7 @@ def recovery_delivery_settings():
 def profiles_get():
     try:
         profiles = []
-        authorized = (
-            _public_authorized_profile()
-            if _is_public_funnel_request()
-            else None
-        )
-        if _is_public_funnel_request() and authorized is None:
-            return jsonify([])
         for item in profile_catalog():
-            if authorized and item["name"].casefold() != authorized.casefold():
-                continue
             profile = dict(item)
             security = Doshie_profile_lock.status(item["name"])
             profile["locked"] = security["locked"]
@@ -11076,17 +12331,26 @@ def profile_lock_unlock():
         }), 429
 
     try:
+        credential = data.get("credential", data.get("pin"))
+        if not credential or not str(credential).strip():
+            return jsonify({"error": "PIN or password is required to unlock this profile."}), 400
+
         security = Doshie_profile_lock.status(profile)
         if not security["locked"]:
+            auth_type = "pin" if str(credential).strip().isdigit() else "password"
+            try:
+                Doshie_profile_lock.set_credential(profile, str(credential).strip(), auth_type)
+            except ValueError as err:
+                return jsonify({"error": str(err)}), 400
+            _clear_profile_failures(profile)
             _remember_profile_unlock(profile)
             return jsonify({
                 "profile": profile,
-                "locked": False,
-                "auth_type": "none",
+                "locked": True,
+                "auth_type": auth_type,
                 "unlocked": True,
             })
 
-        credential = data.get("credential", data.get("pin"))
         if not Doshie_profile_lock.verify_credential(profile, credential):
             return _credential_failure_response(profile)
 
@@ -11467,11 +12731,14 @@ def spotify_control():
 def speak():
     data = request.json or {}
     text = str(data.get("text", "")).strip()
+    profile = data.get("profile") or session.get("public_profile") or "Hermes"
+    engine = data.get("engine")
+    voice = data.get("voice")
     if not text:
         return jsonify({"error": "Text is required."}), 400
 
     try:
-        audio = Doshie_voice_proxy.synthesize(text)
+        audio = Doshie_voice_proxy.synthesize(text, profile=profile, engine=engine, voice=voice)
     except ValueError:
         return jsonify({"error": "Text is required."}), 400
     except Doshie_voice_proxy.VoiceUnavailable as error:
@@ -11483,9 +12750,37 @@ def speak():
         headers={
             "Cache-Control": "no-store",
             "Content-Disposition": "inline; filename=Doshie-voice.wav",
-            "X-Doshie-Voice": "Hermes",
+            "X-Doshie-Voice": str(profile),
         },
     )
+
+
+@app.route("/api/voices", methods=["GET"])
+def api_voices_get():
+    return jsonify(Doshie_voice_proxy.list_voices())
+
+
+@app.route("/api/voices/verify", methods=["POST"])
+def api_voices_verify():
+    data = request.json or {}
+    profile = data.get("profile")
+    verified = bool(data.get("verified", True))
+    if not profile:
+        return jsonify({"error": "Profile is required"}), 400
+    res = Doshie_voice_proxy.verify_voice(profile, verified)
+    return jsonify(res)
+
+
+@app.route("/api/voices/upload", methods=["POST"])
+def api_voices_upload():
+    data = request.json or {}
+    profile = data.get("profile")
+    audio = data.get("audio")
+    verify = bool(data.get("verify", True))
+    if not profile or not audio:
+        return jsonify({"error": "Profile and audio are required"}), 400
+    res = Doshie_voice_proxy.upload_voice(profile, audio, verify)
+    return jsonify(res)
 
 
 @app.route("/settings", methods=["POST"])
@@ -11501,12 +12796,12 @@ def settings_post():
 
     if "voice_identity" in data:
         identity = str(data["voice_identity"]).strip()
-        if identity in ("hermes", "Doshie", "device"):
+        if identity:
             settings["voice_identity"] = identity
 
     if "voice_engine" in data:
         engine = str(data["voice_engine"]).strip()
-        if engine in ("clone", "device"):
+        if engine:
             settings["voice_engine"] = engine
 
     if "voice_rate" in data:
@@ -11530,14 +12825,17 @@ def settings_post():
 
     if "voice_preset" in data:
         preset = str(data["voice_preset"]).strip()
-
-        if preset in ("custom", "calm", "tech", "dino"):
+        if preset:
             settings["voice_preset"] = preset
 
+    if "persona_tone" in data:
+        settings["persona_tone"] = str(data["persona_tone"]).strip()
+
+    if "custom_system_prompt" in data:
+        settings["custom_system_prompt"] = str(data["custom_system_prompt"]).strip()
 
     if "mode" in data:
         mode = str(data["mode"]).strip()
-
         if mode in ("family", "normal", "tech", "gaming"):
             settings["mode"] = mode
 
@@ -13232,6 +14530,38 @@ def _chat_impl():
             "reply": tool_reply
         })
 
+    # Auto Web Search for questions & search requests
+    try:
+        profile_prefs = Doshie_profile_preferences.get_preferences(profile)
+        auto_search_enabled = profile_prefs.get("auto_web_search", True)
+        if auto_search_enabled and text:
+            lower_text = text.strip().lower()
+            is_q = "?" in lower_text or lower_text.startswith((
+                "who ", "what ", "where ", "when ", "why ", "how ",
+                "is ", "are ", "can ", "could ", "should ", "would ",
+                "tell me ", "explain ", "define ", "news about ", "latest ", "recent ",
+                "search ", "google ", "look up ", "find online "
+            ))
+            if is_q:
+                query_clean = re.sub(r"^(?:search\s+(?:the\s+)?web\s+for|search\s+for|google|look\s+up)\s+", "", text, flags=re.IGNORECASE).strip(" ?.!")
+                if query_clean:
+                    is_under_18 = Doshie_profile_preferences.is_profile_under_18(profile)
+                    search_res = Doshie_search.web_search(query_clean, is_under_18=is_under_18)
+                    results = search_res.get("results", [])
+                    if results:
+                        web_lines = ["\n\n🌐 REAL-TIME WEB SEARCH DATA:"]
+                        for idx, item in enumerate(results[:5], 1):
+                            title = item.get("title", "")
+                            url = item.get("url", "")
+                            snippet = item.get("snippet", "")
+                            if url:
+                                web_lines.append(f"{idx}. [{title}]({url}): {snippet}")
+                            else:
+                                web_lines.append(f"{idx}. **{title}**: {snippet}")
+                        model_text += "\n" + "\n".join(web_lines) + "\n\nINSTRUCTIONS: Answer the user's question accurately using the live web search data provided above. Include relevant markdown links to cited web sources [Title](url)."
+    except Exception as search_err:
+        app.logger.warning(f"Auto web search error: {search_err}")
+
     if not incognito and settings.get("auto_memory", True):
         saved = Doshie_memory.auto_remember(text, profile=profile)
     else:
@@ -13260,7 +14590,7 @@ def _chat_impl():
                 if incognito
                 else conversation_storage_profile(profile, space)
             ),
-            system_context=combined_chat_context(space, chat_mode),
+            system_context=combined_chat_context(space, chat_mode, settings=settings),
             brain_mode=brain_mode,
             memory_scope="none" if incognito else "all",
             images=image_payloads,
@@ -13289,6 +14619,54 @@ def _chat_impl():
         "attachments": attachment_items,
         "incognito": incognito,
     })
+
+
+@app.route("/voice-studio", defaults={"subpath": ""}, methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"], strict_slashes=False)
+@app.route("/voice-studio/", defaults={"subpath": ""}, methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"], strict_slashes=False)
+@app.route("/voice-studio/<path:subpath>", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"], strict_slashes=False)
+def voice_studio_proxy(subpath: str = ""):
+    subpath_clean = str(subpath or "").lstrip("/")
+    if subpath_clean:
+        target_url = f"http://127.0.0.1:7860/voice-studio/{subpath_clean}"
+    else:
+        target_url = "http://127.0.0.1:7860/voice-studio/"
+    if request.query_string:
+        target_url = f"{target_url}?{request.query_string.decode('utf-8')}"
+
+    headers = {
+        k: v for k, v in request.headers.items()
+        if k.lower() not in ["host", "content-length"]
+    }
+    try:
+        import requests
+        resp = requests.request(
+            method=request.method,
+            url=target_url,
+            headers=headers,
+            data=request.get_data(),
+            cookies=request.cookies,
+            allow_redirects=False,
+            stream=True,
+            timeout=120,
+        )
+        excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection"]
+        resp_headers = []
+        for name, value in resp.raw.headers.items():
+            if name.lower() in excluded_headers:
+                continue
+            if name.lower() == "location":
+                value = value.replace("http://127.0.0.1:7860/voice-studio", "/voice-studio")
+                value = value.replace("http://localhost:7860/voice-studio", "/voice-studio")
+            resp_headers.append((name, value))
+        return Response(resp.iter_content(chunk_size=8192), resp.status_code, resp_headers)
+    except Exception as err:
+        app.logger.error("Voice studio proxy error: %s", err)
+        return jsonify({
+            "error": "voice_studio_unavailable",
+            "detail": "Voice Studio on port 7860 is starting or unavailable",
+            "raw": str(err)
+        }), 503
+
 
 
 def stop_owned_model(process):
