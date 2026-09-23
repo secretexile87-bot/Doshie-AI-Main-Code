@@ -11097,6 +11097,10 @@ def legacy_home():
 @app.route("/mansion")
 @app.route("/search")
 @app.route("/watch")
+@app.route("/appearance")
+@app.route("/maintenance")
+@app.route("/oversight")
+@app.route("/live")
 def home():
     dist_index = os.path.join(app.root_path, "static", "dist", "index.html")
     if os.path.exists(dist_index):
@@ -12119,6 +12123,8 @@ def recovery_delivery_settings():
 
 @app.route("/profiles", methods=["GET"])
 def profiles_get():
+    if "text/html" in request.headers.get("Accept", "") and not request.is_json:
+        return home()
     try:
         profiles = []
         for item in profile_catalog():
@@ -12553,6 +12559,8 @@ def chat_history_get():
 
 @app.route("/settings", methods=["GET"])
 def settings_get():
+    if "text/html" in request.headers.get("Accept", "") and not request.is_json:
+        return home()
     return jsonify(Doshie_settings.load_settings())
 
 
