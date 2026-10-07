@@ -47,7 +47,7 @@ def _environment_float(name, default, minimum=0.0, maximum=2.0):
 
 MODEL = os.environ.get(
     "YOSHI_MODEL",
-    "qwen2.5:14b"
+    "qwen3.5:9b"
 )
 CODING_MODEL = os.environ.get(
     "YOSHI_CODING_MODEL",
@@ -55,19 +55,19 @@ CODING_MODEL = os.environ.get(
 )
 FAST_MODEL = os.environ.get(
     "YOSHI_FAST_MODEL",
-    "qwen3.5:4b"
+    "qwen3.5:9b"
 )
 ADVANCED_MODEL = os.environ.get(
     "YOSHI_ADVANCED_MODEL",
-    "deepseek-r1:14b"
+    "qwen3.5:9b"
 )
 HEAVYWEIGHT_MODEL = os.environ.get(
     "YOSHI_HEAVYWEIGHT_MODEL",
-    "deepseek-r1:32b"
+    "deepseek-r1:14b"
 )
 VISION_MODEL = os.environ.get(
     "YOSHI_VISION_MODEL",
-    "moondream"
+    "qwen3.5:9b"
 )
 FALLBACK_VISION_MODEL = os.environ.get(
     "YOSHI_FALLBACK_VISION_MODEL",
@@ -85,11 +85,11 @@ PORT = _environment_int("YOSHI_MODEL_PORT", 11434, minimum=1024)
 FALLBACK_MODEL_PORT = _environment_int(
     "YOSHI_FALLBACK_MODEL_PORT", 11434, minimum=1024
 )
-CONTEXT_SIZE = _environment_int("YOSHI_CONTEXT_SIZE", 2048, minimum=512)
+CONTEXT_SIZE = _environment_int("YOSHI_CONTEXT_SIZE", 8192, minimum=512)
 MODEL_THREADS = _environment_int("YOSHI_MODEL_THREADS", 4)
 MAX_RESPONSE_TOKENS = _environment_int(
     "YOSHI_MAX_RESPONSE_TOKENS",
-    500,
+    2048,
     minimum=64
 )
 MODEL_TEMPERATURE = _environment_float(
@@ -98,7 +98,7 @@ MODEL_TEMPERATURE = _environment_float(
 )
 MODEL_TIMEOUT_SECONDS = _environment_int(
     "YOSHI_MODEL_TIMEOUT_SECONDS",
-    180,
+    300,
     minimum=10
 )
 MODEL_URLS = tuple(dict.fromkeys((
@@ -1495,7 +1495,8 @@ def ai_should_remember(text):
         ],
         "temperature": 0.0,
         "max_tokens": 4,
-        "think": False
+        "think": False,
+        "keep_alive": -1
     }).encode("utf-8")
 
     request = urllib.request.Request(
@@ -2122,7 +2123,13 @@ RESPONSE QUALITY RULES:
 - Do not offer extra help unless {profile} asks for it.
 - For technical help, use the DEPENDABLE TECHNICIAN workflow below and preserve {profile}'s existing work.
 - Check names, numbers, and internal consistency before answering.
-- You are equipped with live real-time tools (weather, local & national news feeds, live web search, tasks, notes, Spotify). Never claim you do not have access to news or the internet, as the workstation automatically routes and fetches live web data and news whenever needed.
+- FORMATTING & PRESENTATION EXCELLENCE:
+  - Make all answers exceptionally well-organized, visually clean, and easy to read.
+  - Break up walls of text into short, readable paragraphs, bullet points, numbered steps, or bold section headers.
+  - For comparisons, specifications, tabular data, or hardware metrics, format them cleanly using Markdown tables or bold bulleted cards.
+  - Use tasteful emojis (e.g. 💻, 🧠, ⚡, 💾, 🎮, 🟢, 📌) to organize sections where appropriate.
+  - You run directly on the host computer (`acer-nitro`). You DO have direct access to local system diagnostics, CPU, GPU, RAM, storage, and thermals. Never claim you cannot access or test the PC.
+- You are equipped with live real-time tools (weather, local & national news feeds, live web search, tasks, notes, Spotify, host hardware/system diagnostics). Never claim you do not have access to news, the internet, or the host PC hardware, as the workstation automatically routes and fetches live web data and system diagnostics whenever needed.
 
 WRITING AND LITERATURE RULES:
 
@@ -2298,7 +2305,7 @@ def _clean_model_reply(value):
 
 
 def choose_brain_model(user_text, brain_mode="auto"):
-    """Choose an allowlisted manual brain or route automatically."""
+    """Choose an allowlisted manual brain or route automatically based on complexity."""
     requested = str(brain_mode or "auto").strip().casefold()
     if requested in BRAIN_MODELS:
         return BRAIN_MODELS[requested]
@@ -2313,19 +2320,32 @@ def choose_brain_model(user_text, brain_mode="auto"):
         "source code", "write code", "coding mode",
         "game developer", "game engine", "sql", "database",
         "api endpoint", "git command", "linux command",
-        "refactor", "unit test"
+        "refactor", "unit test", "function", "class", "syntax",
+        "app", "create an app", "build an app", "make an app",
+        "test app", "new app", "web app", "application", "script",
+        "program", "code an app", "build a", "create a file",
+        "terminal", "cli", "run command", "agent"
     )
 
     if any(marker in prompt for marker in coding_markers):
         return CODING_MODEL
 
-    balanced_markers = (
+    deep_reasoning_markers = (
+        "think", "reason", "step by step", "deeply", "prove",
+        "proof", "logic", "philosophy", "deduce", "mathematical",
+        "solve", "calculate", "diagnose", "troubleshoot", "why exactly"
+    )
+    if any(marker in prompt for marker in deep_reasoning_markers):
+        return ADVANCED_MODEL
+
+    complex_markers = (
         "analyze", "compare", "explain why", "step by step",
         "detailed", "essay", "literature", "proofread", "rewrite",
         "plan", "research", "diagnose", "troubleshoot", "security",
-        "financial", "medical", "legal", "architecture"
+        "financial", "medical", "legal", "architecture", "solve",
+        "calculate", "math", "proof", "evaluate", "breakdown"
     )
-    if len(prompt) > 280 or any(marker in prompt for marker in balanced_markers):
+    if len(prompt) > 240 or any(marker in prompt for marker in complex_markers):
         return MODEL
 
     return FAST_MODEL
@@ -2340,13 +2360,14 @@ def ask_yoshi(
     brain_mode="auto",
     request_id="",
     memory_scope="all",
-    images=None
+    images=None,
+    agent_capabilities=None
 ):
     """Brain v4.3 profile-aware, model-routed Ollama request."""
 
     global URL
     selected_model = choose_brain_model(
-        str(user_text or "") + " " + str(system_context or ""),
+        user_text,
         brain_mode=brain_mode,
     )
     if images:
@@ -2371,18 +2392,12 @@ def ask_yoshi(
     if selected_model == CODING_MODEL:
         system_prompt += """
         
-CODING MODE:
-- Act as a patient Python and computer-science teacher.
-- Explain the plan before presenting substantial code.
-- Prefer small, testable functions and clear names.
-- Check syntax, edge cases, security, and data safety.
-- For game development, teach the game loop and components.
-- Never claim code was executed or verified unless a tool proves it.
-- When project evidence is needed, use only approved read-only tools.
-- In coding builder mode, inspect exact current text before propose_code_edit.
-- For a brand-new app file, use propose_new_file and keep it inside projects/.
-- A proposal must remain pending until an administrator approves it.
-- Never claim a proposed edit was applied.
+CODING & APP BUILDER MODE:
+- You are Doshie's Senior Software Engineer and App Builder.
+- When asked to create, code, or build an app, website, or script, write the REAL, COMPLETE, WORKING CODE directly.
+- NEVER suggest third-party no-code tools (like Glide, Airtable, Notion, or Base44) unless explicitly asked.
+- Provide full, production-ready code blocks with file names, exact directory paths, and commands to run them.
+- If the user wants you to autonomously execute bash commands, write files, and run tests directly on their machine, remind them they can open the Agent Console (/agent-console or the 'Agent CLI' button in the header) or start their prompt with '/build' or '/agent'.
 """.rstrip()
     if images:
         system_prompt += """
@@ -2462,6 +2477,8 @@ VISION MODE:
                     profile.casefold() in {"hermes", "aeriel duran"}
                 ),
                 images=images,
+                agent_capabilities=agent_capabilities,
+                brain_mode=brain_mode,
             )
             URL = model_url
             return _clean_model_reply(reply)
@@ -2604,75 +2621,94 @@ def get_battery_status():
 
 
 def get_device_status():
-    parts = []
-
-    # Battery
+    """Return comprehensive live PC hardware and system status formatted cleanly."""
     try:
-        result = subprocess.run(
-            ["termux-battery-status"],
-            capture_output=True,
-            text=True,
-            timeout=10
+        import Doshie_equipment_health, Doshie_control_panel
+        snap = Doshie_equipment_health.snapshot()
+        gpu = Doshie_control_panel.get_gpu_telemetry()
+
+        cpu = snap.get("cpu", {})
+        mem = snap.get("memory", {})
+        disk = snap.get("disk", {})
+        hostname = snap.get("hostname", "PC")
+        os_name = snap.get("os", "Linux")
+        os_release = snap.get("os_release", "")
+        overall = snap.get("overall", "healthy").lower()
+        uptime_sec = snap.get("uptime_seconds", 0)
+        sys_temp = snap.get("temperature_c")
+
+        if uptime_sec:
+            days = int(uptime_sec // 86400)
+            hours = int((uptime_sec % 86400) // 3600)
+            mins = int((uptime_sec % 3600) // 60)
+            uptime_str = f"{days}d {hours}h {mins}m" if days > 0 else f"{hours}h {mins}m"
+        else:
+            uptime_str = "Active"
+
+        health_icon = "🟢" if overall == "healthy" else ("🟡" if overall == "warning" else "🔴")
+
+        mem_used = mem.get("used_gb", 0)
+        mem_total = mem.get("total_gb", 0)
+        mem_pct = mem.get("percent", 0)
+        mem_free = round(max(0.0, mem_total - mem_used), 1)
+
+        disk_used = disk.get("used_gb", 0)
+        disk_total = disk.get("total_gb", 0)
+        disk_pct = disk.get("percent", 0)
+        disk_free = disk.get("free_gb", 0)
+
+        cpu_load = cpu.get("percent", 0)
+        cpu_cores = cpu.get("logical_cores", cpu.get("physical_cores", "?"))
+        cpu_temp_str = f" • {sys_temp}°C" if sys_temp else ""
+        cpu_state = str(cpu.get("state", "healthy")).capitalize()
+
+        arch = snap.get("architecture", "x86_64")
+
+        rows = [
+            f"### 🖥️ Host System Diagnostics (`{hostname}`)",
+            "",
+            "| Component | Utilization / Status | Details & Specifications |",
+            "| :--- | :--- | :--- |",
+            f"| 🧠 **CPU** | **{cpu_load}%** Load ({cpu_state}) | {cpu_cores} Cores{cpu_temp_str} |",
+            f"| ⚡ **Memory** | **{mem_used} GB** / {mem_total} GB ({mem_pct}%) | {mem_free} GB Free RAM |",
+            f"| 💾 **Storage** | **{disk_used} GB** / {disk_total} GB ({disk_pct}%) | {disk_free} GB Free NVMe/Disk |",
+        ]
+
+        if gpu.get("available"):
+            gpu_name = gpu.get("name", "NVIDIA GPU")
+            gpu_load = gpu.get("utilization_percent", 0)
+            gpu_temp = gpu.get("temperature_c", 0)
+            gpu_vram_used_gb = round(gpu.get("memory_used_mb", 0) / 1024, 1)
+            gpu_vram_total_gb = round(gpu.get("memory_total_mb", 0) / 1024, 1)
+            gpu_vram_pct = gpu.get("memory_percent", 0)
+            gpu_power = gpu.get("power_w", 0)
+            rows.append(
+                f"| 🎮 **GPU** | **{gpu_name}** ({gpu_load}% load) | {gpu_temp}°C • VRAM: {gpu_vram_used_gb} / {gpu_vram_total_gb} GB ({gpu_vram_pct}%) • {gpu_power}W |"
+            )
+
+        battery = snap.get("battery")
+        if battery:
+            plugged = "Plugged in (AC)" if battery.get("plugged_in") else "On Battery"
+            bat_pct = battery.get("percent", 100)
+            rows.append(
+                f"| 🔋 **Battery** | **{bat_pct}%** ({plugged}) | Power Management Active |"
+            )
+
+        rows.append(
+            f"| ⏱️ **System** | **Uptime:** {uptime_str} | {os_name} {os_release} (`{arch}`) |"
         )
+        rows.append("")
 
-        data = json.loads(result.stdout)
+        alerts = snap.get("alerts", [])
+        if alerts:
+            alert_str = ", ".join(alerts)
+            rows.append(f"> ⚠️ **System Alert**: {alert_str}")
+        else:
+            rows.append(f"> {health_icon} **Diagnostics Summary**: All hardware sensors and host resources are operating nominally.")
 
-        percentage = data.get("percentage", "?")
-        status = data.get("status", "unknown")
-        plugged = data.get("plugged", "unknown")
-        temperature = data.get("temperature", "?")
-        health = data.get("health", "unknown")
-
-        parts.append(f"Battery: {percentage}%")
-        parts.append(f"Status: {status}")
-        parts.append(f"Power: {plugged}")
-        parts.append(f"Battery temp: {temperature}°C")
-        parts.append(f"Health: {health}")
-
-    except Exception:
-        parts.append("Battery: unavailable")
-
-    # User storage
-    try:
-        usage = subprocess.run(
-            ["df", "-h", HOME],
-            capture_output=True,
-            text=True,
-            timeout=10
-        ).stdout.strip().splitlines()
-
-        if len(usage) >= 2:
-            fields = usage[-1].split()
-
-            if len(fields) >= 5:
-                total = fields[1]
-                used = fields[2]
-                free = fields[3]
-                percent = fields[4]
-
-                parts.append(f"Storage: {used} used of {total}")
-                parts.append(f"Storage free: {free}")
-                parts.append(f"Storage usage: {percent}")
-
-    except Exception:
-        parts.append("Storage: unavailable")
-
-    # Yoshi/Termux home usage
-    try:
-        result = subprocess.run(
-            ["du", "-sh", HOME],
-            capture_output=True,
-            text=True,
-            timeout=20
-        )
-
-        home_usage = result.stdout.strip().split()[0]
-        parts.append(f"Termux/Yoshi files: {home_usage}")
-
-    except Exception:
-        pass
-
-    return " | ".join(parts)
+        return "\n".join(rows)
+    except Exception as e:
+        return f"System status unavailable: {e}"
 
 
 

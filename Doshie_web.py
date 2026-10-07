@@ -83,7 +83,7 @@ app.secret_key = Doshie_profile_lock.get_session_secret()
 app.config.update(
     MAX_CONTENT_LENGTH=10 * 1024 * 1024,
     SESSION_COOKIE_NAME="Doshie_session",
-    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_SECURE=False,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     TRUSTED_HOSTS=None,
@@ -902,6 +902,28 @@ body.keyboard-open .app > [id$="Panel"] {
 .cp-table tr:hover td {
   background: rgba(255, 255, 255, 0.02);
 }
+
+@keyframes lightning-flash {
+    0% { box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.05); }
+    1% { box-shadow: inset 0 0 100px rgba(100, 150, 255, 0.4), inset 0 0 200px rgba(255, 255, 255, 0.2); }
+    2% { box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.05); }
+    3% { box-shadow: inset 0 0 80px rgba(100, 150, 255, 0.3), inset 0 0 150px rgba(255, 255, 255, 0.1); }
+    4% { box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.05); }
+    100% { box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.05); }
+}
+.app {
+    animation: lightning-flash 10s infinite;
+}
+a {
+    color: #6496ff;
+    text-shadow: 0 0 5px rgba(100, 150, 255, 0.5);
+    text-decoration: none;
+}
+a:hover {
+    color: #fff;
+    text-shadow: 0 0 15px rgba(100, 150, 255, 1);
+}
+
 </style>
 </head>
 
@@ -1026,7 +1048,10 @@ body.keyboard-open .app > [id$="Panel"] {
         <button class="side-action" onclick="signOutProfile()">
             <span class="side-icon">👥</span><span class="side-text">Switch account</span>
         </button>
-    </nav>
+            <button class="side-action" onclick="toggleDesktopSite(); closeSidebar()">
+            <span class="side-icon">🖥️</span><span class="side-text">Desktop Site</span>
+        </button>
+</nav>
     <div class="sidebar-foot side-text">Private · Runs on your TECRA</div>
 </aside>
 <div class="mobile-scrim" onclick="closeSidebar()"></div>
@@ -1040,8 +1065,8 @@ body.keyboard-open .app > [id$="Panel"] {
         </button>
         <div id="newsMarquee" class="news-marquee">
             <div id="newsTrack" class="news-marquee-track">
-                <a id="newsHeadline" class="news-headline" href="#"
-                   target="_blank" rel="noopener noreferrer">
+                <a id="newsHeadline" class="news-headline" href="#" target="_blank"
+                    rel="noopener noreferrer">
                     Loading local news…
                 </a>
                 <span class="news-separator" aria-hidden="true">•</span>
@@ -1112,2047 +1137,6 @@ body.keyboard-open .app > [id$="Panel"] {
         line-height:1.6;
     ">
         Loading Doshie status...
-    </div>
-
-    <div class="tools">
-        <button class="tool" onclick="quick('Weather')">🌦️ Weather</button>
-        <button class="tool" onclick="quick('/battery')">🔋 Battery</button>
-        <button class="tool" onclick="quick('/status')">📱 Status</button>
-        <button class="tool" onclick="quick('/memories')">🧠 Memories</button>
-        <button class="tool" onclick="enableMicrophone()">🎙️ Voice</button>
-        <button class="tool" onclick="openFamily()">👨‍👩‍👧‍👦 Family</button>
-        <button class="tool" onclick="openFamilyDashboard()">🏠 Family Dashboard</button>
-        <button class="tool" onclick="openShopping()">🛒 Shopping</button>
-        <button class="tool" onclick="openReminders()">⏰ Reminders</button>
-        <button class="tool" onclick="createBackup()">💾 Backup</button>
-        <button class="tool" onclick="openOrganizer()">📝 Organizer</button>
-        <button class="tool" style="font-weight:750; border-color:var(--accent,#6ad39a); background:rgba(106,211,154,0.12);" onclick="openControlPanel()">🎛️ Control Panel</button>
-        <button class="tool" onclick="openTechDashboard()">💻 Tech</button>
-        <button class="tool" onclick="openAiTutorial()">📘 AI Tutorial</button>
-        <button class="tool builder-launch" onclick="openBuilderPanel()">🧩 Build an app</button>
-        <button class="tool" onclick="quick('Open Media Studio. I want to generate an AI picture or video.')">✦ Media Studio</button>
-        <button class="tool" onclick="quick('Open the AI Growth Core dashboard and show shared memory, model routing, tools, and approval permissions.')">◎ Growth Core</button>
-        <button class="tool" onclick="openGamingDashboard()">🎮 Gaming</button>
-        <button class="tool" onclick="toggleSettings()">⚙️ Settings</button>
-        <button class="tool" onclick="newChat()">➕ New Chat</button>
-        <button class="tool" onclick="clearChat()">🗑️ Clear Chat</button>
-    </div>
-
-    <div id="gamingPanel" style="
-        display:none;
-        padding:14px;
-        background:#17201c;
-        border-bottom:1px solid #2b3932;
-    ">
-        <h3 style="margin-top:0;">🎮 Doshie Gaming</h3>
-
-        <div id="gamingDashboardContent">
-            Loading gaming status...
-        </div>
-
-        <div style="
-            margin-top:12px;
-            display:flex;
-            flex-wrap:wrap;
-            gap:8px;
-        ">
-            <button class="tool"
-                    onclick="quick('Help me optimize my gaming settings')">
-                ⚡ Optimize
-            </button>
-
-            <button class="tool"
-                    onclick="quick('Check my gaming performance')">
-                📊 Performance
-            </button>
-
-            <button class="tool"
-                    onclick="quick('Help me troubleshoot gaming hardware')">
-                🛠️ Hardware
-            </button>
-
-            <button class="tool"
-                    onclick="openGamingDashboard()">
-                🔄 Refresh
-            </button>
-
-            <button class="tool"
-                    onclick="closeGamingDashboard()">
-                Close
-            </button>
-        </div>
-    </div>
-
-    <div id="aiTutorialPanel" style="
-        display:none;
-        padding:14px;
-        background:#17201c;
-        border-bottom:1px solid #2b3932;
-    ">
-        <div class="panel-heading">
-            <strong>📘 Doshie Mini AI Tutorial</strong>
-            <button type="button" class="panel-close"
-                    onclick="closeAiTutorial()" aria-label="Close tutorial">✕</button>
-        </div>
-        <div style="color:var(--muted);margin:4px 0 12px;">
-            Five tiny lessons. Learn one idea, try it immediately, keep moving.
-        </div>
-        <div id="aiTutorialProgress" style="font-size:13px;margin-bottom:8px;"></div>
-        <div style="height:6px;background:#202824;border-radius:999px;overflow:hidden;margin-bottom:14px;">
-            <div id="aiTutorialProgressBar" style="height:100%;width:20%;background:var(--accent,#6ad39a);"></div>
-        </div>
-        <div id="aiTutorialLesson" style="padding:14px;background:#202824;border-radius:12px;line-height:1.55;"></div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
-            <button class="tool" onclick="aiTutorialPrevious()">← Previous</button>
-            <button class="tool" onclick="aiTutorialTry()">🧪 Try this</button>
-            <button class="tool" onclick="aiTutorialNext()">Next →</button>
-            <button class="tool" onclick="aiTutorialReset()">↺ Reset</button>
-        </div>
-    </div>
-
-    <!-- Robust Doshie Control Panel -->
-    <div id="controlPanel" class="control-panel-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="Doshie Control Center">
-        <div class="cp-header">
-            <div class="cp-title-group">
-                <h2 class="cp-title">🎛️ Doshie Control Deck</h2>
-                <span id="cpHealthBadge" class="cp-badge cp-badge-optimal">● ONLINE</span>
-                <small id="cpHostInfo" style="color:#64748b;font-size:0.75rem;">Loading host telemetry...</small>
-            </div>
-            <div class="cp-header-actions">
-                <button id="cpAutoRefreshBtn" class="cp-btn" onclick="toggleControlAutoRefresh()">
-                    <span id="cpAutoRefreshDot" style="color:#6ad39a;">●</span> Live (3s)
-                </button>
-                <button class="cp-btn" onclick="refreshControlPanelTelemetry(true)">↻ Refresh</button>
-                <button class="cp-btn cp-btn-danger" style="padding:6px 10px;" onclick="closeControlPanel()" aria-label="Close Control Panel">✕</button>
-            </div>
-        </div>
-
-        <div class="cp-tabs">
-            <button class="cp-tab-btn active" onclick="switchControlTab('telemetry')">📊 Telemetry &amp; GPU</button>
-            <button class="cp-tab-btn" onclick="switchControlTab('brain')">🧠 AI Brain &amp; Voice</button>
-            <button class="cp-tab-btn" onclick="switchControlTab('services')">⚡ Service Controls</button>
-            <button class="cp-tab-btn" onclick="switchControlTab('logs')">📜 Live Logs</button>
-            <button class="cp-tab-btn" onclick="switchControlTab('hub')">🚀 Subsystem Hub</button>
-        </div>
-
-        <div class="cp-body">
-            <!-- Tab 1: Telemetry & GPU -->
-            <div id="cpTab-telemetry" class="cp-tab-pane active">
-                <div class="cp-grid">
-                    <!-- GPU Card -->
-                    <div class="cp-card">
-                        <div class="cp-card-title">
-                            <span>🎮 GPU: <span id="cpGpuName" style="color:#6ad39a;">Detecting...</span></span>
-                            <span id="cpGpuTempBadge" class="cp-badge cp-badge-optimal">--°C</span>
-                        </div>
-                        <div>
-                            <div class="cp-stat-row">
-                                <span>VRAM Allocation</span>
-                                <span id="cpGpuMemText" class="cp-stat-value">0 / 0 MB (0%)</span>
-                            </div>
-                            <div class="cp-meter-container">
-                                <div id="cpGpuMemBar" class="cp-meter-bar" style="width:0%;"></div>
-                            </div>
-                        </div>
-                        <div class="cp-stat-row">
-                            <span>GPU Core Load</span>
-                            <span id="cpGpuUtil" class="cp-stat-value">0%</span>
-                        </div>
-                        <div class="cp-stat-row">
-                            <span>Power Draw</span>
-                            <span id="cpGpuPower" class="cp-stat-value">0.0 W</span>
-                        </div>
-                        <div class="cp-stat-row">
-                            <span>Fan Speed</span>
-                            <span id="cpGpuFan" class="cp-stat-value">0%</span>
-                        </div>
-                    </div>
-
-                    <!-- CPU & RAM Card -->
-                    <div class="cp-card">
-                        <div class="cp-card-title">
-                            <span>⚡ Host Compute &amp; RAM</span>
-                            <span id="cpUptimeText" style="font-size:0.75rem;color:#94a3b8;font-weight:normal;">Uptime: --</span>
-                        </div>
-                        <div>
-                            <div class="cp-stat-row">
-                                <span>CPU Utilization (<span id="cpCpuCores">-- cores</span>)</span>
-                                <span id="cpCpuText" class="cp-stat-value">0%</span>
-                            </div>
-                            <div class="cp-meter-container">
-                                <div id="cpCpuBar" class="cp-meter-bar" style="width:0%;"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="cp-stat-row">
-                                <span>RAM Usage</span>
-                                <span id="cpRamText" class="cp-stat-value">0 / 0 GB (0%)</span>
-                            </div>
-                            <div class="cp-meter-container">
-                                <div id="cpRamBar" class="cp-meter-bar" style="width:0%;"></div>
-                            </div>
-                        </div>
-                        <div class="cp-stat-row">
-                            <span>Load Average (1m, 5m, 15m)</span>
-                            <span id="cpCpuLoad" class="cp-stat-value">--</span>
-                        </div>
-                    </div>
-
-                    <!-- Storage & Host Card -->
-                    <div class="cp-card">
-                        <div class="cp-card-title">
-                            <span>💾 Storage &amp; Filesystem</span>
-                            <span id="cpDiskFree" style="font-size:0.8rem;color:#6ad39a;">-- GB free</span>
-                        </div>
-                        <div>
-                            <div class="cp-stat-row">
-                                <span>Primary Disk Usage</span>
-                                <span id="cpDiskText" class="cp-stat-value">0 / 0 GB (0%)</span>
-                            </div>
-                            <div class="cp-meter-container">
-                                <div id="cpDiskBar" class="cp-meter-bar" style="width:0%;"></div>
-                            </div>
-                        </div>
-                        <div class="cp-stat-row">
-                            <span>Linux Kernel</span>
-                            <span id="cpKernelText" class="cp-stat-value">--</span>
-                        </div>
-                        <div class="cp-stat-row">
-                            <span>Tailscale Mesh VPN</span>
-                            <span id="cpTailscaleStatus" class="cp-stat-value">--</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tab 2: AI Brain & Voice -->
-            <div id="cpTab-brain" class="cp-tab-pane">
-                <div class="cp-grid">
-                    <!-- AI Engine Card -->
-                    <div class="cp-card">
-                        <div class="cp-card-title">
-                            <span>🧠 Ollama AI Engine</span>
-                            <span id="cpOllamaBadge" class="cp-badge cp-badge-optimal">ONLINE</span>
-                        </div>
-                        <div class="cp-stat-row">
-                            <span>Default Active Brain:</span>
-                            <select id="cpBrainSelector" onchange="setControlBrainMode(this.value)" style="padding:4px 8px;border-radius:6px;background:#1e293b;color:#f1f5f9;border:1px solid #334155;">
-                                <option value="balanced">Balanced (qwen3.5:9b)</option>
-                                <option value="fast">Fast (qwen3.5:4b)</option>
-                                <option value="coding">Coding (qwen2.5-coder:7b)</option>
-                                <option value="advanced">Advanced (qwen3.5:9b)</option>
-                                <option value="vision">Vision (qwen3.5:4b)</option>
-                            </select>
-                        </div>
-                        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
-                            <button class="cp-btn cp-btn-primary" onclick="pingControlBrain()">⚡ Test Brain Ping</button>
-                            <span id="cpBrainPingResult" style="font-size:0.82rem;color:#94a3b8;">Click to test inference latency</span>
-                        </div>
-                    </div>
-
-                    <!-- Voice Engine Card -->
-                    <div class="cp-card">
-                        <div class="cp-card-title">
-                            <span>🎙️ Hermes Voice Engine</span>
-                            <span id="cpVoiceBadge" class="cp-badge cp-badge-optimal">READY</span>
-                        </div>
-                        <div class="cp-stat-row">
-                            <span>Engine / Voice</span>
-                            <span id="cpVoiceEngine" class="cp-stat-value">chatterbox-nano (Hermes)</span>
-                        </div>
-                        <div class="cp-stat-row">
-                            <span>Port / Device</span>
-                            <span id="cpVoicePort" class="cp-stat-value">5051 · CUDA (RTX 5070)</span>
-                        </div>
-                        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
-                            <button class="cp-btn cp-btn-primary" onclick="pingControlVoice()">🎙️ Test Voice Health</button>
-                            <span id="cpVoicePingResult" style="font-size:0.82rem;color:#94a3b8;">Click to test latency</span>
-                        </div>
-                    </div>
-
-                    <!-- Installed Models Table Card -->
-                    <div class="cp-card cp-card-wide">
-                        <div class="cp-card-title">
-                            <span>📦 Installed Ollama Models (<span id="cpModelCount">0</span>)</span>
-                            <small style="color:#64748b;font-weight:normal;">Local GGUF models on disk</small>
-                        </div>
-                        <div style="overflow-x:auto;">
-                            <table class="cp-table">
-                                <thead>
-                                    <tr>
-                                        <th>Model Name</th>
-                                        <th>Size</th>
-                                        <th>Parameters</th>
-                                        <th>Quantization</th>
-                                        <th>Family</th>
-                                        <th>Updated</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="cpModelsTableBody">
-                                    <tr><td colspan="7">Loading model inventory...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tab 3: Service Controls -->
-            <div id="cpTab-services" class="cp-tab-pane">
-                <div class="cp-grid">
-                    <div class="cp-card">
-                        <div class="cp-card-title">
-                            <span>🌐 Doshie Web Server</span>
-                            <span id="cpServiceDoshieBadge" class="cp-badge cp-badge-optimal">RUNNING</span>
-                        </div>
-                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Flask web interface, chat engine, memory recall, and multi-profile session manager.</p>
-                        <div style="margin-top:6px;">
-                            <button class="cp-btn cp-btn-danger" onclick="triggerControlAction('restart_doshie')">↻ Restart Doshie Web</button>
-                        </div>
-                    </div>
-
-                    <div class="cp-card">
-                        <div class="cp-card-title">
-                            <span>🎙️ Hermes Voice Server</span>
-                            <span id="cpServiceVoiceBadge" class="cp-badge cp-badge-optimal">RUNNING</span>
-                        </div>
-                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Chatterbox neural TTS &amp; speech synthesis service on port 5051.</p>
-                        <div style="margin-top:6px;">
-                            <button class="cp-btn cp-btn-danger" onclick="triggerControlAction('restart_voice')">↻ Restart Voice Server</button>
-                        </div>
-                    </div>
-
-                    <div class="cp-card">
-                        <div class="cp-card-title">
-                            <span>🧠 Ollama Daemon</span>
-                            <span id="cpServiceOllamaBadge" class="cp-badge cp-badge-optimal">RUNNING</span>
-                        </div>
-                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Local LLM inference daemon managing CUDA execution on RTX 5070.</p>
-                        <div style="margin-top:6px;">
-                            <button class="cp-btn cp-btn-danger" onclick="triggerControlAction('restart_ollama')">↻ Restart Ollama</button>
-                        </div>
-                    </div>
-
-                    <div class="cp-card">
-                        <div class="cp-card-title">
-                            <span>🧹 Memory &amp; Cache Maintenance</span>
-                            <span class="cp-badge cp-badge-optimal">READY</span>
-                        </div>
-                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Flush temporary buffers, run Python GC, and release cached model weights.</p>
-                        <div style="margin-top:6px;">
-                            <button class="cp-btn" onclick="triggerControlAction('flush_cache')">🧹 Flush System Cache</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tab 4: Live Logs -->
-            <div id="cpTab-logs" class="cp-tab-pane">
-                <div class="cp-card cp-card-wide" style="gap:10px;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-                        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                            <button id="cpLogBtn-doshie" class="cp-btn cp-btn-primary" onclick="setControlLogService('doshie')">Doshie Web</button>
-                            <button id="cpLogBtn-voice" class="cp-btn" onclick="setControlLogService('voice')">Hermes Voice</button>
-                            <button id="cpLogBtn-ollama" class="cp-btn" onclick="setControlLogService('ollama')">Ollama</button>
-                            <button id="cpLogBtn-supervisor" class="cp-btn" onclick="setControlLogService('supervisor')">Supervisor</button>
-                        </div>
-                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                            <input id="cpLogFilter" type="text" placeholder="Filter logs..." oninput="filterControlLogs()" style="padding:5px 10px;border-radius:6px;background:#0d1117;border:1px solid #30363d;color:#e2e8f0;font-size:0.82rem;width:140px;">
-                            <select id="cpLogLines" onchange="fetchControlLogs(true)" style="padding:5px 8px;border-radius:6px;background:#0d1117;border:1px solid #30363d;color:#e2e8f0;font-size:0.82rem;">
-                                <option value="25">25 lines</option>
-                                <option value="50" selected>50 lines</option>
-                                <option value="100">100 lines</option>
-                            </select>
-                            <button class="cp-btn" onclick="fetchControlLogs(true)">↻ Refresh</button>
-                            <button class="cp-btn" onclick="copyControlLogs()">📋 Copy</button>
-                        </div>
-                    </div>
-                    <div id="cpLogTerminal" class="cp-terminal">Select a service to view logs...</div>
-                </div>
-            </div>
-
-            <!-- Tab 5: Subsystem Hub -->
-            <div id="cpTab-hub" class="cp-tab-pane">
-                <div class="cp-grid">
-                    <div class="cp-card" style="cursor:pointer;" onclick="closeControlPanel(); openTechDashboard();">
-                        <div class="cp-card-title">💻 Tech Dashboard</div>
-                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Hardware sensors, thermal states, and raw equipment diagnostics.</p>
-                        <span style="color:#6ad39a;font-size:0.82rem;font-weight:600;">Open Dashboard →</span>
-                    </div>
-                    <div class="cp-card" style="cursor:pointer;" onclick="closeControlPanel(); openHermesWorkspace();">
-                        <div class="cp-card-title">🧠 Hermes AI Workspace</div>
-                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Direct administrative AI dialogue, code review, and system planning.</p>
-                        <span style="color:#6ad39a;font-size:0.82rem;font-weight:600;">Open Hermes AI →</span>
-                    </div>
-                    <div class="cp-card" style="cursor:pointer;" onclick="closeControlPanel(); openAdminControl();">
-                        <div class="cp-card-title">🛡️ Admin Security Center</div>
-                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Profile lock PINs, user accounts, agent foundry, and system policies.</p>
-                        <span style="color:#6ad39a;font-size:0.82rem;font-weight:600;">Open Admin Center →</span>
-                    </div>
-                    <div class="cp-card" style="cursor:pointer;" onclick="closeControlPanel(); openFamilyDashboard();">
-                        <div class="cp-card-title">🏠 Family Dashboard</div>
-                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Shared notes, calendar events, routines, and family member profiles.</p>
-                        <span style="color:#6ad39a;font-size:0.82rem;font-weight:600;">Open Family Dashboard →</span>
-                    </div>
-                    <div class="cp-card" style="cursor:pointer;" onclick="closeControlPanel(); openGamingDashboard();">
-                        <div class="cp-card-title">🎮 Gaming Dashboard</div>
-                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Gaming modes, performance presets, and gaming assistant companion.</p>
-                        <span style="color:#6ad39a;font-size:0.82rem;font-weight:600;">Open Gaming Dashboard →</span>
-                    </div>
-                    <div class="cp-card" style="cursor:pointer;" onclick="closeControlPanel(); toggleSettings();">
-                        <div class="cp-card-title">⚙️ Full Settings</div>
-                        <p style="font-size:0.82rem;color:#94a3b8;margin:0;">Appearance, voice preferences, API keys, storage backups, and account settings.</p>
-                        <span style="color:#6ad39a;font-size:0.82rem;font-weight:600;">Open Settings →</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="techPanel" style="
-        display:none;
-        padding:14px;
-        background:#17201c;
-        border-bottom:1px solid #2b3932;
-    ">
-        <h3 style="margin-top:0;">💻 Doshie Tech</h3>
-
-        <div id="techDashboardContent">
-            Loading tech status...
-        </div>
-
-        <button class="tool"
-                style="margin-top:10px;"
-                onclick="openTechDashboard()">
-            🔄 Refresh
-        </button>
-
-        <button class="tool"
-                style="margin-top:10px;"
-                onclick="closeTechDashboard()">
-            Close
-        </button>
-    </div>
-
-    <div id="hermesPanel" class="hermes-workspace" style="display:none;">
-        <div class="panel-heading">
-            <div>
-                <strong>🧠 Hermes AI</strong>
-                <small>Your portable technical partner · administrator only</small>
-            </div>
-            <button type="button" class="panel-close"
-                    onclick="closeHermesWorkspace()" aria-label="Close Hermes AI">✕</button>
-        </div>
-        <div id="hermesMessages" class="hermes-messages" aria-live="polite">
-            <div class="hermes-empty">Opening your private Hermes workspace…</div>
-        </div>
-        <div id="hermesStatus" class="hermes-status" aria-live="polite"></div>
-        <form class="hermes-composer" onsubmit="sendHermesMessage(event)">
-            <button type="button" class="tool" onclick="startHermesVoice()"
-                    aria-label="Talk to Hermes">🎙️</button>
-            <textarea id="hermesInput" rows="2" maxlength="4000"
-                      placeholder="Ask Hermes to inspect, explain, plan, or propose a change…"></textarea>
-            <button type="submit" class="send">Send</button>
-            <button type="button" class="tool" onclick="clearHermesHistory()">Clear</button>
-        </form>
-        <small class="permission-note">
-            Hermes may inspect and advise. File or AI changes still follow your approval policy.
-        </small>
-    </div>
-
-    <script>
-    function hermesMessage(role, content) {
-        const item = document.createElement("div");
-        item.className = "hermes-message " + (role === "user" ? "user" : "assistant");
-        const label = document.createElement("small");
-        label.textContent = role === "user" ? activeProfile : "Hermes AI";
-        const body = document.createElement("div");
-        body.textContent = content;
-        item.append(label, body);
-        return item;
-    }
-
-    function renderHermesHistory(messages) {
-        const list = document.getElementById("hermesMessages");
-        list.replaceChildren();
-        if (!messages.length) {
-            const empty = document.createElement("div");
-            empty.className = "hermes-empty";
-            empty.textContent = "Hermes is ready. Ask for help with Doshie, coding, equipment, or planning.";
-            list.append(empty);
-            return;
-        }
-        messages.forEach(message => {
-            list.append(hermesMessage(message.role, message.content));
-        });
-        list.scrollTop = list.scrollHeight;
-    }
-
-    async function hermesApi(path, options = {}) {
-        const config = Object.assign({}, options);
-        config.headers = Object.assign(
-            {"Content-Type": "application/json"},
-            options.headers || {}
-        );
-        const response = await fetch(path, config);
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || "Hermes AI is unavailable.");
-        return data;
-    }
-
-    async function loadHermesHistory() {
-        const status = document.getElementById("hermesStatus");
-        try {
-            const data = await hermesApi(
-                "/hermes-ai/history?profile=" + encodeURIComponent(activeProfile)
-            );
-            renderHermesHistory(data.messages || []);
-            status.textContent = "";
-        } catch (error) {
-            status.textContent = error.message;
-        }
-    }
-
-    function openHermesWorkspace() {
-        const record = typeof profileRecord === "function"
-            ? profileRecord(activeProfile) : null;
-        if (!record || !record.is_admin) {
-            statusBox.textContent = "Administrator access is required for Hermes AI.";
-            return;
-        }
-        if (window.showChatHome) window.showChatHome();
-        const panel = document.getElementById("hermesPanel");
-        panel.style.display = "flex";
-        closeSidebar();
-        loadHermesHistory();
-        document.getElementById("hermesInput").focus({preventScroll: true});
-    }
-
-    function closeHermesWorkspace() {
-        document.getElementById("hermesPanel").style.display = "none";
-        if (window.showChatHome) window.showChatHome();
-    }
-
-    async function sendHermesMessage(event) {
-        event.preventDefault();
-        const input = document.getElementById("hermesInput");
-        const status = document.getElementById("hermesStatus");
-        const message = input.value.trim();
-        if (!message) return;
-        const list = document.getElementById("hermesMessages");
-        const empty = list.querySelector(".hermes-empty");
-        if (empty) empty.remove();
-        list.append(hermesMessage("user", message));
-        list.scrollTop = list.scrollHeight;
-        input.value = "";
-        status.textContent = "Hermes is thinking…";
-        try {
-            const data = await hermesApi("/hermes-ai/chat", {
-                method: "POST",
-                body: JSON.stringify({profile: activeProfile, message})
-            });
-            list.append(hermesMessage("assistant", data.reply));
-            list.scrollTop = list.scrollHeight;
-            status.textContent = "";
-            if (DoshieSettings.speak_replies && typeof speakDoshieReply === "function") {
-                speakDoshieReply(data.reply);
-            }
-        } catch (error) {
-            status.textContent = error.message;
-        }
-    }
-
-    async function clearHermesHistory() {
-        const status = document.getElementById("hermesStatus");
-        try {
-            await hermesApi("/hermes-ai/history", {
-                method: "DELETE",
-                body: JSON.stringify({profile: activeProfile})
-            });
-            renderHermesHistory([]);
-            status.textContent = "Hermes history cleared.";
-        } catch (error) {
-            status.textContent = error.message;
-        }
-    }
-
-    function DoshieNativeSpeechPlugin() {
-        const capacitor = window.Capacitor;
-        if (!capacitor) return null;
-        if (capacitor.Plugins?.DiYoshiSpeech) {
-            return capacitor.Plugins.DiYoshiSpeech;
-        }
-        if (capacitor.Plugins?.DoshieSpeech) {
-            return capacitor.Plugins.DoshieSpeech;
-        }
-        return typeof capacitor.registerPlugin === "function"
-            ? (capacitor.registerPlugin("DiYoshiSpeech") || capacitor.registerPlugin("DoshieSpeech"))
-            : null;
-    }
-
-    async function startHermesVoice() {
-        const status = document.getElementById("hermesStatus");
-        const nativeSpeech = DoshieNativeSpeechPlugin();
-        if (nativeSpeech) {
-            status.textContent = "Listening through Android…";
-            try {
-                const result = await nativeSpeech.startListening({
-                    language: navigator.language || "en-US"
-                });
-                document.getElementById("hermesInput").value =
-                    String(result?.text || "").trim();
-                status.textContent = "Voice captured. Tap Send when ready.";
-            } catch (error) {
-                status.textContent = String(
-                    error?.message || error || "Hermes could not hear that clearly."
-                );
-            }
-            return;
-        }
-        const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!Recognition) {
-            status.textContent = "Voice input is unavailable on this device.";
-            return;
-        }
-        const recognition = new Recognition();
-        recognition.lang = navigator.language || "en-US";
-        recognition.interimResults = false;
-        status.textContent = "Listening…";
-        recognition.onresult = event => {
-            document.getElementById("hermesInput").value =
-                event.results[0][0].transcript;
-            status.textContent = "Voice captured. Tap Send when ready.";
-        };
-        recognition.onerror = () => {
-            status.textContent = "Hermes could not hear that clearly.";
-        };
-        recognition.start();
-    }
-    </script>
-
-    <div id="builderPanel" class="builder-panel" style="display:none;">
-        <div class="panel-heading">
-            <strong>🧩 Build with Doshie</strong>
-            <button type="button" class="panel-close" onclick="closeBuilderPanel()">✕</button>
-        </div>
-        <p class="builder-subtitle">Describe an app or code change. Doshie will plan it, show the files it wants to change, test the result, and wait for your approval.</p>
-        <label class="settings-field" for="builderGoal">
-            <span>What should Doshie build?</span>
-            <textarea id="builderGoal" rows="4" maxlength="4000" placeholder="Example: Build a family messenger with dark-red MySpace styling and a collapsible mobile chat bar."></textarea>
-        </label>
-        <div class="builder-options">
-            <label><input type="checkbox" id="builderPreview" checked> Show a live preview</label>
-            <label><input type="checkbox" id="builderTests" checked> Run tests and repair errors</label>
-            <label><input type="checkbox" id="builderBackup" checked> Create a backup first</label>
-        </div>
-        <div class="admin-actions">
-            <button class="tool" type="button" onclick="sendBuilderRequest()">Start build conversation</button>
-            <button class="tool" type="button" onclick="closeBuilderPanel()">Close</button>
-        </div>
-        <small class="permission-note">Approval lock: Doshie proposes changes first. Nothing is written, installed, or restarted without your approval.</small>
-        <div class="permission-queue-head">
-            <strong>Admin approval queue</strong>
-            <div class="admin-actions">
-                <button class="tool" type="button" onclick="requestRegressionCheck()">Request full test</button>
-                <button class="tool" type="button" onclick="loadPermissionRequests()">Refresh</button>
-            </div>
-        </div>
-        <div id="permissionRequestList" class="permission-request-list">No requests yet.</div>
-        <div id="permissionRequestStatus" class="permission-request-status" aria-live="polite"></div>
-    </div>
-    <script>
-    function openBuilderPanel() {
-        const record = typeof profileRecord === "function" ? profileRecord(activeProfile) : null;
-        if (!record || !record.is_admin) {
-            statusBox.textContent = "Administrator access is required for Build with Doshie.";
-            return;
-        }
-        const panel = document.getElementById("builderPanel");
-        if (panel) panel.style.display = "block";
-        loadPermissionRequests();
-        const goal = document.getElementById("builderGoal");
-        if (goal) goal.focus();
-    }
-    function closeBuilderPanel() {
-        const panel = document.getElementById("builderPanel");
-        if (panel) panel.style.display = "none";
-    }
-    function sendBuilderRequest() {
-        const goal = (document.getElementById("builderGoal")?.value || "").trim();
-        if (!goal) { document.getElementById("builderGoal")?.focus(); return; }
-        const preview = document.getElementById("builderPreview")?.checked;
-        const tests = document.getElementById("builderTests")?.checked;
-        const backup = document.getElementById("builderBackup")?.checked;
-        const request = "[CODING BUILDER MODE] " + goal +
-            "\\n\\nWork in approval stages. " +
-            (backup ? "Create a backup proposal first. " : "") +
-            "Inspect approved source files, then use propose_code_edit to place every exact change in my admin approval queue. Never claim a proposal was applied. " +
-            (tests ? "Run tests and repair failures. " : "") +
-            (preview ? "Open or describe a live preview when ready. " : "") +
-            "Do not use root, delete files, install packages, or restart services without my approval.";
-        closeBuilderPanel();
-        if (typeof quick === "function") quick(request);
-        else {
-            const input = document.getElementById("messageInput") || document.querySelector("#input");
-            if (input) { input.value = request; input.focus(); }
-        }
-    }
-
-    async function permissionApi(path, options = {}) {
-        const config = Object.assign({}, options);
-        config.headers = Object.assign(
-            {"Content-Type": "application/json"},
-            options.headers || {}
-        );
-        const response = await fetch(path, config);
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || "Approval request failed.");
-        return data;
-    }
-
-    function permissionActionButton(label, handler) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "tool";
-        button.textContent = label;
-        button.addEventListener("click", handler);
-        return button;
-    }
-
-    function renderPermissionRequests(records) {
-        const list = document.getElementById("permissionRequestList");
-        list.replaceChildren();
-        if (!records.length) {
-            list.textContent = "No approval requests yet.";
-            return;
-        }
-        records.forEach(record => {
-            const card = document.createElement("article");
-            card.className = "permission-request-card";
-            const heading = document.createElement("strong");
-            heading.textContent = record.summary || record.action;
-            const meta = document.createElement("small");
-            meta.textContent = [
-                record.status,
-                record.requested_by,
-                record.target
-            ].filter(Boolean).join(" · ");
-            card.append(heading, meta);
-            if (record.action === "exact_replace") {
-                const details = document.createElement("details");
-                const summary = document.createElement("summary");
-                summary.textContent = "Review exact change";
-                const code = document.createElement("pre");
-                code.textContent =
-                    "CURRENT\\n" + (record.old_text || "") +
-                    "\\n\\nPROPOSED\\n" + (record.new_text || "");
-                details.append(summary, code);
-                card.append(details);
-            }
-            const actions = document.createElement("div");
-            actions.className = "admin-actions";
-            if (record.status === "pending") {
-                actions.append(
-                    permissionActionButton("Approve", () => reviewPermissionRequest(record.id, "approve")),
-                    permissionActionButton("Reject", () => reviewPermissionRequest(record.id, "reject"))
-                );
-            }
-            if (record.status === "completed" && record.backup) {
-                actions.append(
-                    permissionActionButton("Rollback", () => rollbackPermissionRequest(record.id))
-                );
-            }
-            card.append(actions);
-            list.append(card);
-        });
-    }
-
-    async function loadPermissionRequests() {
-        const status = document.getElementById("permissionRequestStatus");
-        try {
-            const data = await permissionApi(
-                "/permission-requests?profile=" + encodeURIComponent(activeProfile)
-            );
-            renderPermissionRequests(data.requests || []);
-            status.textContent = "";
-        } catch (error) {
-            status.textContent = error.message;
-        }
-    }
-
-    async function reviewPermissionRequest(id, decision) {
-        const status = document.getElementById("permissionRequestStatus");
-        status.textContent = decision === "approve" ? "Verifying approved action..." : "Rejecting request...";
-        try {
-            const data = await permissionApi(
-                "/permission-requests/" + encodeURIComponent(id) + "/review",
-                {method: "POST", body: JSON.stringify({profile: activeProfile, decision})}
-            );
-            status.textContent = "Request " + data.request.status + ".";
-            await loadPermissionRequests();
-        } catch (error) {
-            status.textContent = error.message;
-        }
-    }
-
-    async function rollbackPermissionRequest(id) {
-        const status = document.getElementById("permissionRequestStatus");
-        status.textContent = "Restoring the verified backup...";
-        try {
-            await permissionApi(
-                "/permission-requests/" + encodeURIComponent(id) + "/rollback",
-                {method: "POST", body: JSON.stringify({profile: activeProfile})}
-            );
-            status.textContent = "Rollback completed.";
-            await loadPermissionRequests();
-        } catch (error) {
-            status.textContent = error.message;
-        }
-    }
-
-    async function requestRegressionCheck() {
-        const status = document.getElementById("permissionRequestStatus");
-        try {
-            await permissionApi(
-                "/permission-requests/regression",
-                {method: "POST", body: JSON.stringify({profile: activeProfile})}
-            );
-            status.textContent = "Regression check added for approval.";
-            await loadPermissionRequests();
-        } catch (error) {
-            status.textContent = error.message;
-        }
-    }
-    </script>
-
-    <div id="adminPanel" style="display:none;">
-        <div class="panel-heading">
-            <strong>🛡️ Doshie Admin Control Center</strong>
-            <button type="button" class="panel-close" onclick="closeAdminControl()">✕</button>
-        </div>
-        <div class="admin-control-grid">
-            <section class="admin-card admin-card-wide">
-                <small>LIVE STATUS</small>
-                <h2>Doshie command center</h2>
-                <p id="adminControlSummary">Checking Doshie...</p>
-                <button class="tool" onclick="refreshAdminControl()">Refresh status</button>
-            </section>
-            <section class="admin-card">
-                <small>REPLY SPEED</small>
-                <strong id="adminReplySpeed">No messages measured yet</strong>
-                <span id="adminReplyDetail">Send a message to begin measuring.</span>
-            </section>
-            <section class="admin-card">
-                <small>AI MODEL</small>
-                <strong id="adminModelName">Checking...</strong>
-                <span id="adminModelDetail">Local model health</span>
-            </section>
-            <section class="admin-card admin-card-wide">
-                <label class="settings-field" for="adminBrainMode">
-                    <span>Default brain for this device</span>
-                    <select id="adminBrainMode" onchange="setAdminBrainMode()">
-                        <option value="auto">Auto router</option>
-                        <option value="fast">Fast</option>
-                        <option value="balanced">Balanced</option>
-                        <option value="coding">Coding</option>
-                        <option value="advanced">Advanced</option>
-                        <option value="vision" data-admin-only="true">Vision</option>
-                    </select>
-                </label>
-                <small>Fast is best for everyday replies. Advanced is slower.</small>
-            </section>
-            <section class="admin-card admin-card-wide">
-                <small>SYSTEM CHECKS</small>
-                <div id="adminHealthChecks" class="admin-health-list">Loading checks...</div>
-            </section>
-            <section class="admin-card admin-card-wide">
-                <small>EQUIPMENT HEALTH</small>
-                <strong id="equipmentHealthSummary">Checking this Doshie host...</strong>
-                <div id="equipmentHealthDetails" class="admin-health-list"></div>
-                <div id="equipmentHealthAlerts" class="permission-request-status"></div>
-            </section>
-            <section class="admin-card admin-card-wide">
-                <small>CONTROLS</small>
-                <div class="admin-actions">
-                    <button class="tool" onclick="talkToDoshieFromControl()">💬 Talk to Doshie</button>
-                    <button class="tool" onclick="openProfileCustomizer()">Customize design</button>
-                    <button class="tool" onclick="toggleSettings()">All settings</button>
-                    <button class="tool" onclick="createBackup()">Create backup</button>
-                    <button class="tool" onclick="restartDoshieService()">Restart Doshie</button>
-                </div>
-            </section>
-            <section class="admin-card admin-card-wide terminal-card">
-                <div class="terminal-heading">
-                    <div>
-                        <small>USER-LEVEL TERMINAL</small>
-                        <h2>Tecra command deck</h2>
-                        <p>Customize Doshie colors, interface code, model behavior, backups, and services as your normal Linux user.</p>
-                    </div>
-                    <span class="terminal-user-badge">USER ONLY</span>
-                </div>
-                <div class="terminal-hints">
-                    <button type="button" class="tool" onclick="setAdminTerminalCommand('cd /home/hermes-duran/Doshie && code static/Doshie-app.css')">Open theme CSS</button>
-                    <button type="button" class="tool" onclick="setAdminTerminalCommand('cd /home/hermes-duran/Doshie && code static/Doshie-app.js')">Open interface JS</button>
-                    <button type="button" class="tool" onclick="setAdminTerminalCommand('cd /home/hermes-duran/Doshie && git status --short')">Check changes</button>
-                    <button type="button" class="tool" onclick="setAdminTerminalCommand('cd /home/hermes-duran/Doshie && scripts/backup-Doshie-now')">Create backup</button>
-                </div>
-                <pre id="adminTerminalOutput" class="admin-terminal-output">Terminal closed. Open it to control Tecra as your user.</pre>
-                <div class="admin-terminal-input-row">
-                    <input id="adminTerminalInput" placeholder="Type a command, e.g. code static/Doshie-app.css" autocomplete="off">
-                    <button type="button" class="tool" onclick="startAdminTerminal()">Open</button>
-                    <button type="button" class="tool" onclick="sendAdminTerminalInput()">Run</button>
-                    <button type="button" class="tool" onclick="stopAdminTerminal()">Close</button>
-                </div>
-                <small class="permission-note">Full user-level shell. It does not automatically run as root. If you type <code>sudo</code>, Linux asks for your password.</small>
-            </section>
-            <section class="admin-card admin-card-wide command-center-card">
-                <div class="agent-foundry-heading">
-                    <div>
-                        <small>COMMAND CENTER</small>
-                        <h2>🧠 Doshie Helper Fleet</h2>
-                        <p>Live view of Doshie specialist brains and activity.</p>
-                    </div>
-                    <button class="tool" onclick="loadHelperCommandCenter()">↻ Refresh</button>
-                </div>
-                <div id="helperFleet" class="agent-list">Loading helper fleet...</div>
-                <div id="helperActivityFeed" class="admin-terminal-output">Loading activity...</div>
-            </section>
-            <section class="admin-card admin-card-wide agent-foundry-card">
-                <div class="agent-foundry-heading">
-                    <div>
-                        <small>AGENT FOUNDRY</small>
-                        <h2>Build Doshie specialists</h2>
-                        <p>Create focused local AIs with separate brains, memory boundaries, and approved capabilities.</p>
-                    </div>
-                    <button class="tool agent-new-button" onclick="openAgentEditor()">＋ New AI</button>
-                </div>
-                <div class="agent-safety-lock">
-                    <span>🔐 Hermes approval lock</span>
-                    <small>Every agent can propose actions. None receives shell, root, or unattended control.</small>
-                </div>
-                <div id="agentFoundryStatus" class="admin-path-status"></div>
-                <div class="helper-command-bar">
-                    <strong>🧠 Doshie Helper Command Center</strong>
-                    <span id="helperCommandSummary">Loading helper crew...</span>
-                    <button type="button" class="tool" onclick="loadAgentFoundry()">↻ Refresh</button>
-                </div>
-                <div id="agentList" class="agent-list">
-                    <span class="agent-empty">Loading Agent Foundry...</span>
-                </div>
-
-                <form id="agentEditor" class="agent-editor" hidden onsubmit="saveAgent(event)">
-                    <input id="agentId" type="hidden">
-                    <div class="agent-editor-title">
-                        <strong id="agentEditorTitle">Create a new AI</strong>
-                        <button type="button" class="panel-close" onclick="closeAgentEditor()">✕</button>
-                    </div>
-                    <div class="agent-form-grid">
-                        <label class="settings-field">
-                            <span>AI name</span>
-                            <input id="agentName" maxlength="48" required placeholder="Example: Neon Architect">
-                        </label>
-                        <label class="settings-field">
-                            <span>Identity color</span>
-                            <input id="agentAccent" type="color" value="#35f2d0">
-                        </label>
-                        <label class="settings-field agent-field-wide">
-                            <span>Main responsibility</span>
-                            <input id="agentPurpose" maxlength="240" required
-                                   placeholder="Designs and checks Doshie interfaces">
-                        </label>
-                        <label class="settings-field">
-                            <span>Brain</span>
-                            <select id="agentBrain">
-                                <option value="auto">Auto router</option>
-                                <option value="fast">Fast · everyday</option>
-                                <option value="balanced">Balanced · planning</option>
-                                <option value="coding">Coder · software</option>
-                                <option value="advanced">Advanced · deep work</option>
-                                <option value="vision" data-admin-only="true">Vision · photos</option>
-                            </select>
-                        </label>
-                        <label class="settings-field">
-                            <span>Memory boundary</span>
-                            <select id="agentMemory">
-                                <option value="none">None · clean session</option>
-                                <option value="private">Hermes private only</option>
-                                <option value="shared">Shared family only</option>
-                                <option value="all">Private + shared</option>
-                            </select>
-                        </label>
-                        <label class="settings-field agent-field-wide">
-                            <span>Personality and operating rules</span>
-                            <textarea id="agentInstructions" maxlength="4000"
-                                      placeholder="How should this AI think, speak, and solve problems?"></textarea>
-                        </label>
-                    </div>
-                    <fieldset class="agent-capabilities">
-                        <legend>Approved capability requests</legend>
-                        <label><input type="checkbox" value="memory_read"> Read allowed memory</label>
-                        <label><input type="checkbox" value="memory_write"> Propose new memory</label>
-                        <label><input type="checkbox" value="service_health"> Check system health</label>
-                        <label><input type="checkbox" value="project_read"> Read project files</label>
-                        <label><input type="checkbox" value="code_proposals"> Propose code changes</label>
-                        <label><input type="checkbox" value="web_research"> Research the web</label>
-                    </fieldset>
-                    <label class="settings-toggle agent-enabled-toggle">
-                        <span>Agent enabled</span>
-                        <input id="agentEnabled" type="checkbox" checked>
-                    </label>
-                    <div class="admin-actions">
-                        <button class="tool" type="submit">Save AI</button>
-                        <button class="tool" type="button" onclick="closeAgentEditor()">Cancel</button>
-                    </div>
-                </form>
-
-                <div id="agentTestConsole" class="agent-test-console" hidden>
-                    <div class="agent-editor-title">
-                        <strong id="agentTestTitle">Test agent</strong>
-                        <button type="button" class="panel-close" onclick="closeAgentTest()">✕</button>
-                    </div>
-                    <textarea id="agentTestMessage" maxlength="2000"
-                              placeholder="Ask this specialist something..."></textarea>
-                    <div class="admin-actions">
-                        <button class="tool" onclick="runAgentTest()">Run protected test</button>
-                    </div>
-                    <pre id="agentTestReply" class="agent-test-reply">Ready.</pre>
-                </div>
-            </section>
-            <section class="admin-card admin-card-wide">
-                <small>MOVE TO A BIGGER HOME</small>
-                <p>Create a verified package with profiles, memories, settings, and customization.</p>
-                <button class="tool" onclick="createMigrationPackage()">Create migration package</button>
-                <div id="migrationStatus" class="admin-path-status"></div>
-            </section>
-        </div>
-    </div>
-
-    <div id="settingsPanel" style="
-        display:none;
-        padding:14px;
-        background:#17201c;
-        border-bottom:1px solid #2b3932;
-    ">
-        <div class="panel-heading">
-            <strong>⚙️ Settings</strong>
-            <button type="button"
-                    class="panel-close"
-                    onclick="closeSettings()"
-                    aria-label="Close settings">✕</button>
-        </div>
-
-        <div class="settings-stack">
-            <details class="settings-group" open>
-                <summary>General</summary>
-                <div class="settings-body">
-                    <label class="settings-toggle">
-                        <span>Automatic memory</span>
-                        <input type="checkbox" id="autoMemory">
-                    </label>
-                    <label class="settings-toggle">
-                        <span>Speak Doshie's replies</span>
-                        <input type="checkbox" id="speakReplies">
-                    </label>
-                    <label class="settings-field" for="DoshieMode">
-                        <span>Doshie mode</span>
-                        <select id="DoshieMode"
-                                onchange="applyDoshieMode()">
-                            <option value="family">🏠 Family</option>
-                            <option value="normal">🦖 Normal</option>
-                            <option value="tech">💻 Tech</option>
-                            <option value="gaming">🎮 Gaming</option>
-                        </select>
-                    </label>
-                    <label class="settings-field" for="weatherLocation">
-                        <span>Weather location</span>
-                        <input id="weatherLocation" placeholder="El Paso">
-                    </label>
-                    <small class="permission-note">
-                        Weather uses this saved city. Doshie does not read your
-                        device location unless you explicitly approve a future location feature.
-                    </small>
-                    <section id="familyInviteAdmin" class="family-invite-admin" hidden>
-                        <h4>Family invitations</h4>
-                        <p class="permission-note">
-                            Create a one-time, seven-day invitation for a protected
-                            family account. Only administrators can use this section.
-                        </p>
-                        <label class="settings-field" for="familyInviteTarget">
-                            <span>Family account</span>
-                            <select id="familyInviteTarget"></select>
-                        </label>
-                        <button type="button" class="tool"
-                                onclick="createFamilyInvite()">Create invitation</button>
-                        <textarea id="familyInviteUrl" readonly
-                                  placeholder="The secure invitation link appears here."></textarea>
-                        <button type="button" class="tool"
-                                onclick="copyFamilyInvite()">Copy link</button>
-                        <div id="familyInviteAdminStatus" role="status"></div>
-                        <div id="familyInviteList"></div>
-                    </section>
-                </div>
-            </details>
-
-            <details class="settings-group">
-                <summary>Account &amp; privacy</summary>
-                <div class="settings-body">
-                    <small style="color:var(--muted);">
-                        Choose a photo and use no password, a PIN, or a regular password.
-                    </small>
-                    <label class="settings-field" for="profileLockTarget">
-                        <span>Account</span>
-                        <select id="profileLockTarget"
-                                onchange="refreshProfileLockControls()"></select>
-                    </label>
-                    <div class="profile-photo-editor">
-                        <div class="profile-photo-preview" aria-hidden="true">
-                            <img id="profilePhotoPreview" alt="" hidden>
-                            <span id="profilePhotoInitials">Y</span>
-                        </div>
-                        <div class="profile-photo-tools">
-                            <strong>Profile photo</strong>
-                            <div>
-                                <label class="tool profile-photo-picker">
-                                    📷 Choose photo
-                                    <input id="profilePhotoInput" type="file"
-                                           accept="image/png,image/jpeg,image/webp"
-                                           onchange="uploadProfileAvatar(event)">
-                                </label>
-                                <button type="button" class="tool"
-                                        onclick="removeProfileAvatar()">Remove</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="profilePhotoStatus" class="profile-photo-status"
-                         aria-live="polite"></div>
-                    <small class="permission-note">
-                        Doshie cannot open a live camera by itself. A camera or
-                        photo library opens only after you tap Choose photo and approve it.
-                    </small>
-                    <label class="settings-field" for="profileSecurityType">
-                        <span>Sign-in protection</span>
-                        <select id="profileSecurityType"
-                                onchange="updateProfileSecurityFields()">
-                            <option value="none">No password</option>
-                            <option value="pin">PIN (4–8 digits)</option>
-                            <option value="password">Password</option>
-                        </select>
-                    </label>
-                    <div id="profileLockStatus" class="profile-lock-status"
-                         aria-live="polite">Choose a profile.</div>
-                    <label class="settings-field" for="profileCurrentPin">
-                        <span id="profileCurrentCredentialLabel">Current sign-in (if requested)</span>
-                        <span class="credential-field"><input id="profileCurrentPin" type="password"
-                               maxlength="64"
-                               autocomplete="current-password"><button type="button" onclick="toggleCredentialField('profileCurrentPin',this)" aria-label="Show current sign-in">👁</button></span>
-                    </label>
-                    <label class="settings-field" for="profileNewPin">
-                        <span id="profileNewCredentialLabel">New sign-in</span>
-                        <span class="credential-field"><input id="profileNewPin" type="password"
-                               maxlength="64" autocomplete="new-password"><button type="button" onclick="toggleCredentialField('profileNewPin',this)" aria-label="Show new sign-in">👁</button></span>
-                    </label>
-                    <label class="settings-field" for="profileConfirmPin">
-                        <span id="profileConfirmCredentialLabel">Confirm new sign-in</span>
-                        <span class="credential-field"><input id="profileConfirmPin" type="password"
-                               maxlength="64"
-                               autocomplete="new-password"><button type="button" onclick="toggleCredentialField('profileConfirmPin',this)" aria-label="Show confirmation">👁</button></span>
-                    </label>
-                    <div class="profile-lock-actions">
-                        <button type="button" class="tool"
-                                onclick="saveProfileSecurity()">🔐 Save account security</button>
-                        <button type="button" class="tool profile-session-toggle"
-                                onclick="unlockProfileInside()">🔓 Unlock access</button>
-                        <button type="button" class="tool profile-session-toggle"
-                                onclick="lockProfileNow()">🔒 Lock now</button>
-                        <button type="button" class="tool"
-                                onclick="removeProfileProtection()">Remove protection</button>
-                    </div>
-                    <small style="color:var(--muted);">
-                        Passwords and PINs are stored only as one-way hashes on the TECRA.
-                    </small>
-                    <hr>
-                    <h4>Forgot sign-in recovery</h4>
-                    <small id="profileRecoveryCurrent" class="permission-note">
-                        Add an email address, phone number, or both.
-                    </small>
-                    <label class="settings-field" for="profileRecoveryEmail">
-                        <span>Recovery email</span>
-                        <input id="profileRecoveryEmail" type="email"
-                               autocomplete="email" placeholder="name@example.com">
-                    </label>
-                    <label class="settings-field" for="profileRecoveryPhone">
-                        <span>Recovery phone</span>
-                        <input id="profileRecoveryPhone" type="tel"
-                               autocomplete="tel" placeholder="+1 555 123 4567">
-                    </label>
-                    <button type="button" class="tool"
-                            onclick="saveProfileRecovery()">Save recovery methods</button>
-                    <div id="profileRecoveryStatus" role="status"></div>
-                </div>
-            </details>
-
-            <details class="settings-group"
-                     ontoggle="if (this.open) refreshHealthSyncControls()">
-                <summary>Health sync</summary>
-                <div class="settings-body">
-                    <p class="customizer-intro">
-                        Samsung Health data can be shared through an Android Health Connect bridge.
-                        Access is off by default and belongs to the signed-in account only.
-                    </p>
-                    <label class="settings-field" for="healthSyncEnabled">
-                        <span>Allow Health sync</span>
-                        <input id="healthSyncEnabled" type="checkbox">
-                    </label>
-                    <div class="profile-lock-actions" id="healthPermissionChoices">
-                        <label><input type="checkbox" data-health-permission value="activity"> Activity</label>
-                        <label><input type="checkbox" data-health-permission value="heart"> Heart</label>
-                        <label><input type="checkbox" data-health-permission value="sleep"> Sleep</label>
-                        <label><input type="checkbox" data-health-permission value="workouts"> Workouts</label>
-                        <label><input type="checkbox" data-health-permission value="body"> Body</label>
-                        <label><input type="checkbox" data-health-permission value="nutrition"> Nutrition</label>
-                        <label><input type="checkbox" data-health-permission value="medications"> Medications</label>
-                    </div>
-                    <button type="button" class="tool" onclick="saveHealthSyncControls()">
-                        🫀 Save Health permissions
-                    </button>
-                    <div id="healthSyncStatus" class="profile-lock-status" aria-live="polite"></div>
-                    <small class="permission-note">
-                        Sync requires this account to be unlocked, explicit consent to be enabled,
-                        and an online connection. Doshie never grants Health access to another profile.
-                    </small>
-                </div>
-            </details>
-
-            <details id="profileCustomizeGroup" class="settings-group" open>
-                <summary>Full app &amp; website design control</summary>
-                <div class="settings-body profile-customizer">
-                    <p class="customizer-intro">
-                        Personalize <strong id="customizingProfileName">this account</strong>.
-                        Changes stay private on the TECRA.
-                    </p>
-                    <label class="settings-field" for="profileStatus">
-                        <span>Status</span>
-                        <input id="profileStatus" maxlength="80"
-                               placeholder="What are you up to?">
-                    </label>
-                    <label class="settings-field" for="profileAbout">
-                        <span>About Me</span>
-                        <textarea id="profileAbout" maxlength="240" rows="3"
-                                  placeholder="A few things Doshie should show on your profile."></textarea>
-                    </label>
-                    <label class="settings-field" for="profileInterests">
-                        <span>Interests &amp; favorites</span>
-                        <textarea id="profileInterests" maxlength="240" rows="2"
-                                  placeholder="Games, music, teams, hobbies, creators…"></textarea>
-                    </label>
-                    <label class="settings-field" for="profileMusicUrl">
-                        <span>Profile music link</span>
-                        <input id="profileMusicUrl" type="url" maxlength="500"
-                               placeholder="https://open.spotify.com/...">
-                        <small>HTTPS link only. Music opens after the user taps it.</small>
-                    </label>
-                    <fieldset class="accent-picker">
-                        <legend>Accent color</legend>
-                        <div class="accent-options" id="profileAccentOptions">
-                            <button type="button" data-accent="mint" title="Mint"
-                                    onclick="chooseProfileAccent('mint')"></button>
-                            <button type="button" data-accent="forest" title="Forest"
-                                    onclick="chooseProfileAccent('forest')"></button>
-                            <button type="button" data-accent="teal" title="Teal"
-                                    onclick="chooseProfileAccent('teal')"></button>
-                            <button type="button" data-accent="blue" title="Blue"
-                                    onclick="chooseProfileAccent('blue')"></button>
-                            <button type="button" data-accent="purple" title="Purple"
-                                    onclick="chooseProfileAccent('purple')"></button>
-                            <button type="button" data-accent="rose" title="Rose"
-                                    onclick="chooseProfileAccent('rose')"></button>
-                            <button type="button" data-accent="orange" title="Orange"
-                                    onclick="chooseProfileAccent('orange')"></button>
-                            <button type="button" data-accent="amber" title="Amber"
-                                    onclick="chooseProfileAccent('amber')"></button>
-                        </div>
-                    </fieldset>
-                    <label class="settings-field" for="profileTheme">
-                        <span>Theme</span>
-                        <select id="profileTheme" onchange="renderProfilePreview()">
-                            <option value="forest">🌲 Forest</option>
-                            <option value="midnight">🌙 Midnight</option>
-                            <option value="jungle">🌿 Jungle</option>
-                            <option value="sunset">🌅 Sunset</option>
-                            <option value="stars">✨ Stars</option>
-                            <option value="tron">◈ Tron Grid</option>
-                        </select>
-                    </label>
-                    <div id="tronThemeControls" class="tron-controls" hidden>
-                        <strong>Tron interface controls</strong>
-                        <label class="settings-field" for="profileCustomColor">
-                            <span>Neon color</span>
-                            <input id="profileCustomColor" type="color" value="#31f6ff"
-                                   oninput="renderProfilePreview()">
-                        </label>
-                        <label class="settings-field" for="profileFontFamily">
-                            <span>Font</span>
-                            <select id="profileFontFamily" onchange="renderProfilePreview()">
-                                <option value="tech">Tech</option>
-                                <option value="system">System</option>
-                                <option value="mono">Monospace</option>
-                                <option value="compact">Compact</option>
-                                <option value="classic">Classic</option>
-                            </select>
-                        </label>
-                        <label class="settings-field" for="profileFontSize">
-                            <span>Text size <output id="profileFontSizeValue">100%</output></span>
-                            <input id="profileFontSize" type="range"
-                                   min="85" max="130" step="15" value="100"
-                                   oninput="renderProfilePreview()">
-                        </label>
-                    </div>
-                    <label class="settings-field" for="profileNewsTopic">
-                        <span>News topic</span>
-                        <select id="profileNewsTopic">
-                            <option value="local">Local · El Paso</option>
-                            <option value="national">National</option>
-                            <option value="tech">Technology</option>
-                            <option value="gaming">Gaming</option>
-                            <option value="family">Family</option>
-                        </select>
-                    </label>
-                    <label class="settings-toggle">
-                        <span>Show the news banner</span>
-                        <input type="checkbox" id="profileNewsVisible">
-                    </label>
-                    <label class="settings-field" for="profileAutoLock">
-                        <span>Lock protected account after</span>
-                        <select id="profileAutoLock">
-                            <option value="5">5 minutes</option>
-                            <option value="15">15 minutes</option>
-                            <option value="30">30 minutes</option>
-                            <option value="60">1 hour</option>
-                            <option value="0">When the app closes</option>
-                        </select>
-                    </label>
-                    <label class="settings-toggle">
-                        <span>Lock when app closes</span>
-                        <input type="checkbox" id="profileLockOnClose">
-                    </label>
-                    <div id="adminCssControls" class="admin-css-controls" hidden>
-                        <div class="full-control-heading">
-                            <div>
-                                <strong>Full website CSS control</strong>
-                                <small>Change backgrounds, panels, buttons, spacing, fonts, and glow.</small>
-                            </div>
-                            <button type="button" class="tool"
-                                    onclick="openAdminControl()">Open command deck</button>
-                        </div>
-                        <div class="theme-preset-actions">
-                            <button type="button" class="tool"
-                                    onclick="applyAdminThemePreset('dark-red')">Dark red MySpace</button>
-                            <button type="button" class="tool"
-                                    onclick="applyAdminThemePreset('deep-red')">Deep red minimal</button>
-                        </div>
-                        <label class="settings-field" for="profileCustomCss">
-                            <span>Custom CSS <small>Admin only · MySpace mode</small></span>
-                            <textarea id="profileCustomCss" rows="9" maxlength="12000"
-                                      spellcheck="false"
-                                      placeholder="/* Change Doshie directly, like a MySpace profile */"
-                                      oninput="previewAdminCustomCss()"></textarea>
-                        </label>
-                        <div class="customizer-actions">
-                            <button type="button" class="tool"
-                                    onclick="resetAdminCustomCss()">Reset CSS</button>
-                        </div>
-                        <small>Your CSS previews immediately. Save profile style to keep it.</small>
-                    </div>
-                    <div id="profileStylePreview" class="profile-style-preview">
-                        <strong id="profilePreviewName">Profile</strong>
-                        <span id="profilePreviewStatus">Your status appears here.</span>
-                        <p id="profilePreviewAbout">Your About Me appears here.</p>
-                        <p id="profilePreviewInterests">Your interests appear here.</p>
-                        <a id="profilePreviewMusic" href="#" target="_blank"
-                           rel="noopener" hidden>🎵 Open profile music</a>
-                    </div>
-                    <div class="customizer-actions">
-                        <button type="button" class="tool"
-                                onclick="restoreProfileDefaults()">Restore defaults</button>
-                        <button type="button" class="tool"
-                                onclick="saveProfilePreferences()">Save profile style</button>
-                    </div>
-                    <div id="profilePreferenceStatus" class="profile-photo-status"
-                         aria-live="polite"></div>
-                </div>
-            </details>
-
-            <details class="settings-group">
-                <summary>Voice</summary>
-                <div class="settings-body">
-                    <label class="settings-field" for="voiceIdentity">
-                        <span>Voice identity</span>
-                        <select id="voiceIdentity"
-                                onchange="applyVoiceIdentity()">
-                            <option value="hermes">🧠 Hermes — Ultra-Fast Neural (~300ms)</option>
-                            <option value="piper">🔊 Piper — Fast Offline Local (~1s)</option>
-                            <option value="clone">🎙️ Hermes Clone — Custom Voice (~11s)</option>
-                            <option value="Doshie">🦖 Doshie — Friendly device voice</option>
-                            <option value="device">📱 Custom device voice</option>
-                        </select>
-                        <small>Choose the personality first; fine-tune the engine, voice, speed, and pitch below.</small>
-                    </label>
-                    <label class="settings-field" for="voiceEngine">
-                        <span>Voice engine</span>
-                        <select id="voiceEngine"
-                                onchange="updateVoiceControls()">
-                            <option value="kokoro">⚡ Kokoro Neural — RTX 5070 GPU (~150ms)</option>
-                            <option value="edge">⚡ Edge Neural — Streaming (~300ms)</option>
-                            <option value="piper">🔊 Piper TTS — 100% Offline Local (~1s)</option>
-                            <option value="clone">🎙️ Hermes Clone — Custom Cloned Voice</option>
-                            <option value="device">📱 Device Voice (Browser Web Speech)</option>
-                        </select>
-                    </label>
-                    <label class="settings-field" for="voiceSelect">
-                        <span>Device voice fallback</span>
-                        <select id="voiceSelect"></select>
-                    </label>
-                    <label class="settings-field" for="voicePreset">
-                        <span>Voice preset</span>
-                        <select id="voicePreset"
-                                onchange="applyVoicePreset()">
-                            <option value="custom">Custom</option>
-                            <option value="calm">🌿 Calm</option>
-                            <option value="tech">💻 Tech</option>
-                            <option value="dino">🦖 Dino</option>
-                        </select>
-                    </label>
-                    <label class="settings-field" for="voiceRate">
-                        <span>Speech rate</span>
-                        <input id="voiceRate" type="range"
-                               min="0.5" max="1.5" step="0.1" value="1.0">
-                    </label>
-                    <label class="settings-field" for="voicePitch">
-                        <span>Pitch</span>
-                        <input id="voicePitch" type="range"
-                               min="0.5" max="1.5" step="0.1" value="1.0">
-                    </label>
-                    <div class="voice-settings-actions">
-                        <button type="button" class="tool"
-                                onclick="enableMicrophone()">🎙 Enable microphone</button>
-                        <button type="button" class="tool" id="testVoiceBtn"
-                                onclick="testVoice(this)">▶ Test voice</button>
-                        <button type="button" class="tool"
-                                onclick="stopDoshieVoice()">⏹ Stop voice</button>
-                    </div>
-                    <div id="voiceTestStatus" class="profile-photo-status" style="color:var(--accent,#10b981);font-weight:600;"
-                         aria-live="polite"></div>
-                    <div id="microphoneStatus" class="profile-photo-status"
-                         aria-live="polite">Tap Enable microphone once on each device.</div>
-                    <small style="color:var(--muted);">
-                        The private clone runs on the TECRA. Microphone input
-                        uses this device's browser; Ctrl+Space also starts or stops listening.
-                    </small>
-                </div>
-            </details>
-
-            <details class="settings-group">
-                <summary>App maintenance</summary>
-                <div class="settings-body">
-                    <small style="color:var(--muted);">
-                        Refresh reloads the screen. Clear cache downloads the
-                        newest interface. Restart safely restarts Doshie's web
-                        service. Your memories, profiles, and voice stay safe.
-                    </small>
-                    <div class="maintenance-actions">
-                        <button type="button" class="tool"
-                                onclick="refreshDoshieApp()">
-                            ↻ Refresh app
-                        </button>
-                        <button type="button" class="tool"
-                                onclick="clearDoshieCache()">
-                            🧹 Clear cache
-                        </button>
-                        <button type="button"
-                                class="tool maintenance-restart"
-                                onclick="restartDoshieApp()">
-                            🔄 Restart Doshie
-                        </button>
-                    </div>
-                </div>
-            </details>
-        </div>
-
-        <div class="settings-actions">
-            <button class="tool" onclick="saveSettings()">Save</button>
-            <button class="tool" onclick="closeSettings()">Close</button>
-        </div>
-    </div>
-
-    <div id="spotifyPanel" style="
-        display:none;
-        padding:14px;
-        background:#17201c;
-        border-bottom:1px solid #2b3932;
-        overflow:auto;
-    ">
-        <div class="panel-heading">
-            <strong>🎵 Spotify</strong>
-            <button type="button"
-                    class="panel-close"
-                    onclick="closeSpotify()"
-                    aria-label="Close Spotify">✕</button>
-        </div>
-
-        <div id="spotifyStatusText" class="spotify-status">
-            Checking Spotify...
-        </div>
-
-        <section id="spotifySetupSection">
-            <p style="margin-top:0;">
-                <strong>Connect in four steps</strong><br>
-                This is a one-time setup for this Doshie profile.
-            </p>
-            <ol class="spotify-setup-steps">
-                <li>
-                    <a class="tool spotify-dashboard-link"
-                       href="https://developer.spotify.com/dashboard"
-                       target="_blank" rel="noopener">
-                        Open Spotify Dashboard
-                    </a>
-                    and choose <strong>Create app</strong>.
-                </li>
-                <li>
-                    Name it <strong>Doshie</strong>. If Spotify asks which
-                    product you will use, choose <strong>Web API</strong>.
-                </li>
-                <li>
-                    In the app settings, add this exact
-                    <strong>Redirect URI</strong>, then save:
-                    <div class="spotify-copy-row">
-                        <code id="spotifyCallbackUri"></code>
-                        <button type="button" class="tool"
-                                onclick="copySpotifyCallback()">
-                            Copy URI
-                        </button>
-                    </div>
-                </li>
-                <li>
-                    Copy the app's <strong>Client ID</strong>—not the
-                    Client Secret—and paste it below.
-                </li>
-            </ol>
-            <label class="settings-field" for="spotifyClientId">
-                <span>Spotify Client ID</span>
-                <input id="spotifyClientId"
-                       autocomplete="off"
-                       placeholder="Paste the Client ID">
-            </label>
-            <button class="tool spotify-connect-button"
-                    id="spotifyConnectButton"
-                    onclick="saveAndConnectSpotify()">
-                Save &amp; Connect Spotify
-            </button>
-            <small style="display:block;margin-top:10px;color:var(--muted);">
-                Doshie uses Spotify's PKCE sign-in. Your Spotify password and
-                Client Secret are never requested or stored.
-            </small>
-        </section>
-
-        <section id="spotifyPlayerSection" hidden>
-            <div class="spotify-player-card">
-                <img id="spotifyAlbumArt" class="spotify-art"
-                     src="/static/Doshie-icon.svg" alt="Current album art">
-                <div class="spotify-track-copy">
-                    <div class="spotify-state-row">
-                        <span id="spotifyPlaybackState"
-                              class="spotify-playback-state">Not playing</span>
-                        <small id="spotifyDeviceName">No active player</small>
-                    </div>
-                    <strong id="spotifyTrackName">Nothing playing</strong>
-                    <span id="spotifyArtistName">Open Spotify on a device</span>
-                    <div class="spotify-progress-row">
-                        <progress id="spotifyProgress" class="spotify-progress"
-                                  max="1" value="0"></progress>
-                        <small id="spotifyTime">0:00 / 0:00</small>
-                    </div>
-                </div>
-            </div>
-
-            <div class="spotify-controls" aria-label="Spotify controls">
-                <button class="spotify-control" onclick="spotifyControl('previous')"
-                        aria-label="Previous track">⏮</button>
-                <button id="spotifyPlayPauseButton"
-                        class="spotify-control spotify-main-control"
-                        onclick="spotifyTogglePlayback()" aria-label="Play">▶</button>
-                <button class="spotify-control" onclick="spotifyControl('next')"
-                        aria-label="Next track">⏭</button>
-                <button class="spotify-control" onclick="loadSpotifyNowPlaying(true)"
-                        aria-label="Refresh player">↻</button>
-            </div>
-
-            <div class="spotify-search">
-                <input id="spotifySearchInput"
-                       placeholder="Song, artist, or album"
-                       onkeydown="if(event.key === 'Enter') searchSpotify()">
-                <button class="tool" onclick="searchSpotify()">Search</button>
-            </div>
-            <div id="spotifySearchResults" class="spotify-list"></div>
-
-            <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px;">
-                <strong>My playlists</strong>
-                <button class="tool" onclick="loadSpotifyPlaylists()">Refresh</button>
-            </div>
-            <div id="spotifyPlaylistList" class="spotify-list"></div>
-
-            <button class="tool"
-                    style="margin-top:18px;"
-                    onclick="disconnectSpotify()">
-                Disconnect this profile
-            </button>
-        </section>
-    </div>
-
-    <div id="remindersPanel" style="
-        display:none;
-        padding:14px;
-        background:#17201c;
-        border-bottom:1px solid #2b3932;
-    ">
-        <h3 style="margin-top:0;">⏰ Reminders</h3>
-
-        <div style="
-            padding:10px;
-            margin-bottom:12px;
-            background:#202824;
-            border-radius:10px;
-        ">
-            <input
-                id="newReminderText"
-                placeholder="Reminder..."
-                style="width:100%;padding:8px;margin-bottom:8px;"
-            >
-
-            <input
-                id="newReminderDate"
-                type="date"
-                style="padding:8px;margin-bottom:8px;"
-            >
-
-            <select id="newReminderFamily"
-                    style="padding:8px;margin-bottom:8px;">
-                <option value="">Unassigned</option>
-            </select>
-
-            <button class="tool" onclick="createReminder()">
-                ➕ Add Reminder
-            </button>
-        </div>
-
-        <div id="remindersList">Loading...</div>
-
-        <button class="tool" onclick="closeReminders()">
-            Close
-        </button>
-    </div>
-
-    <div id="shoppingPanel" style="
-        display:none;
-        padding:14px;
-        background:#17201c;
-        border-bottom:1px solid #2b3932;
-    ">
-        <h3 style="margin-top:0;">🛒 Family Shopping</h3>
-
-        <select id="shoppingFamilyFilter"
-                onchange="openShopping()"
-                style="padding:8px;margin-bottom:10px;">
-            <option value="">Everyone</option>
-        </select>
-
-        <div style="
-            padding:10px;
-            margin-bottom:12px;
-            background:#202824;
-            border-radius:10px;
-        ">
-            <input
-                id="newShoppingItem"
-                placeholder="Item"
-                style="width:100%;padding:8px;margin-bottom:8px;"
-            >
-
-            <input
-                id="newShoppingQuantity"
-                placeholder="Quantity, optional"
-                style="width:100%;padding:8px;margin-bottom:8px;"
-            >
-
-
-            <select id="newShoppingCategory"
-                    style="padding:8px;margin-bottom:8px;">
-                <option>Groceries</option>
-                <option>Pets</option>
-                <option>Household</option>
-                <option>School</option>
-                <option>Tech</option>
-                <option selected>Other</option>
-            </select>
-
-            <button class="tool" onclick="createShoppingItem()">
-                ➕ Add Item
-            </button>
-        </div>
-
-        <div id="shoppingList">Loading...</div>
-
-        <button class="tool" onclick="closeShopping()">
-            Close
-        </button>
-    </div>
-
-    <div id="familyDashboardPanel" style="
-        display:none;
-        padding:14px;
-        background:#17201c;
-        border-bottom:1px solid #2b3932;
-    ">
-        <h3 style="margin-top:0;">🏠 Family Dashboard</h3>
-
-        <div id="familyTodayBox" style="
-            padding:12px;
-            margin-bottom:14px;
-            background:#202824;
-            border-radius:12px;
-        ">
-            Loading today's family plan...
-        </div>
-
-        <div id="familyDashboardList">Loading...</div>
-
-        <button class="tool" onclick="closeFamilyDashboard()">
-            Close
-        </button>
-    </div>
-
-    <div id="familyPanel" style="
-        display:none;
-        padding:14px;
-        background:#17201c;
-        border-bottom:1px solid #2b3932;
-    ">
-        <h3 style="margin-top:0;">👨‍👩‍👧‍👦 Family</h3>
-
-        <div style="
-            padding:10px;
-            margin-bottom:12px;
-            background:#202824;
-            border-radius:10px;
-        ">
-            <input
-                id="newFamilyName"
-                placeholder="Name"
-                style="width:100%;padding:8px;margin-bottom:8px;"
-            >
-
-            <input
-                id="newFamilyRole"
-                placeholder="Role, e.g. wife, son, daughter"
-                style="width:100%;padding:8px;margin-bottom:8px;"
-            >
-
-            <input
-                id="newFamilyNotes"
-                placeholder="Optional notes"
-                style="width:100%;padding:8px;margin-bottom:8px;"
-            >
-
-            <button class="tool" onclick="createFamilyMember()">
-                ➕ Add Family Member
-            </button>
-        </div>
-
-        <div id="familyList">Loading...</div>
-
-        <button class="tool" onclick="closeFamily()">
-            Close
-        </button>
-    </div>
-
-    <div id="organizerPanel" style="
-        display:none;
-        padding:14px;
-        background:#17201c;
-        border-bottom:1px solid #2b3932;
-    ">
-        <h3 style="margin-top:0;">📝 Organizer</h3>
-
-        <div style="
-            display:flex;
-            flex-wrap:wrap;
-            gap:8px;
-            margin-bottom:12px;
-        ">
-            <button class="tool" onclick="setOrganizerTag('all')">All</button>
-            <button class="tool" onclick="setOrganizerTag('Tech')">Tech</button>
-            <button class="tool" onclick="setOrganizerTag('Home')">Home</button>
-            <button class="tool" onclick="setOrganizerTag('School')">School</button>
-            <button class="tool" onclick="setOrganizerTag('Gaming')">Gaming</button>
-            <button class="tool" onclick="setOrganizerTag('Personal')">Personal</button>
-            <button class="tool" onclick="setOrganizerTag('General')">General</button>
-        </div>
-
-        <div style="margin-bottom:16px;">
-            <h4>✅ Tasks</h4>
-
-            <div style="
-                padding:10px;
-                margin-bottom:12px;
-                background:#202824;
-                border-radius:10px;
-            ">
-                <input
-                    id="newTaskText"
-                    placeholder="New task..."
-                    style="
-                        width:100%;
-                        padding:8px;
-                        margin-bottom:8px;
-                    "
-                >
-
-                <div style="
-                    display:flex;
-                    flex-wrap:wrap;
-                    gap:8px;
-                ">
-                    <select id="newTaskPriority" style="padding:8px;">
-                        <option>Low</option>
-                        <option selected>Normal</option>
-                        <option>High</option>
-                    </select>
-
-                    <input
-                        id="newTaskDue"
-                        type="date"
-                        style="padding:8px;"
-                    >
-
-                    <select id="newTaskTag" style="padding:8px;">
-                        <option>General</option>
-                        <option>Tech</option>
-                        <option>Home</option>
-                        <option>School</option>
-                        <option>Gaming</option>
-                        <option>Personal</option>
-                    </select>
-
-
-                    <select id="newTaskFamily" style="padding:8px;">
-                        <option value="">Unassigned</option>
-                    </select>
-
-                    <button class="tool" onclick="createTask()">
-                        ➕ Add Task
-                    </button>
-                </div>
-            </div>
-
-            <div id="taskList">Loading...</div>
-        </div>
-
-        <div>
-            <h4>🗒️ Notes</h4>
-
-            <div style="
-                padding:10px;
-                margin-bottom:12px;
-                background:#202824;
-                border-radius:10px;
-            ">
-                <textarea
-                    id="newNoteText"
-                    placeholder="New note..."
-                    rows="3"
-                    style="
-                        width:100%;
-                        padding:8px;
-                        margin-bottom:8px;
-                        resize:vertical;
-                    "
-                ></textarea>
-
-                <select id="newNoteTag" style="padding:8px;margin-bottom:8px;">
-                    <option>General</option>
-                    <option>Tech</option>
-                    <option>Home</option>
-                    <option>School</option>
-                    <option>Gaming</option>
-                    <option>Personal</option>
-                </select>
-
-                <button class="tool" onclick="createNote()">
-                    ➕ Add Note
-                </button>
-            </div>
-
-            <div id="noteList">Loading...</div>
-        </div>
-
-        <button class="tool" onclick="closeOrganizer()">Close</button>
-    </div>
-
-    <div id="taskAlert" style="
-        display:none;
-        margin:10px 14px;
-        padding:12px;
-        background:#2a2118;
-        border:1px solid #5a4732;
-        border-radius:12px;
-    ">
-        <div id="taskAlertText"></div>
-
-        <button class="tool"
-                style="margin-top:8px;"
-                onclick="openOrganizer('all')">
-            View Tasks
-        </button>
-    </div>
-
-    <div class="quick-add-card" style="
-        padding:10px 14px;
-        background:#17201c;
-        border-bottom:1px solid #2b3932;
-    ">
-        <div style="
-            display:flex;
-            gap:8px;
-            flex-wrap:wrap;
-        ">
-            <input
-                id="quickShoppingItem"
-                placeholder="Quick add shopping item..."
-                style="
-                    flex:1;
-                    min-width:180px;
-                    padding:8px;
-                "
-            >
-
-            <select id="quickShoppingCategory"
-                    style="padding:8px;">
-                <option>Groceries</option>
-                <option>Pets</option>
-                <option>Household</option>
-                <option>School</option>
-                <option>Tech</option>
-                <option>Other</option>
-            </select>
-
-            <button class="tool" onclick="quickAddShopping()">
-                🛒 Add
-            </button>
-        </div>
-    </div>
-
-    <div class="quick-add-card" style="
-        padding:10px 14px;
-        background:#17201c;
-        border-bottom:1px solid #2b3932;
-    ">
-        <div style="
-            display:flex;
-            gap:8px;
-            flex-wrap:wrap;
-        ">
-            <input
-                id="quickTaskText"
-                placeholder="Quick family task..."
-                style="
-                    flex:1;
-                    min-width:180px;
-                    padding:8px;
-                "
-            >
-
-            <select id="quickTaskFamily"
-                    style="padding:8px;">
-                <option value="">Unassigned</option>
-            </select>
-
-            <button class="tool" onclick="quickAddTask()">
-                ✅ Add
-            </button>
-        </div>
-    </div>
-
-    <div id="watchPanel" class="watch-mode-panel" style="display:none;">
-        <div class="watch-shell">
-            <header class="watch-topline">
-                <span id="watchTime">--:--</span>
-                <button onclick="showChatHome()" aria-label="Close watch mode">✕</button>
-            </header>
-            <div class="watch-identity">
-                <span class="watch-dino" aria-hidden="true">🦖</span>
-                <div>
-                    <strong>Doshie</strong>
-                    <small id="watchProfileName">Hermes</small>
-                </div>
-            </div>
-            <div id="watchReply" class="watch-reply" aria-live="polite">
-                Ready for a quick question.
-            </div>
-            <button id="watchTalkButton" class="watch-talk"
-                    onclick="enableWatchMicrophone()">
-                🎙️ <span>Talk</span>
-            </button>
-            <div class="watch-quick-actions">
-                <button onclick="watchAsk('What is on my schedule today?')">Today</button>
-                <button onclick="watchAsk('Show my current tasks')">Tasks</button>
-                <button onclick="watchAsk('What is the weather?')">Weather</button>
-            </div>
-            <form class="watch-form" onsubmit="submitWatchText(event)">
-                <input id="watchInput" maxlength="500"
-                       placeholder="Ask Doshie…" aria-label="Watch message">
-                <button type="submit" aria-label="Send">➤</button>
-            </form>
-            <small class="watch-note">
-                Watch mode uses the same private TECRA brain and account lock.
-            </small>
-        </div>
-    </div>
-
-    <div id="searchPanel" class="search-hub-panel" style="display:none;">
-        <header class="feature-panel-header">
-            <div>
-                <small>PRIVATE SEARCH WORKSPACE</small>
-                <h2>🔎 Doshie Search Hub</h2>
-            </div>
-            <button class="tool" onclick="showChatHome()">Close</button>
-        </header>
-        <div class="search-mode-tabs" role="tablist" aria-label="Search type">
-            <button id="webSearchTab" class="active" type="button"
-                    onclick="setSearchMode('web')">🌐 Web</button>
-            <button id="deviceSearchTab" type="button"
-                    onclick="setSearchMode('device')">📁 TECRA Explorer</button>
-        </div>
-        <form class="search-hub-form" onsubmit="runSearchHub(event)">
-            <span aria-hidden="true">🔎</span>
-            <input id="searchHubInput" type="search" maxlength="180"
-                   autocomplete="off" placeholder="Search the web…"
-                   aria-label="Search">
-            <button type="submit">Search</button>
-        </form>
-        <div id="searchProviderLinks" class="search-provider-links">
-            <a id="searchGoogleLink" href="https://www.google.com/"
-               target="_blank" rel="noopener noreferrer">Google</a>
-            <a id="searchDuckLink" href="https://duckduckgo.com/"
-               target="_blank" rel="noopener noreferrer">DuckDuckGo</a>
-            <a id="searchBingLink" href="https://www.bing.com/"
-               target="_blank" rel="noopener noreferrer">Bing</a>
-        </div>
-        <p id="searchPrivacyNote" class="search-privacy-note">
-            Results appear inside Doshie through Bing. Provider buttons open a new tab.
-        </p>
-        <div id="searchHubStatus" class="search-hub-status"
-             aria-live="polite">Enter a search above.</div>
-        <div id="searchHubResults" class="search-results"></div>
     </div>
 
     <div id="messages">
@@ -3712,9 +1696,7 @@ button, input, select, textarea { border-color: #5e0b18 !important; }
 function applyProfileExperience(record) {
     if (!record) return;
     const preferences = profilePreferences(record);
-    const adminRecord = profileCatalog.find(item => item.is_admin);
-    const adminPreferences = adminRecord ? profilePreferences(adminRecord) : null;
-    setAdminCustomCss(adminPreferences ? adminPreferences.custom_css : "");
+    setAdminCustomCss(preferences.custom_css || "");
     document.body.dataset.profileTheme = preferences.theme;
     document.documentElement.style.setProperty(
         "--profile-accent",
@@ -4494,6 +2476,8 @@ function appendMarkdown(container, value) {
     html = html.replace(/^[-*]\\s+(.+)$/gm, '<li>$1</li>');
     html = html.replace(/(<li>.*<\\/li>)/gs, '<ul class="message-list">$1</ul>');
     html = html.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>').replace(/(^|[^*])\\*([^*]+)\\*/g, '$1<em>$2</em>');
+    html = html.replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\s)]+|\\/[^\\s)]+\\)/g, '<a href="$2" target="_blank">$1</a>');
+    html = html.replace(/(^|[^="'\\]])(https?:\\/\\/[^\\s<)]+)/g, '$1<a href="$2" target="_blank">$2</a>');
     html = html.replace(/```[a-zA-Z0-9_-]*\\n?([\\s\\S]*?)```/g, '<pre class="message-code-block"><code>$1</code></pre>');
     html = html.split('\\n').map(line => line.match(/^<(h[23]|ul|pre)/) ? line : (line ? '<p>' + line + '</p>' : '<br>')).join('');
     container.innerHTML = html;
@@ -4669,11 +2653,89 @@ function appendAttachmentCards(parent, items) {
         label.textContent = (item.kind === "image" ? "📷 " : "📄 ")
             + (item.name || "Attachment");
         card.appendChild(label);
+        if (item.kind !== "image") {
+            const editBtn = document.createElement("button");
+            editBtn.type = "button";
+            editBtn.className = "tool tool-edit";
+            editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>';
+            editBtn.title = "Edit file";
+            editBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openEditAttachmentModal(item);
+            };
+            card.appendChild(editBtn);
+        }
+        
         list.appendChild(card);
     });
     parent.appendChild(list);
 }
 
+async function openEditAttachmentModal(item) {
+    statusBox.textContent = "Loading file...";
+    try {
+        const response = await fetch(attachmentUrl(item));
+        if (!response.ok) throw new Error("Could not load file.");
+        const text = await response.text();
+        statusBox.textContent = "";
+
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);";
+
+        const modal = document.createElement("div");
+        modal.style.cssText = "background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:12px;width:100%;max-width:800px;display:flex;flex-direction:column;gap:12px;padding:20px;box-shadow:0 8px 32px rgba(0,0,0,0.4);";
+        
+        const title = document.createElement("h3");
+        title.innerHTML = '<i class="fa-solid fa-file-code"></i> Edit ' + item.name;
+        title.style.cssText = "margin:0;color:white;display:flex;align-items:center;gap:8px;";
+        
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.spellcheck = false;
+        textarea.style.cssText = "width:100%;height:450px;background:#0b0f19;color:#e2e8f0;border:1px solid var(--panel-border);border-radius:8px;padding:12px;font-family:ui-monospace, monospace;font-size:13px;resize:vertical;";
+        
+        const actions = document.createElement("div");
+        actions.style.cssText = "display:flex;gap:12px;justify-content:flex-end;";
+        
+        const cancelBtn = document.createElement("button");
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.className = "tool";
+        cancelBtn.style.cssText = "padding:8px 16px;border-radius:8px;";
+        cancelBtn.onclick = () => overlay.remove();
+        
+        const saveBtn = document.createElement("button");
+        saveBtn.innerHTML = '<i class="fa-solid fa-save"></i> Save Changes';
+        saveBtn.className = "tool";
+        saveBtn.style.cssText = "padding:8px 16px;border-radius:8px;background:var(--accent-blue);color:black;font-weight:bold;";
+        saveBtn.onclick = async () => {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...';
+            try {
+                const putRes = await fetch(attachmentUrl(item), {
+                    method: "PUT",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({text: textarea.value})
+                });
+                if (!putRes.ok) throw new Error("Failed to save attachment.");
+                overlay.remove();
+                statusBox.textContent = "File updated successfully!";
+                setTimeout(() => { if (statusBox.textContent.includes("successfully")) statusBox.textContent = ""; }, 3000);
+            } catch (e) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fa-solid fa-save"></i> Save Changes';
+                alert(e.message);
+            }
+        };
+        
+        actions.append(cancelBtn, saveBtn);
+        modal.append(title, textarea, actions);
+        overlay.append(modal);
+        document.body.appendChild(overlay);
+    } catch (e) {
+        statusBox.textContent = e.message;
+    }
+}
 
 function renderChatAttachmentTray() {
     const tray = document.getElementById("chatAttachmentTray");
@@ -9084,7 +7146,7 @@ function refreshProfilePreferenceControls(record) {
         preferences.profile_music_url || "";
     const adminCssControls = document.getElementById("adminCssControls");
     const customCssField = document.getElementById("profileCustomCss");
-    const canEditCss = Boolean(record.is_admin);
+    const canEditCss = true;
     adminCssControls.hidden = !canEditCss;
     customCssField.disabled = !canEditCss;
     customCssField.value = canEditCss ? (preferences.custom_css || "") : "";
@@ -9223,9 +7285,7 @@ async function saveProfilePreferences() {
         about_me: document.getElementById("profileAbout").value,
         interests: document.getElementById("profileInterests").value,
         profile_music_url: document.getElementById("profileMusicUrl").value,
-        custom_css: record.is_admin
-            ? document.getElementById("profileCustomCss").value
-            : "",
+        custom_css: document.getElementById("profileCustomCss").value,
         accent: chosenProfileAccent,
         theme: document.getElementById("profileTheme").value,
         custom_color: document.getElementById("profileCustomColor").value,
@@ -10357,8 +8417,52 @@ window.addEventListener("pagehide", () => {
 });
 installSettingsAccordion();
 
+
+// Intercept all target="_blank" links for Android Capacitor fix
+document.addEventListener('click', function(e) {
+    if (!e.target || typeof e.target.closest !== 'function') return;
+    const a = e.target.closest('a');
+    if (a && a.target === '_blank' && a.href && a.href.startsWith('http')) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (/Android/i.test(navigator.userAgent) && window.Capacitor && window.Capacitor.Plugins.Browser) {
+            window.Capacitor.Plugins.Browser.open({ url: a.href });
+        } else {
+            window.open(a.href, '_blank');
+        }
+    }
+}, true);
+
+
+let isDesktopSite = false;
+function toggleDesktopSite() {
+    const meta = document.querySelector('meta[name="viewport"]');
+    isDesktopSite = !isDesktopSite;
+    if (isDesktopSite) {
+        meta.setAttribute('content', 'width=1200, user-scalable=yes, viewport-fit=cover');
+        alert("Desktop Site Enabled. You can pinch to zoom.");
+    } else {
+        meta.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content');
+        alert("Mobile Site Restored.");
+    }
+}
+
 </script>
-<script src="/static/Doshie-app.js?v=21"></script>
+<script src="/static/Doshie-app.js?v=21">
+let isDesktopSite = false;
+function toggleDesktopSite() {
+    const meta = document.querySelector('meta[name="viewport"]');
+    isDesktopSite = !isDesktopSite;
+    if (isDesktopSite) {
+        meta.setAttribute('content', 'width=1200, user-scalable=yes, viewport-fit=cover');
+        alert("Desktop Site Enabled. You can pinch to zoom.");
+    } else {
+        meta.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content');
+        alert("Mobile Site Restored.");
+    }
+}
+
+</script>
 
 </body>
 </html>
@@ -10699,12 +8803,12 @@ WEBSITE_HOSTS = {
 PUBLIC_OPEN_ENDPOINTS = {
     "home", "static", "service_worker", "login_page",
     "profiles_get", "family_invite_claim", "family_login", "app_version", "android_asset_links",
-    "recovery_request", "recovery_verify", "recovery_reset", "download_latest_apk",
+    "recovery_request", "recovery_verify", "recovery_reset", "download_latest_apk", "transcribe_audio",
 }
 WEBSITE_LOGIN_OPEN_ENDPOINTS = {
     "static", "service_worker", "login_page", "app_version", "android_asset_links",
     "profiles_get", "family_invite_claim", "family_login",
-    "recovery_request", "recovery_verify", "recovery_reset", "download_latest_apk",
+    "recovery_request", "recovery_verify", "recovery_reset", "download_latest_apk", "transcribe_audio",
 }
 WEBSITE_PAGE_ENDPOINTS = {
     "canonical_home", "tech_preview", "home", "share_target",
@@ -11177,7 +9281,32 @@ def proxy_music_player(subpath=""):
         return f"Music player service unavailable: {e}", 502
 
 
+@app.route("/agent-console", methods=["GET"])
+@app.route("/agent-console/", methods=["GET"])
+@app.route("/agent-console/<path:subpath>", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+def proxy_agent_console(subpath=""):
+    import requests
+    target = f"http://127.0.0.1:5070/{subpath}" if subpath else "http://127.0.0.1:5070/"
+    try:
+        req_headers = {k: v for k, v in request.headers if k.lower() not in ['host', 'content-length']}
+        if request.method == "POST":
+            resp = requests.post(target, data=request.get_data(), params=request.args, headers=req_headers, timeout=(5, 180))
+            excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+            headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
+            return Response(resp.content, resp.status_code, headers)
+        elif request.method == "OPTIONS":
+            return "", 200
+        else:
+            resp = requests.get(target, params=request.args, headers=req_headers, stream=True, timeout=(5, 60))
+            excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+            headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
+            return Response(resp.iter_content(chunk_size=16384), status=resp.status_code, headers=headers)
+    except Exception as e:
+        return f"Agent console service unavailable: {e}", 502
+
+
 @app.route("/app-version", methods=["GET"])
+@app.route("/version", methods=["GET"])
 def app_version():
     watched = [
         __file__,
@@ -11210,6 +9339,15 @@ def app_version():
     return response
 
 
+@app.route("/download/aab", methods=["GET"])
+def download_latest_aab():
+    return send_from_directory(
+        os.path.join(app.root_path, "static", "downloads"),
+        "Doshie-latest.aab",
+        as_attachment=True,
+        download_name="Doshie-latest.aab"
+    )
+
 @app.route("/download", methods=["GET"])
 @app.route("/download/apk", methods=["GET"])
 def download_latest_apk():
@@ -11218,6 +9356,16 @@ def download_latest_apk():
         "Doshie-latest.apk",
         as_attachment=True,
         download_name="Doshie-latest.apk"
+    )
+
+@app.route("/download/rdp-apk", methods=["GET"])
+@app.route("/download/rdp", methods=["GET"])
+def download_rdp_apk():
+    return send_from_directory(
+        os.path.join(app.root_path, "static", "downloads"),
+        "Doshie-RDP.apk",
+        as_attachment=True,
+        download_name="Doshie-RDP.apk"
     )
 
 
@@ -11368,11 +9516,12 @@ def api_doctor_status():
         if not is_running:
             stopped.append(name)
 
-    # Check supervisor status (systemd service 'doshie.service' or legacy doshie_supervisor.sh)
-    sysd_check = subprocess.run(['systemctl', 'is-active', 'doshie.service'], capture_output=True, text=True)
+    # Check supervisor status (systemd user service 'doshie-web.service', system service 'doshie.service', or legacy doshie_supervisor.sh)
+    sysd_user = subprocess.run(['systemctl', '--user', 'is-active', 'doshie-web.service'], capture_output=True, text=True)
+    sysd_sys = subprocess.run(['systemctl', 'is-active', 'doshie.service'], capture_output=True, text=True)
     supervisor_running = False
     supervisor_pids = []
-    if sysd_check.returncode == 0 and 'active' in sysd_check.stdout:
+    if (sysd_user.returncode == 0 and 'active' in sysd_user.stdout) or (sysd_sys.returncode == 0 and 'active' in sysd_sys.stdout):
         supervisor_running = True
         supervisor_pids = ["systemd"]
     else:
@@ -12203,12 +10352,7 @@ def profile_preferences_save():
     if profile is None:
         return jsonify({"error": "Unknown profile."}), 400
     preference_updates = data.get("preferences", {})
-    if (
-        isinstance(preference_updates, dict)
-        and preference_updates.get("custom_css")
-        and profile.casefold() != "hermes"
-    ):
-        return jsonify({"error": "Only the administrator can save custom CSS."}), 403
+
     try:
         preferences = Doshie_profile_preferences.save_preferences(
             profile,
@@ -12736,6 +10880,7 @@ def spotify_control():
 
 
 @app.route("/speak", methods=["POST"])
+@app.route("/voice/speak", methods=["POST"])
 def speak():
     data = request.json or {}
     text = str(data.get("text", "")).strip()
@@ -12745,12 +10890,43 @@ def speak():
     if not text:
         return jsonify({"error": "Text is required."}), 400
 
+    # Auto-resolve voice and engine from profile preferences if not specified
+    try:
+        prefs = Doshie_profile_preferences.get_preferences(profile)
+        if not voice:
+            voice = prefs.get("voice_identity")
+        if not engine or engine == "auto":
+            engine = prefs.get("voice_engine") or "kokoro"
+    except Exception:
+        pass
+
+    if not voice:
+        try:
+            settings = Doshie_settings.load_settings()
+            voice = settings.get("voice_identity") or "hermes"
+        except Exception:
+            voice = "hermes"
+    if not engine or engine == "auto":
+        try:
+            settings = Doshie_settings.load_settings()
+            engine = settings.get("voice_engine") or "kokoro"
+        except Exception:
+            engine = "kokoro"
+
     try:
         audio = Doshie_voice_proxy.synthesize(text, profile=profile, engine=engine, voice=voice)
     except ValueError:
         return jsonify({"error": "Text is required."}), 400
     except Doshie_voice_proxy.VoiceUnavailable as error:
         return jsonify({"error": str(error)}), 503
+
+    if data.get("format") == "json" or request.headers.get("Accept") == "application/json":
+        import base64
+        return jsonify({
+            "ok": True,
+            "audio": base64.b64encode(audio).decode("utf-8"),
+            "profile": str(profile),
+        })
 
     return Response(
         audio,
@@ -12761,6 +10937,80 @@ def speak():
             "X-Doshie-Voice": str(profile),
         },
     )
+
+
+_WHISPER_MODEL = None
+_WHISPER_LOCK = threading.Lock()
+
+
+def get_whisper_model():
+    global _WHISPER_MODEL
+    with _WHISPER_LOCK:
+        if _WHISPER_MODEL is None:
+            try:
+                from faster_whisper import WhisperModel
+                for model_size in ["small.en", "base.en", "tiny.en"]:
+                    try:
+                        _WHISPER_MODEL = WhisperModel(model_size, device="cpu", compute_type="int8", cpu_threads=6)
+                        app.logger.info(f"Loaded faster-whisper model: {model_size}")
+                        break
+                    except Exception as model_err:
+                        app.logger.warning(f"Could not load faster-whisper {model_size}: {model_err}")
+            except Exception as e:
+                app.logger.warning(f"Could not load faster-whisper model: {e}")
+                return None
+        return _WHISPER_MODEL
+
+
+@app.route("/transcribe", methods=["POST"])
+def transcribe_audio():
+    import base64
+    import tempfile
+    from pathlib import Path
+
+    temp_path = None
+    try:
+        audio_file = request.files.get("audio") or request.files.get("file")
+        if audio_file:
+            suffix = Path(audio_file.filename or "audio.webm").suffix or ".webm"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                audio_file.save(tmp)
+                temp_path = tmp.name
+        else:
+            data = request.get_json(silent=True) or {}
+            audio_b64 = data.get("audio") or data.get("audio_base64")
+            if not audio_b64:
+                return jsonify({"error": "No audio data provided.", "text": ""}), 400
+            if "," in audio_b64:
+                audio_b64 = audio_b64.split(",", 1)[1]
+            raw_bytes = base64.b64decode(audio_b64)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
+                tmp.write(raw_bytes)
+                temp_path = tmp.name
+
+        model = get_whisper_model()
+        if model is None:
+            return jsonify({"error": "STT model unavailable on server.", "text": ""}), 503
+
+        segments, _ = model.transcribe(
+            temp_path,
+            beam_size=2,
+            language="en",
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=400),
+            condition_on_previous_text=False,
+        )
+        text = " ".join([segment.text for segment in segments]).strip()
+        return jsonify({"ok": True, "text": text})
+    except Exception as e:
+        app.logger.exception(f"Transcription error: {e}")
+        return jsonify({"error": str(e), "text": ""}), 500
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
 
 
 @app.route("/api/voices", methods=["GET"])
@@ -14209,6 +12459,26 @@ def chat_attachment_upload():
         return jsonify({"error": "Could not store that attachment."}), 500
 
 
+@app.route("/chat-attachment/<attachment_id>", methods=["PUT"])
+def chat_attachment_update(attachment_id):
+    profile = resolve_profile(request.args.get("profile", ""))
+    if profile is None:
+        return jsonify({"error": "Choose a valid profile first."}), 400
+    try:
+        data = request.get_json()
+        if not data or "text" not in data:
+            return jsonify({"error": "Text content required."}), 400
+        
+        Doshie_chat_attachments.update_attachment(
+            profile, attachment_id, data["text"].encode("utf-8")
+        )
+        return jsonify({"success": True})
+    except Doshie_chat_attachments.AttachmentError as error:
+        return jsonify({"error": str(error)}), 400
+    except OSError:
+        return jsonify({"error": "Could not update that attachment."}), 500
+
+
 @app.route("/chat-attachment/<attachment_id>", methods=["GET"])
 def chat_attachment_get(attachment_id):
     profile = resolve_profile(request.args.get("profile", ""))
@@ -14521,11 +12791,90 @@ def _chat_impl():
             )
         })
 
+    if text.startswith(("/agent ", "/build ", "/cli ")) or text in ("/agent", "/build", "/cli"):
+        if text in ("/agent", "/build", "/cli"):
+            return jsonify({
+                "reply": (
+                    "🛠️ **Doshie Autonomous Agent & App Builder**\n\n"
+                    "You can build apps, write scripts, and run shell commands directly:\n"
+                    "- `/build <description>` (e.g. `/build a note-taking web app`)\n"
+                    "- `/agent <task>` (e.g. `/agent inspect files and run tests`)\n"
+                    "- `/cli <command>` (e.g. `/cli ls -la`)\n\n"
+                    "👉 Click **Agent CLI** in the top header or visit [Agent Console](/agent-console/) for interactive terminal approval!"
+                )
+            })
+        agent_query = text.split(" ", 1)[1].strip()
+        try:
+            import urllib.request
+            agent_payload = json.dumps({
+                "message": agent_query,
+                "model": "qwen2.5-coder:7b"
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                "http://127.0.0.1:5070/api/chat",
+                data=agent_payload,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                agent_res = json.loads(resp.read().decode("utf-8"))
+
+            agent_reply = agent_res.get("reply") or ""
+            approval = agent_res.get("approval")
+            status = agent_res.get("status")
+
+            extra_lines = []
+            if approval:
+                tool_name = approval.get("tool")
+                args = approval.get("args") or {}
+                if tool_name == "run_command":
+                    cmd = args.get("command", "")
+                    extra_lines.append(f"\n\n⚡ **Pending Terminal Action:**\n```bash\n{cmd}\n```")
+                elif tool_name == "write_file":
+                    p = args.get("path", "")
+                    extra_lines.append(f"\n\n📝 **Pending File Creation:** `{p}`")
+                extra_lines.append("\n\n👉 **[Open Agent Console to Review & Approve Action](/agent-console/)**")
+            elif status == "completed":
+                extra_lines.append("\n\n✅ *Autonomous Agent completed this task.*")
+
+            full_reply = agent_reply + "".join(extra_lines)
+            if not incognito:
+                append_conversation(profile, text, full_reply, None, space=space)
+            return jsonify({
+                "reply": full_reply,
+                "profile": profile,
+                "space": space,
+                "attachments": attachment_items,
+                "incognito": incognito,
+            })
+        except Exception as e:
+            app.logger.warning(f"Autonomous agent dispatch error: {e}")
+            return jsonify({
+                "reply": f"⚠️ Could not reach Agent Console backend: {e}. Open [Agent Console](/agent-console/) directly.",
+                "profile": profile,
+                "space": space
+            })
+
     model_text = text
     if attachment_context:
         model_text = (
             (text + "\n\n") if text else ""
         ) + "USER ATTACHMENTS:\n" + attachment_context
+
+    target_agent = None
+    target_agent_id = str(data.get("agent_id") or data.get("agent") or "").strip()
+    if target_agent_id:
+        target_agent = Doshie_agents.get_agent(target_agent_id) or Doshie_agents.get_agent_by_name(target_agent_id)
+    else:
+        match_at = re.match(r"^@([A-Za-z0-9_-]+)\s*(.*)", text, re.DOTALL)
+        if match_at:
+            candidate_name = match_at.group(1)
+            candidate_agent = Doshie_agents.get_agent_by_name(candidate_name)
+            if candidate_agent and candidate_agent.get("enabled", True):
+                target_agent = candidate_agent
+                text = match_at.group(2).strip()
+                model_text = text + ("\n\nUSER ATTACHMENTS:\n" + attachment_context if attachment_context else "")
+
 
     handled, tool_reply = route_tool(
         text,
@@ -14587,6 +12936,27 @@ def _chat_impl():
             space,
         )
 
+    agent_info = None
+    agent_capabilities = None
+    if target_agent and target_agent.get("enabled", True):
+        agent_system = (
+            f"You are {target_agent.get('name')}, a specialist AI in Doshie.\n"
+            f"{Doshie_agents.agent_system_context(target_agent)}\n\n"
+            f"Respond directly in your assigned role and persona."
+        )
+        chat_system_context = agent_system
+        brain_mode = target_agent.get("model_mode", brain_mode)
+        agent_memory_scope = target_agent.get("memory_scope", "shared")
+        agent_capabilities = target_agent.get("capabilities", [])
+        agent_info = {
+            "id": target_agent["id"],
+            "name": target_agent["name"],
+            "accent": target_agent.get("accent", "#35f2d0"),
+        }
+    else:
+        chat_system_context = combined_chat_context(space, chat_mode, settings=settings)
+        agent_memory_scope = "none" if incognito else "all"
+
     try:
         reply = Doshie_memory.ask_yoshi(
             current_history,
@@ -14598,10 +12968,11 @@ def _chat_impl():
                 if incognito
                 else conversation_storage_profile(profile, space)
             ),
-            system_context=combined_chat_context(space, chat_mode, settings=settings),
+            system_context=chat_system_context,
             brain_mode=brain_mode,
-            memory_scope="none" if incognito else "all",
+            memory_scope=agent_memory_scope,
             images=image_payloads,
+            agent_capabilities=agent_capabilities,
         )
     except Exception:
         app.logger.exception("Doshie could not complete a chat request")
@@ -14619,14 +12990,19 @@ def _chat_impl():
     ):
         return jsonify({"reply": "", "discarded": True}), 409
 
-    return jsonify({
+    response_payload = {
         "reply": reply,
         "memory": saved,
         "profile": profile,
         "space": space,
         "attachments": attachment_items,
         "incognito": incognito,
-    })
+    }
+    if agent_info:
+        response_payload["agent"] = agent_info
+
+    return jsonify(response_payload)
+
 
 
 @app.route("/voice-studio", defaults={"subpath": ""}, methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"], strict_slashes=False)
@@ -14666,6 +13042,33 @@ def voice_studio_proxy(subpath: str = ""):
                 value = value.replace("http://127.0.0.1:7860/voice-studio", "/voice-studio")
                 value = value.replace("http://localhost:7860/voice-studio", "/voice-studio")
             resp_headers.append((name, value))
+
+        content_type = resp.headers.get("content-type", "")
+        if "text/html" in content_type:
+            try:
+                html_text = resp.text
+                banner = (
+                    '<div id="doshie-back-bar" style="position:fixed;top:0;left:0;right:0;height:46px;'
+                    'background:#0d1117;border-bottom:1px solid rgba(255,255,255,0.12);z-index:9999999;'
+                    'display:flex;align-items:center;justify-content:space-between;padding:0 16px;box-sizing:border-box;'
+                    'font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.5);">'
+                    '<a href="/mansion" style="display:inline-flex;align-items:center;gap:6px;color:#38bdf8;text-decoration:none;'
+                    'font-weight:700;font-size:13px;padding:6px 14px;border-radius:10px;background:#161b22;border:1px solid rgba(56,189,248,0.4);">'
+                    '&#8592; Back to Doshie</a>'
+                    '<span style="color:#8b949e;font-size:12px;font-weight:600;letter-spacing:0.04em;">VOICE STUDIO</span>'
+                    '</div>'
+                    '<style>body { padding-top: 48px !important; }</style>'
+                )
+                if "</body>" in html_text:
+                    html_text = html_text.replace("</body>", f"{banner}</body>")
+                elif "</head>" in html_text:
+                    html_text = html_text.replace("</head>", f"</head>{banner}")
+                else:
+                    html_text = f"{banner}{html_text}"
+                return Response(html_text, resp.status_code, resp_headers, content_type=content_type)
+            except Exception as read_err:
+                app.logger.warning("Failed injecting back bar into voice studio: %s", read_err)
+
         return Response(resp.iter_content(chunk_size=8192), resp.status_code, resp_headers)
     except Exception as err:
         app.logger.error("Voice studio proxy error: %s", err)
@@ -14698,6 +13101,8 @@ def stop_owned_model(process):
 
 
 @app.route("/command-center")
+@app.route("/su")
+@app.route("/control-panel")
 def command_center():
     return send_from_directory(
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard"),

@@ -10,14 +10,18 @@ import { TranscriptViewer } from './components/TranscriptViewer'
 import { LockScreen } from './components/LockScreen'
 import { MusicPlayerModal } from './components/MusicPlayerModal'
 import { VoiceStudioModal } from './components/VoiceStudioModal'
+import { AgentHubModal } from './components/AgentHubModal'
+import { AgentConsoleModal } from './components/AgentConsoleModal'
+import { MobileNavBar } from './components/MobileNavBar'
 import { stopSpeech } from './utils/audio'
-import type { Message, ChatSession, AntigravitySummary, GuiCustomization, Profile, ChatAttachment } from './types'
+import type { Message, ChatSession, AntigravitySummary, GuiCustomization, Profile, ChatAttachment, SpecialistAgent } from './types'
+
 
 const getSessionsStorageKey = (profile: string) =>
   `Doshie_chat_sessions_${profile.toLowerCase().replace(/\s+/g, '_')}`
 
 const DEFAULT_CUSTOMIZATION: GuiCustomization = {
-  theme: 'emerald',
+  theme: 'antigravity',
   backgroundStyle: 'glow',
   fontSize: 'comfortable',
   chatDensity: 'comfortable',
@@ -61,6 +65,10 @@ export function App() {
   })
   const [isLocked, setIsLocked] = useState(false)
   const [isVoiceStudioOpen, setIsVoiceStudioOpen] = useState(false)
+  const [isAgentHubOpen, setIsAgentHubOpen] = useState(false)
+  const [isAgentConsoleOpen, setIsAgentConsoleOpen] = useState(false)
+  const [selectedAgent, setSelectedAgent] = useState<SpecialistAgent | null>(null)
+
 
   const activeProfileObj = profiles.find(p => p.name.toLowerCase() === activeProfile.toLowerCase())
   const isAdmin = activeProfile.toLowerCase() === 'hermes' || activeProfileObj?.is_admin === true || activeProfileObj?.role?.toLowerCase() === 'admin'
@@ -92,7 +100,7 @@ export function App() {
             setCustomization(prev => {
               const updated = {
                 ...prev,
-                ...(legacyTheme && ['emerald', 'cyberpunk', 'oled', 'amber', 'crimson', 'terminal', 'nord', 'dracula'].includes(legacyTheme) ? { theme: legacyTheme } : {}),
+                ...(legacyTheme && ['antigravity', 'emerald', 'cyberpunk', 'oled', 'amber', 'crimson', 'terminal', 'nord', 'dracula'].includes(legacyTheme) ? { theme: legacyTheme } : {}),
                 ...(typeof legacyMins === 'number' ? { lockScreenAutoLockMinutes: legacyMins } : {}),
               }
               localStorage.setItem(getCustomizationStorageKey(profile), JSON.stringify(updated))
@@ -221,11 +229,28 @@ export function App() {
   })
   const [sidebarTab, setSidebarTab] = useState<'doshie' | 'antigravity'>('doshie')
 
+  // Helper to purge abandoned/empty pending messages so chats never stay stuck
+  const sanitizeMessages = (msgs: any[]): Message[] => {
+    if (!Array.isArray(msgs)) return []
+    return msgs
+      .filter(m => !(m && m.pending && !m.content?.trim()))
+      .map(m => (m && m.pending ? { ...m, pending: false } : m))
+  }
+
   // Doshie Sessions State
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
     try {
       const saved = localStorage.getItem(getSessionsStorageKey(activeProfile))
-      return saved ? JSON.parse(saved) : []
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          return parsed.map((s: any) => ({
+            ...s,
+            messages: sanitizeMessages(s.messages || []),
+          }))
+        }
+      }
+      return []
     } catch {
       return []
     }
@@ -251,7 +276,7 @@ export function App() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [online, setOnline] = useState(true)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [settingsTab, setSettingsTab] = useState<'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor'>('appearance')
+  const [settingsTab, setSettingsTab] = useState<'apps' | 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor'>('apps')
   const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState(false)
   const [isMusicPlayerOpen, setIsMusicPlayerOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -267,6 +292,8 @@ export function App() {
     setIsLiveVoiceOpen(false)
     setIsMusicPlayerOpen(false)
     setIsVoiceStudioOpen(false)
+    setIsAgentHubOpen(false)
+    setSelectedAgent(null)
     stopSpeech()
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -363,14 +390,18 @@ export function App() {
       if (res.ok) {
         const json = await res.json()
         if (json.ok && Array.isArray(json.sessions)) {
-          setSessions(json.sessions)
+          const sanitizedSessions = json.sessions.map((s: any) => ({
+            ...s,
+            messages: sanitizeMessages(s.messages || []),
+          }))
+          setSessions(sanitizedSessions)
           if (targetProfile.toLowerCase() === activeProfile.toLowerCase()) {
-            localStorage.setItem(getSessionsStorageKey(targetProfile), JSON.stringify(json.sessions))
+            localStorage.setItem(getSessionsStorageKey(targetProfile), JSON.stringify(sanitizedSessions))
           }
           if (activateFirst) {
-            if (json.sessions.length > 0) {
-              setActiveSessionId(json.sessions[0].id)
-              setMessages(json.sessions[0].messages || [])
+            if (sanitizedSessions.length > 0) {
+              setActiveSessionId(sanitizedSessions[0].id)
+              setMessages(sanitizedSessions[0].messages || [])
             } else {
               setActiveSessionId(null)
               setMessages([])
@@ -389,11 +420,17 @@ export function App() {
         const saved = localStorage.getItem(getSessionsStorageKey(targetProfile))
         if (saved) {
           const parsed = JSON.parse(saved)
-          setSessions(parsed)
-          if (activateFirst && parsed.length > 0) {
-            setActiveSessionId(parsed[0].id)
-            setMessages(parsed[0].messages || [])
-            return
+          if (Array.isArray(parsed)) {
+            const sanitizedSessions = parsed.map((s: any) => ({
+              ...s,
+              messages: sanitizeMessages(s.messages || []),
+            }))
+            setSessions(sanitizedSessions)
+            if (activateFirst && sanitizedSessions.length > 0) {
+              setActiveSessionId(sanitizedSessions[0].id)
+              setMessages(sanitizedSessions[0].messages || [])
+              return
+            }
           }
         }
       } catch {}
@@ -428,13 +465,16 @@ export function App() {
     const sId = targetSessionId || activeSessionId
     if (!sId) return
 
+    // Never persist empty in-flight pending bubbles to long-term storage
+    const persistableMessages = sanitizeMessages(newMessages)
+
     setSessions(prev => {
       const updated = prev.map(s => {
         if (s.id === sId) {
           // If title was default or short, auto-name from first user prompt
           let autoTitle = s.title
-          if ((!s.title || s.title === 'New Chat') && newMessages.length > 0) {
-            const firstUser = newMessages.find(m => m.role === 'user')
+          if ((!s.title || s.title === 'New Chat') && persistableMessages.length > 0) {
+            const firstUser = persistableMessages.find(m => m.role === 'user')
             if (firstUser && firstUser.content) {
               autoTitle = firstUser.content.slice(0, 45).trim() + (firstUser.content.length > 45 ? '...' : '')
             }
@@ -442,7 +482,7 @@ export function App() {
           return {
             ...s,
             title: autoTitle,
-            messages: newMessages,
+            messages: persistableMessages,
             updated_at: Date.now(),
           }
         }
@@ -465,7 +505,7 @@ export function App() {
             requester: activeProfile,
             id: target.id,
             title: target.title,
-            messages: target.messages,
+            messages: persistableMessages,
           }),
         }).catch(() => {})
       }
@@ -508,7 +548,7 @@ export function App() {
     if (s) {
       setActiveAntigravityId(null)
       setActiveSessionId(id)
-      setMessages(s.messages || [])
+      setMessages(sanitizeMessages(s.messages || []))
     }
   }
 
@@ -517,10 +557,155 @@ export function App() {
     setActiveAntigravityId(id)
   }
 
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null)
+  const [viewportTop, setViewportTop] = useState<number>(0)
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
+
   // Scroll to bottom smoothly
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior })
   }
+
+  // Visual Viewport tracking for mobile virtual keyboard and zoom
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const updateViewport = () => {
+      const vv = window.visualViewport
+      const vh = vv ? vv.height : window.innerHeight
+      const vt = vv ? vv.offsetTop : 0
+      setViewportHeight(vh)
+      setViewportTop(vt)
+
+      // Virtual keyboard detection:
+      // On native Android (Capacitor), nativeKeyboardChange and Capacitor plugins handle this accurately.
+      // For web fallback, compare window.innerHeight vs visualViewport.height (NEVER screen.height, which breaks on foldables).
+      const cap = (window as any).Capacitor
+      const isNative = typeof cap?.isNativePlatform === 'function' ? cap.isNativePlatform() : false
+      if (!isNative) {
+        const isHeightReduced = window.innerHeight - vh > 150
+        setIsKeyboardOpen(isHeightReduced)
+      }
+
+      scrollToBottom('smooth')
+    }
+
+    updateViewport()
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateViewport)
+      window.visualViewport.addEventListener('scroll', updateViewport)
+    } else {
+      window.addEventListener('resize', updateViewport)
+    }
+
+    // Capacitor Keyboard plugin support
+    const cap = (window as any).Capacitor
+    const kbRemoveListeners: (() => void)[] = []
+    if (cap?.Plugins?.Keyboard) {
+      const kb = cap.Plugins.Keyboard
+      const handleShow = () => {
+        setIsKeyboardOpen(true)
+        updateViewport()
+      }
+      const handleHide = () => {
+        setIsKeyboardOpen(false)
+        updateViewport()
+      }
+
+      kb.addListener('keyboardWillShow', handleShow).then((sub: any) => {
+        if (sub?.remove) kbRemoveListeners.push(() => sub.remove())
+      }).catch(() => {})
+      kb.addListener('keyboardDidShow', handleShow).then((sub: any) => {
+        if (sub?.remove) kbRemoveListeners.push(() => sub.remove())
+      }).catch(() => {})
+      kb.addListener('keyboardWillHide', handleHide).then((sub: any) => {
+        if (sub?.remove) kbRemoveListeners.push(() => sub.remove())
+      }).catch(() => {})
+      kb.addListener('keyboardDidHide', handleHide).then((sub: any) => {
+        if (sub?.remove) kbRemoveListeners.push(() => sub.remove())
+      }).catch(() => {})
+    }
+
+    const handleNativeKeyboard = (e: any) => {
+      const isOpen = !!e?.detail?.isOpen
+      setIsKeyboardOpen(isOpen)
+      updateViewport()
+      setTimeout(() => {
+        scrollToBottom('smooth')
+      }, 60)
+    }
+    window.addEventListener('nativeKeyboardChange', handleNativeKeyboard)
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateViewport)
+        window.visualViewport.removeEventListener('scroll', updateViewport)
+      } else {
+        window.removeEventListener('resize', updateViewport)
+      }
+      window.removeEventListener('nativeKeyboardChange', handleNativeKeyboard)
+      kbRemoveListeners.forEach(remove => remove())
+    }
+  }, [])
+
+  // Global Hardware / Gesture Back Button Handling for Android & Mobile Web
+  useEffect(() => {
+    (window as any).__doshieHandleBack = () => {
+      if (isVoiceStudioOpen) {
+        setIsVoiceStudioOpen(false)
+        return true
+      }
+      if (isMusicPlayerOpen) {
+        setIsMusicPlayerOpen(false)
+        return true
+      }
+      if (isLiveVoiceOpen) {
+        setIsLiveVoiceOpen(false)
+        return true
+      }
+      if (isAgentConsoleOpen) {
+        setIsAgentConsoleOpen(false)
+        return true
+      }
+      if (isAgentHubOpen) {
+        setIsAgentHubOpen(false)
+        return true
+      }
+      if (isSettingsOpen) {
+        setIsSettingsOpen(false)
+        return true
+      }
+      if (activeAntigravityId) {
+        setActiveAntigravityId(null)
+        return true
+      }
+      if (isSidebarOpen) {
+        setIsSidebarOpen(false)
+        return true
+      }
+      return false
+    }
+
+    const handlePopState = () => {
+      if (typeof (window as any).__doshieHandleBack === 'function') {
+        (window as any).__doshieHandleBack()
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      delete (window as any).__doshieHandleBack
+    }
+  }, [
+    isVoiceStudioOpen,
+    isMusicPlayerOpen,
+    isLiveVoiceOpen,
+    isAgentConsoleOpen,
+    isAgentHubOpen,
+    isSettingsOpen,
+    activeAntigravityId,
+    isSidebarOpen,
+  ])
 
   useEffect(() => {
     if (!activeAntigravityId) {
@@ -549,7 +734,12 @@ export function App() {
   }, [])
 
   // Send message handler
-  const handleSend = async (content: string, attachments?: ChatAttachment[]) => {
+  const handleSend = async (
+    content: string,
+    attachments?: ChatAttachment[],
+    brainMode?: string,
+    agentId?: string
+  ) => {
     const trimmed = content.trim()
     const hasAttachments = Boolean(attachments && attachments.length > 0)
     if ((!trimmed && !hasAttachments) || isGenerating) return
@@ -592,6 +782,7 @@ export function App() {
       content: '',
       timestamp: Date.now(),
       pending: true,
+      agent: selectedAgent ? { id: selectedAgent.id, name: selectedAgent.name, accent: selectedAgent.accent } : undefined,
     }
 
     const updatedWithUser = [...messages, userMessage, pendingAssistantMessage]
@@ -603,6 +794,7 @@ export function App() {
     abortControllerRef.current = controller
 
     try {
+      const targetAgentId = agentId || selectedAgent?.id
       const response = await fetch('/chat', {
         method: 'POST',
         headers: {
@@ -612,6 +804,8 @@ export function App() {
           message: trimmed || (hasAttachments ? 'Analyze the attached file(s) or image(s).' : ''),
           profile: activeProfile,
           attachments: hasAttachments ? attachments!.map(a => a.id) : [],
+          brain_mode: brainMode,
+          agent_id: targetAgentId,
         }),
         signal: controller.signal,
       })
@@ -624,6 +818,7 @@ export function App() {
         } catch (_) {}
 
         if (response.status === 423) {
+          setMessages(prev => prev.filter(msg => msg.id !== pendingAssistantMessage.id))
           handleLockAccount(activeProfile)
           return
         }
@@ -632,6 +827,7 @@ export function App() {
 
       const data = await response.json()
       const replyText = data.reply || 'No response received from Doshie.'
+      const agentInfo = data.agent || (selectedAgent ? { id: selectedAgent.id, name: selectedAgent.name, accent: selectedAgent.accent } : undefined)
 
       startTransition(() => {
         setMessages(prev => {
@@ -640,7 +836,10 @@ export function App() {
               ? {
                   ...msg,
                   content: replyText,
+                  thinking: data.thinking,
+                  steps: data.steps,
                   pending: false,
+                  agent: agentInfo,
                 }
               : msg
           )
@@ -834,18 +1033,9 @@ export function App() {
     URL.revokeObjectURL(url)
   }
 
-  const handleOpenSettings = (initialTab: 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor' = 'appearance') => {
+  const handleOpenSettings = (initialTab: 'apps' | 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor' = 'apps') => {
     setSettingsTab(initialTab)
     setIsSettingsOpen(true)
-  }
-
-  const handleLogout = async () => {
-    if (window.confirm(`Log out of profile "${activeProfile}"?`)) {
-      try {
-        await fetch('/logout', { method: 'POST' })
-      } catch {}
-      handleLockAccount(activeProfile)
-    }
   }
 
   // Determine active view title for header
@@ -857,13 +1047,16 @@ export function App() {
   return (
     <div
       style={{
+        height: viewportHeight ? `${viewportHeight}px` : '100%',
+        maxHeight: viewportHeight ? `${viewportHeight}px` : '100%',
+        top: viewportTop ? `${viewportTop}px` : 0,
         backgroundImage: customization.customWallpaperUrl ? `url(${customization.customWallpaperUrl})` : undefined,
         backgroundRepeat: customization.myspaceBackgroundRepeat === 'tile' ? 'repeat' : customization.myspaceBackgroundRepeat === 'repeat-x' ? 'repeat-x' : 'no-repeat',
         backgroundSize: customization.myspaceBackgroundRepeat === 'tile' || customization.myspaceBackgroundRepeat === 'repeat-x' ? 'auto' : 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
       }}
-      className="fixed inset-0 h-[100dvh] max-h-[100dvh] w-screen bg-[var(--bg-dark)] text-neutral-100 overflow-hidden font-sans select-text flex transition-colors"
+      className="fixed left-0 right-0 w-full bg-[var(--bg-dark)] text-neutral-100 overflow-hidden font-sans select-text flex transition-colors"
     >
       {/* Sidebar (Chat Explorer / Transcripts) */}
       <Sidebar
@@ -896,19 +1089,16 @@ export function App() {
           activeProfile={activeProfile}
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
-          onNewChat={handleNewChat}
           onOpenSettings={handleOpenSettings}
-          onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
           onOpenMusicPlayer={() => setIsMusicPlayerOpen(true)}
-          onOpenVoiceStudio={() => setIsVoiceStudioOpen(true)}
-          onLogout={handleLogout}
-          onLockScreen={() => handleLockAccount(activeProfile)}
-          isAdmin={isAdmin}
-          isGenerating={isGenerating}
+          onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
+          onOpenAgentHub={() => setIsAgentHubOpen(true)}
+          onOpenAgentConsole={() => setIsAgentConsoleOpen(true)}
           activeViewTitle={activeViewTitle}
           assistantEmoji={customization.assistantEmoji}
           assistantName={customization.assistantName}
         />
+
 
         {/* MySpace Retro Marquee Ticker */}
         {customization.myspaceMarqueeText && (
@@ -997,10 +1187,44 @@ export function App() {
               onStop={handleStop}
               isGenerating={isGenerating}
               activeProfile={activeProfile}
+              selectedAgent={selectedAgent}
+              onClearSelectedAgent={() => setSelectedAgent(null)}
+              onOpenAgentHub={() => setIsAgentHubOpen(true)}
+              isKeyboardOpen={isKeyboardOpen}
+              onKeyboardStateChange={setIsKeyboardOpen}
             />
+
+            {/* Mobile Bottom Navigation Bar (Android & Mobile Web) - Hidden when typing so keyboard doesn't push composer offscreen */}
+            {!isKeyboardOpen && (
+              <MobileNavBar
+                onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+                onOpenAgentHub={() => setIsAgentHubOpen(true)}
+                onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
+                onOpenMusicPlayer={() => setIsMusicPlayerOpen(true)}
+                onOpenSettings={() => handleOpenSettings('settings')}
+                isSidebarOpen={isSidebarOpen}
+                selectedAgentName={selectedAgent?.name}
+              />
+            )}
           </>
         )}
       </div>
+
+      {/* Doshie Working Agents & Autonomous Tasks Hub */}
+      <AgentHubModal
+        isOpen={isAgentHubOpen}
+        onClose={() => setIsAgentHubOpen(false)}
+        activeProfile={activeProfile}
+        isAdmin={isAdmin}
+        selectedAgentId={selectedAgent?.id}
+        onSelectAgentForChat={agent => setSelectedAgent(agent)}
+      />
+
+      {/* Autonomous Agent Console with Human-in-the-Loop Approvals */}
+      <AgentConsoleModal
+        isOpen={isAgentConsoleOpen}
+        onClose={() => setIsAgentConsoleOpen(false)}
+      />
 
       {/* Live Voice Continuous Mode Modal */}
       <LiveVoiceModal
@@ -1014,6 +1238,7 @@ export function App() {
       <MusicPlayerModal
         isOpen={isMusicPlayerOpen}
         onClose={() => setIsMusicPlayerOpen(false)}
+        activeProfile={activeProfile}
       />
 
       {/* Voice Studio & Voice Changer Modal */}
@@ -1021,6 +1246,7 @@ export function App() {
         isOpen={isVoiceStudioOpen}
         onClose={() => setIsVoiceStudioOpen(false)}
       />
+
 
       {/* Settings & Customization Modal */}
       <SettingsModal
@@ -1035,6 +1261,26 @@ export function App() {
         isAdmin={isAdmin}
         onSelectOversightProfile={handleSelectOversightProfile}
         onLockScreen={() => handleLockAccount(activeProfile)}
+        onOpenLiveVoice={() => {
+          setIsSettingsOpen(false)
+          setIsLiveVoiceOpen(true)
+        }}
+        onOpenMusicPlayer={() => {
+          setIsSettingsOpen(false)
+          setIsMusicPlayerOpen(true)
+        }}
+        onOpenVoiceStudio={() => {
+          setIsSettingsOpen(false)
+          setIsVoiceStudioOpen(true)
+        }}
+        onOpenAgentHub={() => {
+          setIsSettingsOpen(false)
+          setIsAgentHubOpen(true)
+        }}
+        onOpenAgentConsole={() => {
+          setIsSettingsOpen(false)
+          setIsAgentConsoleOpen(true)
+        }}
       />
 
       {/* Lock Screen Security Overlay */}
