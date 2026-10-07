@@ -9394,7 +9394,14 @@ def app_version():
                     }
         except (OSError, ValueError, TypeError):
             releases = {}
-    response = jsonify({"version": str(version), "releases": releases, "source": "Doshie main home"})
+    response_data = {
+        "version": str(version),
+        "releases": releases,
+        "source": "Doshie main home",
+    }
+    if "android" in releases:
+        response_data["android"] = releases["android"]
+    response = jsonify(response_data)
     response.headers["Cache-Control"] = "no-store"
     return response
 

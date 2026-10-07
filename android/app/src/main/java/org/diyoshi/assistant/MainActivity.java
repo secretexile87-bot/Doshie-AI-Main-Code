@@ -150,13 +150,20 @@ public class MainActivity extends BridgeActivity {
 
                 JSONObject root = new JSONObject(body.toString());
                 JSONObject release = root.optJSONObject("android");
+                if (release == null && root.optJSONObject("releases") != null) {
+                    release = root.optJSONObject("releases").optJSONObject("android");
+                }
                 if (release == null) return;
-                String latest = release.optString("version", "");
+                String latest = release.optString("version", root.optString("version", ""));
                 String downloadUrl = release.optString("url", "");
+                if (downloadUrl.isEmpty() && release.has("file")) {
+                    downloadUrl = "/static/downloads/" + release.optString("file");
+                }
                 String current = getPackageManager()
                     .getPackageInfo(getPackageName(), 0).versionName;
-                if (!downloadUrl.isEmpty() && compareVersions(latest, current) > 0) {
-                    runOnUiThread(() -> showUpdateDialog(latest, downloadUrl));
+                final String finalDownloadUrl = downloadUrl;
+                if (!finalDownloadUrl.isEmpty() && compareVersions(latest, current) > 0) {
+                    runOnUiThread(() -> showUpdateDialog(latest, finalDownloadUrl));
                 }
             } catch (Exception ignored) {
                 // Offline devices keep using the installed app.

@@ -51,7 +51,6 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   const activeRecorderRef = useRef<MediaRecorder | null>(null)
   const lastRecognizedRef = useRef<string>('')
   const webSpeechSupportedRef = useRef<boolean | null>(null)
-  const nativeSpeechSupportedRef = useRef<boolean | null>(null)
   const emptyTurnCountRef = useRef(0)
   const wakeLockRef = useRef<any>(null)
   const turnRunningRef = useRef(false)
@@ -139,38 +138,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     } catch {}
   }
 
-  const getNativeSpeech = () => {
-    if (nativeSpeechSupportedRef.current === false) return null
-    try {
-      const cap = (window as any).Capacitor
-      if (!cap || typeof cap !== 'object') return null
-      if (typeof cap.isNativePlatform === 'function' && !cap.isNativePlatform()) {
-        return null
-      }
-      if (cap.Plugins?.DiYoshiSpeech) return cap.Plugins.DiYoshiSpeech
-      if (cap.Plugins?.DoshieSpeech) return cap.Plugins.DoshieSpeech
-      if (typeof cap.registerPlugin === 'function') {
-        return cap.registerPlugin('DiYoshiSpeech') || cap.registerPlugin('DoshieSpeech')
-      }
-    } catch {}
-    return null
-  }
-
   const ensureMicrophonePermission = async (): Promise<boolean> => {
-    const nativeSpeech = getNativeSpeech()
-    if (nativeSpeech) {
-      try {
-        if (typeof nativeSpeech.checkPermissions === 'function') {
-          const perm = await nativeSpeech.checkPermissions()
-          if (perm?.microphone !== 'granted' && typeof nativeSpeech.requestPermissions === 'function') {
-            await nativeSpeech.requestPermissions()
-          }
-        }
-        return true
-      } catch (err) {
-        console.warn('Native speech permission check issue:', err)
-      }
-    }
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -658,40 +626,28 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
       let userSpoken = ''
 
-      const nativeSpeech = getNativeSpeech()
-      if (nativeSpeech && nativeSpeechSupportedRef.current !== false) {
+      // Attempt Web Speech API first (if available in Chrome desktop/mobile)
+      const isElectron = !!(window as any).process?.versions?.electron || navigator.userAgent.includes('Electron')
+      const SpeechRec = (webSpeechSupportedRef.current !== false) && !isElectron &&
+        ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+
+      if (SpeechRec) {
         try {
-          const result = await nativeSpeech.startListening({
-            language: navigator.language || 'en-US',
-          })
-          userSpoken = String(result?.text || '').trim()
-        } catch (err: any) {
-          console.warn('Native speech recognition failed/timed out, disabling for session:', err?.message || err)
-          nativeSpeechSupportedRef.current = false
+          userSpoken = await listenWithWebSpeech(SpeechRec)
+        } catch {
+          userSpoken = ''
         }
+      } else {
+        webSpeechSupportedRef.current = false
       }
 
-      // If native speech did not produce speech or errored out, fall back to Web Speech or server Whisper
+      // If Web Speech is unavailable (Android WebView, Capacitor, Firefox) or heard nothing, record directly and transcribe with RTX 5070 Whisper
       if (!userSpoken && !isCancelledRef.current) {
-        const isElectron = !!(window as any).process?.versions?.electron || navigator.userAgent.includes('Electron')
-        const SpeechRec = (webSpeechSupportedRef.current !== false) && !isElectron &&
-          ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
-
-        if (SpeechRec) {
-          try {
-            userSpoken = await listenWithWebSpeech(SpeechRec)
-          } catch {
-            userSpoken = ''
-          }
-        }
-
-        // If Web Speech is unavailable / failed with network error, use server Whisper STT
-        if (!userSpoken && webSpeechSupportedRef.current === false && !isCancelledRef.current) {
-          try {
-            userSpoken = await recordAndTranscribe()
-          } catch {
-            userSpoken = ''
-          }
+        try {
+          userSpoken = await recordAndTranscribe()
+        } catch (err) {
+          console.warn('Whisper recording fallback error:', err)
+          userSpoken = ''
         }
       }
 
@@ -812,10 +768,6 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     }
     stopSpeech()
     releaseWakeLock()
-    const nativeSpeech = getNativeSpeech()
-    if (nativeSpeech) {
-      nativeSpeech.stopListening().catch(() => {})
-    }
   }
 
   // Start live session when modal opens
@@ -824,7 +776,6 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       isCancelledRef.current = false
       isContinuousRef.current = true
       isInterruptedRef.current = false
-      nativeSpeechSupportedRef.current = null
       emptyTurnCountRef.current = 0
       setAssistantText('I’m listening. Talk to me anytime!')
       setTranscript('')
