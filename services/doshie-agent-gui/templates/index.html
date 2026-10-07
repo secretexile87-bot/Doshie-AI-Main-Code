@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Doshie Agent • Approval Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card: #111827;
+      --card-hover: #162032;
+      --border: #1f293d;
+      --border-focus: #35f2d0;
+      --accent: #10b981;
+      --accent-light: #34d399;
+      --accent-glow: rgba(16, 185, 129, 0.25);
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --code-bg: #0b111e;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    header {
+      background: rgba(17, 24, 39, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent), #059669);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: #fff;
+      font-size: 16px;
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    .brand-text h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-status {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-light);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+    }
+
+    .status-dot.busy {
+      background: #f59e0b;
+      box-shadow: 0 0 6px #f59e0b;
+      animation: pulse 1.2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    select, button, input {
+      font-family: inherit;
+    }
+
+    .select-model {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .select-model:focus {
+      border-color: var(--border-focus);
+    }
+
+    .btn-icon {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+
+    .btn-icon:hover {
+      background: var(--card-hover);
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-close-header {
+      background: rgba(239, 68, 68, 0.15) !important;
+      border-color: rgba(239, 68, 68, 0.35) !important;
+      color: #fca5a5 !important;
+      font-weight: 600 !important;
+    }
+
+    .btn-close-header:hover {
+      background: rgba(239, 68, 68, 0.35) !important;
+      color: #ffffff !important;
+      border-color: #ef4444 !important;
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      padding: 24px 16px 120px 16px;
+    }
+
+    .chat-stream {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Messages */
+    .msg-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg-user {
+      align-self: flex-end;
+      max-width: 80%;
+      background: #1e293b;
+      border: 1px solid #334155;
+      padding: 12px 18px;
+      border-radius: 18px 18px 4px 18px;
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .msg-assistant {
+      align-self: flex-start;
+      max-width: 92%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 16px 20px;
+      border-radius: 18px 18px 18px 4px;
+      font-size: 14.5px;
+      line-height: 1.6;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+
+    .msg-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-light);
+    }
+
+    /* Approval Card */
+    .approval-card {
+      background: #0f172a;
+      border: 1.5px solid #38bdf8;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
+      border-radius: 14px;
+      padding: 18px;
+      margin: 14px 0;
+      animation: cardPulse 0.3s ease-out;
+    }
+
+    @keyframes cardPulse {
+      0% { transform: scale(0.97); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .approval-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin-bottom: 12px;
+    }
+
+    .approval-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #e2e8f0;
+    }
+
+    .approval-content {
+      background: #030712;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      color: #f8fafc;
+      overflow-x: auto;
+      max-height: 280px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+
+    .approval-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-approve {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+      border: none;
+      padding: 9px 20px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+      transition: all 0.15s;
+    }
+
+    .btn-approve:hover {
+      background: linear-gradient(135deg, #34d399, #10b981);
+      transform: translateY(-1px);
+      box-shadow: 0 0 16px rgba(16, 185, 129, 0.5);
+    }
+
+    .btn-decline {
+      background: transparent;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s;
+    }
+
+    .btn-decline:hover {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border-color: #ef4444;
+    }
+
+    /* Tool Result Log */
+    .tool-result {
+      background: #090e17;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin: 10px 0;
+      overflow: hidden;
+      font-size: 12.5px;
+    }
+
+    .tool-result-header {
+      background: #111827;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .tool-result-body {
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      color: #e2e8f0;
+      overflow-x: auto;
+      max-height: 250px;
+      white-space: pre-wrap;
+      font-size: 12px;
+    }
+
+    /* Fixed Composer Bar */
+    .composer-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(180deg, rgba(9, 13, 22, 0) 0%, rgba(9, 13, 22, 0.95) 30%, rgba(9, 13, 22, 1) 100%);
+      padding: 20px 16px 24px 16px;
+      z-index: 40;
+    }
+
+    .composer-box {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      transition: border-color 0.2s;
+    }
+
+    .composer-box:focus-within {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14.5px;
+      resize: none;
+      min-height: 24px;
+      max-height: 180px;
+      line-height: 1.5;
+      padding: 4px 0;
+    }
+
+    textarea::placeholder {
+      color: #64748b;
+    }
+
+    .btn-send {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+
+    .btn-send:hover {
+      background: var(--accent-light);
+      transform: scale(1.05);
+    }
+
+    .btn-send:disabled {
+      background: #334155;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-state h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+      max-width: 480px;
+      margin: 0 auto 24px auto;
+      line-height: 1.6;
+    }
+
+    .quick-prompts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .quick-chip {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .quick-chip:hover {
+      background: var(--card-hover);
+      border-color: var(--accent);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 450px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+
+    .modal-card h3 {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-control {
+      width: 100%;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      outline: none;
+    }
+
+    .form-control:focus {
+      border-color: var(--border-focus);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-text">
+        <h1>Doshie Agent</h1>
+      </div>
+      <div class="badge-status" id="statusBadge">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Ready</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <select class="select-model" id="modelSelect">
+        <option value="qwen2.5-coder:7b" selected>qwen2.5-coder:7b</option>
+        <option value="qwen2.5:14b">qwen2.5:14b</option>
+        <option value="qwen3.5:9b">qwen3.5:9b</option>
+        <option value="deepseek-r1:14b">deepseek-r1:14b</option>
+      </select>
+
+      <button class="btn-icon" id="btnSettings" title="API Settings">
+        ⚙️ Settings
+      </button>
+
+      <button class="btn-icon" id="btnNewChat" title="Reset Session">
+        ✨ New Task
+      </button>
+
+      <button class="btn-icon btn-close-header" id="btnCloseApp" title="Close / Return to Doshie" onclick="closeAgentWindow()">
+        ✕ <span class="btn-close-label">Close</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Chat Conversation Feed -->
+  <main>
+    <div class="chat-stream" id="chatStream">
+      <div class="empty-state" id="emptyState">
+        <h2>What task can I help you complete?</h2>
+        <p>I am your local autonomous coding agent. I plan solutions, run bash commands, and edit files on your machine with <strong>your interactive approval</strong>.</p>
+        <div class="quick-prompts">
+          <div class="quick-chip" onclick="fillPrompt('Inspect system resources and active python services')">📊 Inspect active services</div>
+          <div class="quick-chip" onclick="fillPrompt('Check git status and pending changes in /home/doshie/Doshie')">🔍 Check git status</div>
+          <div class="quick-chip" onclick="fillPrompt('Read the last 50 lines of doshie-supervisor.log')">📜 Check supervisor logs</div>
+          <div class="quick-chip" onclick="fillPrompt('Create a python script to test local Ollama response latency')">⚡ Write test script</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Bottom Message Composer -->
+  <div class="composer-container">
+    <div class="composer-box">
+      <textarea
+        id="userInput"
+        rows="1"
+        placeholder="Ask the agent to perform a task (e.g. 'Check service status and fix logs')..."
+      ></textarea>
+      <button class="btn-send" id="btnSend" title="Send (Enter)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-card">
+      <h3>Agent Configuration</h3>
+      <div class="form-group">
+        <label>Custom API Key (Gemini or OpenAI compatible)</label>
+        <input type="password" id="customApiKey" class="form-control" placeholder="Optional: sk-..." />
+      </div>
+      <div class="form-group">
+        <label>Custom Base Endpoint</label>
+        <input type="text" id="customEndpoint" class="form-control" placeholder="Default: http://127.0.0.1:11434" />
+      </div>
+      <div class="form-group">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="requireAllApproval" />
+          <span>Require approval for all tools (including read-only)</span>
+        </label>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
+        <button class="btn-icon" onclick="closeSettings()">Cancel</button>
+        <button class="btn-approve" onclick="saveSettings()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let sessionId = localStorage.getItem('doshie_agent_session_id') || Math.random().toString(36).substring(2, 12);
+    localStorage.setItem('doshie_agent_session_id', sessionId);
+
+    const API_PREFIX = window.location.pathname.startsWith('/agent-console') ? '/agent-console' : '';
+    let isBusy = false;
+    let currentApprovalId = null;
+    const renderedHistoryIds = new Set();
+
+    const chatStream = document.getElementById('chatStream');
+    const emptyState = document.getElementById('emptyState');
+    const userInput = document.getElementById('userInput');
+    const btnSend = document.getElementById('btnSend');
+    const modelSelect = document.getElementById('modelSelect');
+    const statusText = document.getElementById('statusText');
+    const statusDot = document.getElementById('statusDot');
+
+    // Auto-resize textarea
+    userInput.addEventListener('input', () => {
+      userInput.style.height = 'auto';
+      userInput.style.height = Math.min(userInput.scrollHeight, 180) + 'px';
+    });
+
+    userInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    btnSend.addEventListener('click', sendMessage);
+
+    function setStatus(text, busy = false) {
+      statusText.textContent = text;
+      if (busy) {
+        statusDot.classList.add('busy');
+      } else {
+        statusDot.classList.remove('busy');
+      }
+    }
+
+    function fillPrompt(text) {
+      userInput.value = text;
+      userInput.focus();
+      userInput.style.height = 'auto';
+      userInput.style.height = userInput.scrollHeight + 'px';
+    }
+
+    // Load available models from Ollama
+    async function loadModels() {
+      try {
+        const res = await fetch(API_PREFIX + '/api/models');
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.models) && data.models.length > 0) {
+          modelSelect.innerHTML = '';
+          data.models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.name;
+            opt.textContent = `${m.name} (${m.parameter_size || ''})`;
+            if (m.name.includes('qwen2.5-coder')) opt.selected = true;
+            modelSelect.appendChild(opt);
+          });
+        }
+      } catch (err) {
+        console.warn('Could not fetch models:', err);
+      }
+    }
+    loadModels();
+
+    function appendUserMessage(text) {
+      if (emptyState) emptyState.style.display = 'none';
+      const div = document.createElement('div');
+      div.className = 'msg-group';
+      div.innerHTML = `<div class="msg-user">${escapeHtml(text)}</div>`;
+      chatStream.appendChild(div);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    function appendAssistantMessage(text, thought = '') {
+      if (emptyState) emptyState.style.display = 'none';
+      const div = document.createElement('div');
+      div.className = 'msg-group';
+
+      let html = `<div class="msg-assistant">`;
+      html += `<div class="msg-header">🤖 Doshie Agent</div>`;
+      if (thought) {
+        html += `<div style="font-size:12.5px; color:#94a3b8; font-style:italic; margin-bottom:10px; border-left:2px solid #334155; padding-left:10px;">${escapeHtml(thought)}</div>`;
+      }
+      html += `<div>${formatMarkdown(text)}</div></div>`;
+      div.innerHTML = html;
+      chatStream.appendChild(div);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      return div;
+    }
+
+    function appendApprovalCard(approval) {
+      if (emptyState) emptyState.style.display = 'none';
+      currentApprovalId = approval.id;
+      setStatus('Waiting for your approval', true);
+
+      const div = document.createElement('div');
+      div.className = 'msg-group';
+      div.id = `approval-group-${approval.id}`;
+
+      let toolBadge = '⚡ Tool Proposed';
+      let formattedArgs = '';
+
+      if (approval.tool === 'run_command') {
+        toolBadge = '⚡ Run Terminal Command';
+        formattedArgs = `$ ${approval.args.command || ''}\n# working dir: ${approval.args.cwd || '~'}`;
+      } else if (approval.tool === 'write_file') {
+        toolBadge = '📄 Create / Overwrite File';
+        formattedArgs = `Target: ${approval.args.path}\n\n${approval.args.content || ''}`;
+      } else if (approval.tool === 'replace_file_content') {
+        toolBadge = '📝 Edit Code File';
+        formattedArgs = `Target: ${approval.args.path}\n\n<<< REPLACE:\n${approval.args.target_content}\n\n=== WITH:\n${approval.args.replacement_content}`;
+      } else if (approval.tool === 'web_search') {
+        toolBadge = '🔍 Live Web Search';
+        formattedArgs = `Query: ${approval.args.query}`;
+      } else {
+        toolBadge = `🔧 Tool: ${approval.tool}`;
+        formattedArgs = JSON.stringify(approval.args, null, 2);
+      }
+
+      div.innerHTML = `
+        <div class="approval-card" id="card-${approval.id}">
+          <div class="approval-badge">${toolBadge}</div>
+          <div class="approval-title">${approval.thought ? escapeHtml(approval.thought) : 'The agent requests permission to execute this action:'}</div>
+          <div class="approval-content">${escapeHtml(formattedArgs)}</div>
+          <div class="approval-actions">
+            <button class="btn-approve" onclick="resolveApproval('${approval.id}', true)">
+              ✓ Approve & Execute
+            </button>
+            <button class="btn-decline" onclick="resolveApproval('${approval.id}', false)">
+              ✗ Decline
+            </button>
+          </div>
+        </div>
+      `;
+
+      chatStream.appendChild(div);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    function appendToolResult(toolName, result, isApproved) {
+      const div = document.createElement('div');
+      div.className = 'msg-group';
+
+      let outText = '';
+      if (!isApproved) {
+        outText = 'Action was declined by user.';
+      } else if (result.error) {
+        outText = `Error: ${result.error}`;
+      } else if (result.stdout || result.stderr) {
+        outText = result.stdout || '';
+        if (result.stderr) outText += '\n[stderr]\n' + result.stderr;
+      } else if (result.diff) {
+        outText = result.diff;
+      } else if (result.content) {
+        outText = result.content;
+      } else {
+        outText = JSON.stringify(result, null, 2);
+      }
+
+      const statusColor = (!isApproved || result.ok === false) ? '#f87171' : '#34d399';
+      const statusTitle = !isApproved ? 'Declined by User' : (result.ok ? 'Executed Successfully' : 'Exited with Error');
+
+      div.innerHTML = `
+        <div class="tool-result">
+          <div class="tool-result-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+            <span>🔧 ${escapeHtml(toolName)} — <span style="color:${statusColor}">${statusTitle}</span></span>
+            <span style="font-size:11px; color:#64748b;">click to toggle</span>
+          </div>
+          <div class="tool-result-body">${escapeHtml(outText.trim() || 'No output.')}</div>
+        </div>
+      `;
+      chatStream.appendChild(div);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    async function sendMessage() {
+      const text = userInput.value.trim();
+      if (!text || isBusy) return;
+
+      appendUserMessage(text);
+      userInput.value = '';
+      userInput.style.height = 'auto';
+
+      isBusy = true;
+      btnSend.disabled = true;
+      setStatus('Thinking...', true);
+
+      try {
+        const res = await fetch(API_PREFIX + '/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sessionId,
+            message: text,
+            model: modelSelect.value,
+            require_all_approval: document.getElementById('requireAllApproval').checked,
+            api_key: localStorage.getItem('doshie_custom_api_key') || '',
+            custom_endpoint: localStorage.getItem('doshie_custom_endpoint') || ''
+          })
+        });
+
+        const data = await res.json();
+        handleServerResponse(data);
+      } catch (err) {
+        appendAssistantMessage(`⚠️ Network error: ${err.message}`);
+        setStatus('Error', false);
+        isBusy = false;
+        btnSend.disabled = false;
+      }
+    }
+
+    async function resolveApproval(approvalId, approved) {
+      const card = document.getElementById(`card-${approvalId}`);
+      if (card) {
+        card.style.opacity = '0.6';
+        card.style.pointerEvents = 'none';
+      }
+
+      setStatus(approved ? 'Executing action...' : 'Declining...', true);
+
+      try {
+        const res = await fetch(API_PREFIX + '/api/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sessionId,
+            approval_id: approvalId,
+            approved: approved,
+            feedback: approved ? '' : 'User declined action.'
+          })
+        });
+
+        const data = await res.json();
+        handleServerResponse(data);
+      } catch (err) {
+        appendAssistantMessage(`⚠️ Error processing approval: ${err.message}`);
+        setStatus('Error', false);
+        isBusy = false;
+        btnSend.disabled = false;
+      }
+    }
+
+    function handleServerResponse(data) {
+      if (!data.ok && data.error) {
+        appendAssistantMessage(`⚠️ ${data.error}`);
+        setStatus('Ready', false);
+        isBusy = false;
+        btnSend.disabled = false;
+        return;
+      }
+
+      // Render all new executed tools from history
+      if (data.history && Array.isArray(data.history)) {
+        for (const entry of data.history) {
+          if (!entry.id || renderedHistoryIds.has(entry.id)) continue;
+          renderedHistoryIds.add(entry.id);
+          if (entry.role === 'tool_executed') {
+            appendToolResult(entry.tool, entry.result, true);
+          } else if (entry.role === 'tool_declined') {
+            appendToolResult(entry.tool, {}, false);
+          }
+        }
+      }
+
+      if (data.status === 'awaiting_approval' && data.approval) {
+        if (data.reply) {
+          appendAssistantMessage(data.reply);
+        }
+        appendApprovalCard(data.approval);
+        setStatus('Waiting for approval', true);
+        isBusy = false;
+        btnSend.disabled = false;
+      } else {
+        if (data.reply) {
+          appendAssistantMessage(data.reply);
+        }
+        setStatus('Ready', false);
+        isBusy = false;
+        btnSend.disabled = false;
+      }
+    }
+
+    // Reset Chat
+    document.getElementById('btnNewChat').addEventListener('click', async () => {
+      if (confirm('Start a new session and clear current conversation?')) {
+        sessionId = Math.random().toString(36).substring(2, 12);
+        localStorage.setItem('doshie_agent_session_id', sessionId);
+        renderedHistoryIds.clear();
+        chatStream.innerHTML = '';
+        if (emptyState) {
+          chatStream.appendChild(emptyState);
+          emptyState.style.display = 'block';
+        }
+        setStatus('Ready', false);
+        isBusy = false;
+        btnSend.disabled = false;
+      }
+    });
+
+    // Settings Modal
+    document.getElementById('btnSettings').addEventListener('click', () => {
+      document.getElementById('customApiKey').value = localStorage.getItem('doshie_custom_api_key') || '';
+      document.getElementById('customEndpoint').value = localStorage.getItem('doshie_custom_endpoint') || '';
+      document.getElementById('settingsModal').classList.add('active');
+    });
+
+    function closeSettings() {
+      document.getElementById('settingsModal').classList.remove('active');
+    }
+
+    function saveSettings() {
+      localStorage.setItem('doshie_custom_api_key', document.getElementById('customApiKey').value.trim());
+      localStorage.setItem('doshie_custom_endpoint', document.getElementById('customEndpoint').value.trim());
+      closeSettings();
+    }
+
+    function closeAgentWindow() {
+      // 1. If embedded in Doshie iframe, notify parent modal to close
+      if (window.parent && window.parent !== window) {
+        try {
+          window.parent.postMessage({ type: 'close_agent_console' }, '*');
+        } catch (e) {}
+      }
+      // 2. Try window.close() for popped-out windows/tabs
+      try {
+        window.close();
+      } catch (e) {}
+      // 3. Fallback: navigate back to Doshie main app if window remains open
+      setTimeout(() => {
+        if (!document.hidden) {
+          window.location.href = '/';
+        }
+      }, 100);
+    }
+
+    // Support Esc key to close settings or close console
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const modal = document.getElementById('settingsModal');
+        if (modal && modal.classList.contains('active')) {
+          closeSettings();
+        } else {
+          closeAgentWindow();
+        }
+      }
+    });
+
+    function escapeHtml(str) {
+      return (str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatMarkdown(text) {
+      if (!text) return '';
+      let escaped = escapeHtml(text);
+      // Code blocks
+      escaped = escaped.replace(/```([a-zA-Z0-9]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+        return `<pre style="background:#030712; border:1px solid #1e293b; padding:12px; border-radius:8px; font-family:'JetBrains Mono',monospace; font-size:12px; overflow-x:auto; margin:8px 0;"><code>${code}</code></pre>`;
+      });
+      // Inline code
+      escaped = escaped.replace(/`([^`]+)`/g, '<code style="background:#1e293b; padding:2px 6px; border-radius:4px; font-family:\'JetBrains Mono\',monospace; font-size:12px;">$1</code>');
+      // Bold
+      escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      // Line breaks
+      escaped = escaped.replace(/\n/g, '<br/>');
+      return escaped;
+    }
+  </script>
+</body>
+</html>
