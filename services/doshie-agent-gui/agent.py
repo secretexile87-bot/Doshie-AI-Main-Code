@@ -35,6 +35,7 @@ DOSHIE ENVIRONMENT & SERVICES:
     (Check with: `systemctl --user status <service>` or `systemctl --user is-active <service>`)
   - Host Services: `ollama.service`
   - Core Health Diagnostic: run `/home/doshie/Doshie/.venv/bin/python /home/doshie/Doshie/core/doshie_core.py`
+  - Project Logs & Files: Log files such as `doshie-supervisor.log` and `doshie_proxy.log` are stored directly inside `/home/doshie/Doshie/` (e.g. `/home/doshie/Doshie/doshie-supervisor.log`), NOT in a separate `logs/` directory. Systemd service logs can be viewed with `run_command` -> `journalctl --user -u <service> -n 50 --no-pager`.
 - IMPORTANT: When asked to check Doshie health or status, inspect the real Doshie services above or run the health diagnostic script. NEVER guess or check fake services like 'game-server.service' or search the web for video game servers unless the user explicitly asks about games.
 
 CODING & APP CREATION INSTRUCTIONS (CRITICAL):

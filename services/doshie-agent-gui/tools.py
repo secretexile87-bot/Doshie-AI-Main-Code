@@ -194,16 +194,46 @@ def execute_tool(name: str, args: dict) -> dict:
             }
 
         elif name == "view_file":
-            target = resolve_path(args.get("path", ""))
+            raw_target = str(args.get("path", "")).strip()
+            target = resolve_path(raw_target)
             if not target.exists():
-                return {"ok": False, "error": f"File not found: {target}"}
+                # Smart fallbacks for common project search paths
+                candidates = [
+                    Path("/home/doshie/Doshie") / target.name,
+                    Path("/home/doshie/Doshie") / raw_target.lstrip("/"),
+                    target.parent.parent / target.name if target.parent != target.parent.parent else None,
+                    Path.home() / target.name,
+                ]
+                found = None
+                for c in candidates:
+                    if c and c.exists() and c.is_file():
+                        found = c
+                        break
+                if found:
+                    target = found
+                else:
+                    return {"ok": False, "error": f"File not found: {target}"}
             if target.is_dir():
                 return {"ok": False, "error": f"Target is a directory, use list_dir instead: {target}"}
 
             lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
-            start_line = max(1, int(args.get("start_line", 1)))
-            line_count = min(300, max(1, int(args.get("line_count", 100))))
-            selected = lines[start_line - 1 : start_line - 1 + line_count]
+            try:
+                start_line = int(args.get("start_line", 1))
+            except Exception:
+                start_line = 1
+            try:
+                line_count = min(300, max(1, int(args.get("line_count", 100))))
+            except Exception:
+                line_count = 100
+
+            # Support tail reading from end
+            if start_line < 0 or bool(args.get("tail")):
+                count = abs(start_line) if start_line < 0 else line_count
+                selected = lines[-count:]
+                start_line = max(1, len(lines) - len(selected) + 1)
+            else:
+                start_line = max(1, start_line)
+                selected = lines[start_line - 1 : start_line - 1 + line_count]
 
             numbered = [
                 f"{start_line + i:4d} | {line}"

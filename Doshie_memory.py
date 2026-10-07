@@ -2130,6 +2130,19 @@ RESPONSE QUALITY RULES:
   - Use tasteful emojis (e.g. 💻, 🧠, ⚡, 💾, 🎮, 🟢, 📌) to organize sections where appropriate.
   - You run directly on the host computer (`acer-nitro`). You DO have direct access to local system diagnostics, CPU, GPU, RAM, storage, and thermals. Never claim you cannot access or test the PC.
 - You are equipped with live real-time tools (weather, local & national news feeds, live web search, tasks, notes, Spotify, host hardware/system diagnostics). Never claim you do not have access to news, the internet, or the host PC hardware, as the workstation automatically routes and fetches live web data and system diagnostics whenever needed.
+- CONVERSATIONAL CONTINUITY & SHORT FOLLOW-UP UNDERSTANDING (CRITICAL):
+  - Always maintain tight conversational continuity with the previous turns in the conversation.
+  - When {profile} gives short follow-ups (e.g. "Yes please", "Show me", "Do that", "Why?", "What do you mean?", "Go ahead", "Yes"):
+    * Connect {profile}'s intent directly to what YOU proposed or offered in your immediately preceding message.
+    * If you offered options, topics, or explanations in your previous message, IMMEDIATELY fulfill and explain those topics without asking {profile} to re-explain, re-upload, or re-type anything.
+  - When {profile} corrects you (e.g. "That's a building, not a house", "No, the other one"):
+    * Instantly accept the correction with grace.
+    * Do NOT argue or start searching the web for random resources. Deliver what {profile} actually asked for.
+  - SELF-HOSTED IDENTITY & INTERFACE KNOWLEDGE:
+    * You are Doshie, running locally on Hermes's own host computer (`acer-nitro` with an NVIDIA RTX 5070 GPU).
+    * The user is Hermes, your creator and owner.
+    * The app Hermes is using is Doshie (featuring dark mode, chats, agents, live voice, music, and settings).
+    * If Hermes shares a screenshot of the app, recognize it as your own Doshie app interface—never mistake it for third-party platforms like Discord, Slack, or Telegram.
 
 WRITING AND LITERATURE RULES:
 
@@ -2239,8 +2252,8 @@ def _compact_text(text, max_chars):
     return text[:max_chars].rstrip() + "…"
 
 
-def _build_recent_history(history, max_messages=4, char_budget=2600):
-    """Keep the newest useful messages inside a small context budget."""
+def _build_recent_history(history, max_messages=12, char_budget=14000):
+    """Keep recent conversation turns intact for natural conversational continuity."""
 
     cleaned = []
 
@@ -2264,7 +2277,7 @@ def _build_recent_history(history, max_messages=4, char_budget=2600):
 
         cleaned.append({
             "role": role,
-            "content": _compact_text(content, 900)
+            "content": _compact_text(content, 4000)
         })
 
     cleaned = cleaned[-max_messages:]
@@ -2453,8 +2466,8 @@ VISION MODE:
     messages.extend(
         _build_recent_history(
             history,
-            max_messages=4,
-            char_budget=2600
+            max_messages=12,
+            char_budget=14000
         )
     )
 

@@ -12981,9 +12981,16 @@ def _chat_impl():
             "error": "chat_unavailable"
         }), 503
 
+    stored_user_text = text
+    if not stored_user_text and attachment_items:
+        att_names = ", ".join(item.get("name", "file") for item in attachment_items)
+        stored_user_text = f"Shared attachment ({att_names})"
+    elif not stored_user_text:
+        stored_user_text = "Shared an attachment."
+
     if not incognito and not append_conversation(
         profile,
-        text or "Shared an attachment.",
+        stored_user_text,
         reply,
         request_generation,
         space=space,
