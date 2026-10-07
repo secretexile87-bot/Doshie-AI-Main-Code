@@ -26,8 +26,9 @@ def gpu_status():
     out = command(["nvidia-smi", f"--query-gpu={query}", "--format=csv,noheader,nounits"])
     return out
 
-def service_status(name):
-    out = command(["systemctl", "is-active", name])
+def service_status(name, user=False):
+    cmd = ["systemctl", "--user", "is-active", name] if user else ["systemctl", "is-active", name]
+    out = command(cmd)
     return out == "active"
 
 def snapshot():
@@ -37,8 +38,12 @@ def snapshot():
         "ollama": ollama_status(),
         "gpu": gpu_status(),
         "services": {
-            "doshie": service_status("doshie.service"),
-            "ollama": service_status("ollama.service"),
+            "doshie-web": service_status("doshie-web.service", user=True),
+            "doshie-agent-console": service_status("doshie-agent-console.service", user=True),
+            "doshie-voice": service_status("doshie-voice.service", user=True),
+            "doshie-voice-studio": service_status("doshie-voice-studio.service", user=True),
+            "doshie-music-player": service_status("doshie-music-player.service", user=True),
+            "ollama": service_status("ollama.service", user=False),
         },
     }
 
