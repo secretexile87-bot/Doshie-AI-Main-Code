@@ -37,24 +37,24 @@ DOSHIE ENVIRONMENT & SERVICES:
   - Core Health Diagnostic: run `/home/doshie/Doshie/.venv/bin/python /home/doshie/Doshie/core/doshie_core.py`
 - IMPORTANT: When asked to check Doshie health or status, inspect the real Doshie services above or run the health diagnostic script. NEVER guess or check fake services like 'game-server.service' or search the web for video game servers unless the user explicitly asks about games.
 
-OPERATIONAL RULES:
-1. Always inspect files (`view_file`) before proposing edits to ensure accurate context.
-2. When performing multi-step tasks, explain your reasoning before proposing high-impact tools.
-3. Every terminal command and file modification will be presented to Doshie for interactive approval before running.
+CODING & APP CREATION INSTRUCTIONS (CRITICAL):
+1. ALWAYS use the `write_file` tool to save scripts, files, and applications to the filesystem FIRST.
+   Example of creating a file:
+   ```json
+   {"name": "write_file", "arguments": {"path": "/home/doshie/Doshie/notepad.py", "content": "#!/usr/bin/env python3\\nimport sys\\n..."}}
+   ```
+2. NEVER call `run_command` (such as `chmod +x` or running `python3`) on a file BEFORE you have written it with `write_file`!
+3. PROPOSE ONE ACTION AT A TIME: Always issue one tool call per turn so the user can review and approve it. Once the tool finishes, check the result and propose the next step.
 4. Keep explanations concise, professional, and clear.
 5. When a tool finishes, examine its stdout/stderr or output carefully. If an error occurs, analyze it and propose a fix.
 6. When the goal is completed, summarize what was achieved with clarity.
 
-TOOL CALL INSTRUCTIONS:
-To run a command or tool, always output the tool call or emit a JSON object:
+TOOL CALL FORMAT:
+To execute an action, emit a tool call or JSON block:
 ```json
 {"name": "<tool_name>", "arguments": {<arguments>}}
 ```
-For example, to run a command:
-```json
-{"name": "run_command", "arguments": {"command": "python3 /home/doshie/Doshie/core/doshie_core.py", "cwd": "/home/doshie/Doshie"}}
-```
-Do not ask the user to manually copy and paste commands; always issue the tool call directly so the user can click Approve in the UI.
+Never tell the user you wrote a file without actually calling `write_file`.
 """
 
 OLLAMA_BASE_URL = "http://127.0.0.1:11434"
@@ -70,6 +70,8 @@ class AgentSession:
             {"role": "system", "content": SYSTEM_PROMPT}
         ]
         self.pending_approval: dict | None = None
+        self.pending_tool_queue: list[dict] = []
+        self.last_assistant_thought: str = ""
         self.history_log: list[dict] = []
         self.created_at = time.time()
         self.api_key: str = ""
@@ -138,29 +140,30 @@ class AgentSession:
                     return json.dumps({"raw": val})
             return "{}"
 
-        # 1. Check for <tool_call>...</tool_call> tags
+        # 1. Check for <tool_call>...</tool_call> tags (Forward chronological order)
         tc_matches = list(re.finditer(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", clean_text, re.DOTALL))
+        for m in tc_matches:
+            try:
+                parsed = json.loads(m.group(1))
+                t_name = parsed.get("name") or parsed.get("tool") or parsed.get("function")
+                t_args = parsed.get("arguments") or parsed.get("parameters") or parsed.get("args") or {}
+                if t_name:
+                    tool_calls.append({
+                        "id": uuid.uuid4().hex[:8],
+                        "type": "function",
+                        "function": {
+                            "name": t_name,
+                            "arguments": _format_args_str(t_args)
+                        }
+                    })
+            except Exception:
+                pass
         for m in reversed(tc_matches):
-            try:
-                parsed = json.loads(m.group(1))
-                t_name = parsed.get("name") or parsed.get("tool") or parsed.get("function")
-                t_args = parsed.get("arguments") or parsed.get("parameters") or parsed.get("args") or {}
-                if t_name:
-                    tool_calls.append({
-                        "id": uuid.uuid4().hex[:8],
-                        "type": "function",
-                        "function": {
-                            "name": t_name,
-                            "arguments": _format_args_str(t_args)
-                        }
-                    })
-                    clean_text = clean_text[:m.start()] + clean_text[m.end():]
-            except Exception:
-                pass
+            clean_text = clean_text[:m.start()] + clean_text[m.end():]
 
-        # 2. Check for markdown code blocks: ```(?:json)?\s*(\{.*?\})\s*```
+        # 2. Check for markdown code blocks: ```(?:json)?\s*(\{.*?\})\s*``` (Forward order)
         code_matches = list(re.finditer(r"```(?:json)?\s*(\{.*?\})\s*```", clean_text, re.DOTALL))
-        for m in reversed(code_matches):
+        for m in code_matches:
             try:
                 parsed = json.loads(m.group(1))
                 t_name = parsed.get("name") or parsed.get("tool") or parsed.get("function")
@@ -174,9 +177,10 @@ class AgentSession:
                             "arguments": _format_args_str(t_args)
                         }
                     })
-                    clean_text = clean_text[:m.start()] + clean_text[m.end():]
             except Exception:
                 pass
+        for m in reversed(code_matches):
+            clean_text = clean_text[:m.start()] + clean_text[m.end():]
 
         # 3. Check for raw embedded JSON objects: scan for '{'
         decoder = json.JSONDecoder()
@@ -204,7 +208,97 @@ class AgentSession:
             idx += 1
 
         clean_text = clean_text.strip()
-        return tool_calls, clean_text
+
+        # Safeguard: if a command attempts to chmod/run a script file that does not yet exist on disk,
+        # but code was provided in the assistant message, automatically prepend write_file before the command!
+        reordered_calls = []
+        for call in tool_calls:
+            fn = call.get("function") or {}
+            if fn.get("name") == "run_command":
+                raw_args = fn.get("arguments") or "{}"
+                try:
+                    c_args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+                    cmd = c_args.get("command", "")
+                    m_script = re.search(r"(?:chmod\s+\+x|python3?|bash|sh)\s+([~/a-zA-Z0-9_\-\.\/]+\.(?:py|sh|js|ts|html))", cmd)
+                    if m_script:
+                        raw_target = m_script.group(1)
+                        target_file = Path(raw_target).expanduser()
+                        if not target_file.exists():
+                            blocks = re.findall(r"```(?:python|bash|sh|javascript|typescript|html)?\s*\n(.*?)\n```", content, re.DOTALL)
+                            valid_blocks = [b for b in blocks if not b.strip().startswith("{") and len(b.strip()) > 20]
+                            if valid_blocks:
+                                reordered_calls.append({
+                                    "id": uuid.uuid4().hex[:8],
+                                    "type": "function",
+                                    "function": {
+                                        "name": "write_file",
+                                        "arguments": json.dumps({
+                                            "path": str(target_file),
+                                            "content": valid_blocks[-1]
+                                        })
+                                    }
+                                })
+                except Exception:
+                    pass
+            reordered_calls.append(call)
+
+        return reordered_calls, clean_text
+
+    def _process_tool_call(self, call: dict, thought: str = "") -> dict:
+        """Process a single tool call: request approval if needed or auto-execute if safe."""
+        call_id = call.get("id") or uuid.uuid4().hex[:8]
+        func = call.get("function") or {}
+        tool_name = func.get("name", "")
+        raw_args = func.get("arguments") or {}
+
+        if isinstance(raw_args, str):
+            try:
+                args = json.loads(raw_args)
+            except Exception:
+                args = {"raw": raw_args}
+        else:
+            args = raw_args
+
+        requires_approval = self.require_all_approval or (tool_name in APPROVAL_REQUIRED_TOOLS)
+
+        if requires_approval:
+            clean_thought = (thought or self.last_assistant_thought or "").strip()
+            if not clean_thought:
+                clean_thought = f"I would like permission to run `{tool_name}` on your system."
+
+            approval_obj = {
+                "id": uuid.uuid4().hex[:8],
+                "call_id": call_id,
+                "tool": tool_name,
+                "args": args,
+                "thought": clean_thought,
+                "timestamp": time.time(),
+                "status": "pending"
+            }
+            self.pending_approval = approval_obj
+            return {
+                "status": "awaiting_approval",
+                "approval": approval_obj,
+                "reply": clean_thought
+            }
+        else:
+            # Auto-execute safe read-only tool
+            tool_result = execute_tool(tool_name, args)
+            tool_resp_str = json.dumps(tool_result, ensure_ascii=False)
+            self.messages.append({
+                "role": "tool",
+                "tool_call_id": call_id,
+                "content": tool_resp_str
+            })
+            self.history_log.append({
+                "id": uuid.uuid4().hex[:8],
+                "role": "tool_executed",
+                "tool": tool_name,
+                "args": args,
+                "result": tool_result,
+                "timestamp": time.time()
+            })
+            return {"status": "executed", "result": tool_result}
 
     def step(self, user_input: str | None = None) -> dict:
         """Advance agent turn. Either starts from user message or continues after tool run."""
@@ -236,6 +330,7 @@ class AgentSession:
                     "content": user_input,
                     "timestamp": time.time()
                 })
+                self.pending_tool_queue.clear()
 
             # Loop for auto-executable tools (e.g. view_file if not requiring approval)
             max_auto_steps = 5
@@ -272,62 +367,15 @@ class AgentSession:
                         "turn": msg_entry
                     }
 
-                # Evaluate first tool call
-                call = tool_calls[0]
-                call_id = call.get("id") or uuid.uuid4().hex[:8]
-                func = call.get("function") or {}
-                tool_name = func.get("name", "")
-                raw_args = func.get("arguments") or {}
+                self.last_assistant_thought = clean_content.strip()
+                self.pending_tool_queue = list(tool_calls)
 
-                if isinstance(raw_args, str):
-                    try:
-                        args = json.loads(raw_args)
-                    except Exception:
-                        args = {"raw": raw_args}
-                else:
-                    args = raw_args
-
-                requires_approval = self.require_all_approval or (tool_name in APPROVAL_REQUIRED_TOOLS)
-
-                if requires_approval:
-                    # Halt and create approval request
-                    clean_thought = clean_content.strip()
-                    if not clean_thought:
-                        clean_thought = f"I would like permission to run `{tool_name}` on your system."
-
-                    approval_obj = {
-                        "id": uuid.uuid4().hex[:8],
-                        "call_id": call_id,
-                        "tool": tool_name,
-                        "args": args,
-                        "thought": clean_thought,
-                        "timestamp": time.time(),
-                        "status": "pending"
-                    }
-                    self.pending_approval = approval_obj
-                    return {
-                        "status": "awaiting_approval",
-                        "approval": approval_obj,
-                        "reply": clean_thought
-                    }
-                else:
-                    # Auto-execute safe read-only tool
-                    tool_result = execute_tool(tool_name, args)
-                    tool_resp_str = json.dumps(tool_result, ensure_ascii=False)
-                    self.messages.append({
-                        "role": "tool",
-                        "tool_call_id": call_id,
-                        "content": tool_resp_str
-                    })
-                    self.history_log.append({
-                        "id": uuid.uuid4().hex[:8],
-                        "role": "tool_executed",
-                        "tool": tool_name,
-                        "args": args,
-                        "result": tool_result,
-                        "timestamp": time.time()
-                    })
-                    # Continue loop to let model react to read-only tool output
+                # Process tool calls in forward sequence
+                while self.pending_tool_queue:
+                    call = self.pending_tool_queue.pop(0)
+                    proc = self._process_tool_call(call, thought=self.last_assistant_thought)
+                    if proc.get("status") == "awaiting_approval":
+                        return proc
 
             # If auto-steps completed, synthesize findings for user
             self.messages.append({
@@ -389,6 +437,16 @@ class AgentSession:
                     "result": result,
                     "timestamp": time.time()
                 })
+
+                # If there are queued tool calls left from the same turn, process the next one!
+                while self.pending_tool_queue:
+                    next_call = self.pending_tool_queue.pop(0)
+                    proc = self._process_tool_call(next_call, thought=self.last_assistant_thought)
+                    if proc.get("status") == "awaiting_approval":
+                        return proc
+
+                # All queued tool calls finished; resume LLM turn to process outcomes
+                return self.step()
             else:
                 # User declined
                 feedback = user_feedback.strip() or "User declined this action."
@@ -407,8 +465,16 @@ class AgentSession:
                     "timestamp": time.time()
                 })
 
-            # Resume agent to process the outcome
-            return self.step()
+                # Skip any remaining calls queued from this turn to prevent broken dependencies
+                for skipped_call in self.pending_tool_queue:
+                    sk_id = skipped_call.get("id") or uuid.uuid4().hex[:8]
+                    self.messages.append({
+                        "role": "tool",
+                        "tool_call_id": sk_id,
+                        "content": json.dumps({"ok": False, "status": "skipped", "message": "Previous action was declined by user."})
+                    })
+                self.pending_tool_queue.clear()
+                return self.step()
 
 
 class SessionManager:
