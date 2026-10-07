@@ -13,7 +13,7 @@ import { VoiceStudioModal } from './components/VoiceStudioModal'
 import { AgentHubModal } from './components/AgentHubModal'
 import { AgentConsoleModal } from './components/AgentConsoleModal'
 import { MobileNavBar } from './components/MobileNavBar'
-import { stopSpeech } from './utils/audio'
+import { stopSpeech, subscribeSpeechState } from './utils/audio'
 import type { Message, ChatSession, AntigravitySummary, GuiCustomization, Profile, ChatAttachment, SpecialistAgent } from './types'
 
 
@@ -279,6 +279,11 @@ export function App() {
   const [settingsTab, setSettingsTab] = useState<'apps' | 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor'>('apps')
   const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState(false)
   const [isMusicPlayerOpen, setIsMusicPlayerOpen] = useState(false)
+  const [isGlobalSpeaking, setIsGlobalSpeaking] = useState(false)
+
+  useEffect(() => {
+    return subscribeSpeechState(setIsGlobalSpeaking)
+  }, [])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const [, startTransition] = useTransition()
@@ -350,10 +355,10 @@ export function App() {
     fetchProfiles()
   }, [activeProfile])
 
-  // Auto-lock inactivity listener
+  // Auto-lock inactivity listener (suspended when Live Voice Mode is active)
   useEffect(() => {
     const minutes = customization.lockScreenAutoLockMinutes ?? 15
-    if (minutes <= 0) return
+    if (minutes <= 0 || isLiveVoiceOpen) return
 
     let timeoutId: ReturnType<typeof setTimeout>
 
@@ -372,7 +377,7 @@ export function App() {
       clearTimeout(timeoutId)
       events.forEach(evt => window.removeEventListener(evt, resetTimer))
     }
-  }, [customization.lockScreenAutoLockMinutes, activeProfile])
+  }, [customization.lockScreenAutoLockMinutes, activeProfile, isLiveVoiceOpen])
 
   // Load sessions from Backend or LocalStorage on mount or profile change
   const loadSessionsForProfile = async (
@@ -741,6 +746,12 @@ export function App() {
     agentId?: string
   ) => {
     const trimmed = content.trim()
+    const lower = trimmed.toLowerCase()
+    if (lower === '/cli' || lower === '/console' || lower === '/terminal' || lower === '/agentcli') {
+      setIsAgentConsoleOpen(true)
+      return
+    }
+
     const hasAttachments = Boolean(attachments && attachments.length > 0)
     if ((!trimmed && !hasAttachments) || isGenerating) return
 
@@ -1218,6 +1229,10 @@ export function App() {
         isAdmin={isAdmin}
         selectedAgentId={selectedAgent?.id}
         onSelectAgentForChat={agent => setSelectedAgent(agent)}
+        onOpenAgentConsole={() => {
+          setIsAgentHubOpen(false)
+          setIsAgentConsoleOpen(true)
+        }}
       />
 
       {/* Autonomous Agent Console with Human-in-the-Loop Approvals */}
@@ -1245,7 +1260,31 @@ export function App() {
       <VoiceStudioModal
         isOpen={isVoiceStudioOpen}
         onClose={() => setIsVoiceStudioOpen(false)}
+        activeProfile={activeProfile}
+        availableProfiles={profiles}
       />
+
+      {/* Global TTS Speaking & Instant Interruption Pill */}
+      {isGlobalSpeaking && !isLiveVoiceOpen && (
+        <aside
+          role="region"
+          aria-label="Speech status"
+          className="fixed bottom-20 sm:bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 bg-slate-900/90 dark:bg-zinc-900/95 backdrop-blur-xl border border-red-500/40 text-white rounded-full shadow-[0_10px_35px_rgba(239,68,68,0.35)] animate-in fade-in slide-in-from-bottom-3 duration-200"
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-xs font-semibold text-slate-200 tracking-wide">Doshie is speaking</span>
+          </div>
+          <button
+            onClick={() => stopSpeech()}
+            className="flex items-center gap-1.5 px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-full transition-all active:scale-95 shadow-sm hover:shadow-red-500/50"
+            title="Interrupt speech immediately"
+          >
+            <span>⏹</span>
+            <span>Interrupt</span>
+          </button>
+        </aside>
+      )}
 
 
       {/* Settings & Customization Modal */}

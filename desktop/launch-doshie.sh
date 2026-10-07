@@ -16,5 +16,15 @@ if ! curl -s --connect-timeout 1 http://127.0.0.1:5055/api/services >/dev/null 2
     systemctl --user start doshie-music-player.service || nohup /home/doshie/.gemini/antigravity-cli/scratch/music-player/music-cli server >/dev/null 2>&1 &
 fi
 
+# Connect Tailscale when Doshie starts
+echo "[Doshie Desktop] Connecting Tailscale..."
+tailscale up 2>/dev/null || true
+
+cleanup() {
+    echo "[Doshie Desktop] Disconnecting Tailscale..."
+    tailscale down 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
 # Run Electron app with sandbox flag compatible with Ubuntu user namespaces
-exec ./node_modules/.bin/electron --no-sandbox . "$@"
+./node_modules/.bin/electron --no-sandbox . "$@"

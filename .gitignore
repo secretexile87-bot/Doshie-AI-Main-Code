@@ -46,3 +46,11 @@ __pycache__/
 # Local DBs
 messaging.db
 
+# Large weights, downloads and user data
+models/
+Downloads/
+*.wav
+*.pdf
+data/*.wav
+
+

@@ -9,25 +9,105 @@ const MAX_CACHE_SIZE = 100
 
 let currentAudio: HTMLAudioElement | null = null
 let cancelCurrentPlayback: (() => void) | null = null
+let activeChunkResolver: (() => void) | null = null
+
+const speechListeners = new Set<(speaking: boolean) => void>()
+let currentSpeechActive = false
+
+function notifySpeechState(speaking: boolean) {
+  if (currentSpeechActive !== speaking) {
+    currentSpeechActive = speaking
+    speechListeners.forEach((fn) => {
+      try {
+        fn(speaking)
+      } catch (e) {
+        console.warn('Speech listener error:', e)
+      }
+    })
+  }
+}
+
+export function isSpeaking(): boolean {
+  return currentSpeechActive
+}
+
+export function subscribeSpeechState(callback: (speaking: boolean) => void): () => void {
+  speechListeners.add(callback)
+  callback(currentSpeechActive)
+  return () => {
+    speechListeners.delete(callback)
+  }
+}
 
 /**
- * Strips markdown, emojis, code blocks, and URLs for crisp, fast neural TTS synthesis.
+ * Strips markdown, emojis, code blocks, URLs, thinking tags, and symbols for crisp, natural speech synthesis.
+ * Ensures Doshie speaks only the actual conversational words.
  */
 export function cleanSpeakableText(rawText: string): string {
   if (!rawText) return ''
 
-  return rawText
-    // Remove fenced code blocks completely
-    .replace(/```[\s\S]*?```/g, '')
-    // Remove inline code
-    .replace(/`([^`]+)`/g, '$1')
-    // Remove markdown links [text](url) -> text
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    // Remove URLs
-    .replace(/https?:\/\/\S+/g, '')
-    // Remove markdown symbols #, *, _, ~, >, |, +, -
-    .replace(/[#*_~>|+]/g, ' ')
-    // Replace multiple spaces/newlines with single space
+  let text = rawText
+
+  // 1. Strip reasoning / thinking tags completely (e.g., DeepSeek R1 <think>...</think>)
+  text = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, ' ')
+    .replace(/<thought>[\s\S]*?<\/thought>/gi, ' ')
+    .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, ' ')
+    .replace(/<system>[\s\S]*?<\/system>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+
+  // 2. Remove fenced code blocks completely
+  text = text.replace(/```[\s\S]*?```/g, ' ')
+
+  // 3. Remove inline code backticks, keeping the word/identifier
+  text = text.replace(/`([^`]+)`/g, '$1')
+
+  // 4. Remove LaTeX / Math blocks
+  text = text
+    .replace(/\$\$[\s\S]*?\$\$/g, ' ')
+    .replace(/\$[^\$]+\$/g, ' ')
+    .replace(/\\\[[\s\S]*?\\\]/g, ' ')
+    .replace(/\\\(.*?\\\)/g, ' ')
+
+  // 5. Remove markdown links [title](url) -> keep title, discard url
+  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+
+  // 6. Remove raw URLs completely
+  text = text.replace(/https?:\/\/\S+/gi, ' ').replace(/www\.\S+/gi, ' ')
+
+  // 7. Remove bracketed citations like [1], [2], [note]
+  text = text.replace(/\[\d+\]/g, ' ')
+
+  // 8. Remove roleplay / action narrations like *smiles*, *sighs*, *chuckles*, (sighs), etc.
+  text = text
+    .replace(/\*(?:smiles|chuckles|laughs|giggles|sighs|winks|nods|pauses|clears throat|whispers|gasps|shrugs|waves|blushes|grins|beams)[^*]*\*/gi, ' ')
+    .replace(/\((?:smiles|chuckles|laughs|giggles|sighs|winks|nods|pauses|clears throat|whispers|gasps|shrugs|waves|blushes|grins|beams)[^)]*\)/gi, ' ')
+
+  // 9. Remove all Emojis & Pictographs
+  text = text.replace(
+    /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{200D}\u{FE0F}]/gu,
+    ' '
+  )
+
+  // 10. Remove text emoticons like :) :( :D xD <3 :P
+  text = text.replace(/(?:\s|^)(?::[-~]?[)DPOpP\(/\\|]|;[-~]?[)DPOpP]|<3|xD|XD)(?:\s|$)/g, ' ')
+
+  // 11. Remove markdown structure markers: headers (#), bullet lists (*, -, +), numbered prefixes (1. , 2. )
+  text = text
+    .replace(/^[ \t]*[#>*•\-+][ \t]+/gm, '')
+    .replace(/^[ \t]*\d+\.[ \t]+/gm, '')
+    .replace(/[#*_~>|\\^`]/g, ' ')
+
+  // 12. Normalize punctuation artifacts (multiple dashes, arrows, stray slashes)
+  text = text
+    .replace(/-{2,}|—+|–+/g, ', ')
+    .replace(/->|=>|<-|<=/g, ' ')
+    .replace(/[/\\~@#$%^&*+=]/g, ' ')
+    .replace(/!{2,}/g, '!')
+    .replace(/\?{2,}/g, '?')
+
+  // 13. Collapse multiple spaces and trim to speakable length
+  return text
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 1000)
@@ -69,16 +149,21 @@ export function splitSentences(text: string): string[] {
 }
 
 /**
- * Stops any currently playing speech and cancels pending pipelined chunks.
+ * Stops any currently playing speech and cancels pending pipelined chunks instantly.
  */
 export function stopSpeech() {
   if (cancelCurrentPlayback) {
     cancelCurrentPlayback()
     cancelCurrentPlayback = null
   }
+  if (activeChunkResolver) {
+    activeChunkResolver()
+    activeChunkResolver = null
+  }
   if (currentAudio) {
     try {
       currentAudio.pause()
+      currentAudio.currentTime = 0
       currentAudio.src = ''
     } catch {
       // Ignore
@@ -92,6 +177,7 @@ export function stopSpeech() {
       // Ignore
     }
   }
+  notifySpeechState(false)
 }
 
 /**
@@ -139,35 +225,43 @@ async function fetchChunkAudio(
 }
 
 /**
- * Plays a single audio URL returning a Promise that resolves when finished.
+ * Plays a single audio URL returning a Promise that resolves when finished or interrupted.
  */
 function playAudioChunk(audioUrl: string, onStarted?: () => void): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
+  return new Promise<void>((resolve) => {
     const audio = new Audio(audioUrl)
     currentAudio = audio
+    let settled = false
 
-    audio.onplay = () => {
-      onStarted?.()
-    }
-
-    const handleEnd = () => {
+    const finish = () => {
+      if (settled) return
+      settled = true
+      activeChunkResolver = null
       if (currentAudio === audio) {
         currentAudio = null
       }
       resolve()
     }
 
-    audio.onended = handleEnd
-    audio.onerror = (e) => {
-      if (currentAudio === audio) {
-        currentAudio = null
-      }
-      reject(e)
+    activeChunkResolver = () => {
+      try {
+        audio.pause()
+        audio.currentTime = 0
+        audio.src = ''
+      } catch {}
+      finish()
     }
+
+    audio.onplay = () => {
+      onStarted?.()
+    }
+
+    audio.onended = finish
+    audio.onerror = finish
 
     audio.play().catch((err) => {
       console.warn('Audio play prevented or interrupted:', err)
-      handleEnd()
+      finish()
     })
   })
 }
@@ -189,6 +283,7 @@ export async function playNeuralSpeech(
 ): Promise<void> {
   const clean = cleanSpeakableText(text)
   if (!clean) {
+    notifySpeechState(false)
     options.onEnded?.()
     return
   }
@@ -199,12 +294,14 @@ export async function playNeuralSpeech(
   let isCancelled = false
   cancelCurrentPlayback = () => {
     isCancelled = true
+    notifySpeechState(false)
   }
 
   const profile = options.profile || 'Hermes'
   const sentences = splitSentences(clean)
 
   if (sentences.length === 0) {
+    notifySpeechState(false)
     options.onEnded?.()
     return
   }
@@ -246,15 +343,18 @@ export async function playNeuralSpeech(
       await playAudioChunk(audioUrl, () => {
         if (!hasStarted) {
           hasStarted = true
+          notifySpeechState(true)
           options.onStart?.()
         }
       })
     }
 
+    notifySpeechState(false)
     if (!isCancelled) {
       options.onEnded?.()
     }
   } catch (error) {
+    notifySpeechState(false)
     console.warn('Neural pipelined TTS error, falling back to Web Speech API:', error)
     if (isCancelled) return
 
@@ -264,13 +364,16 @@ export async function playNeuralSpeech(
         utterance.rate = 1.0
 
         utterance.onstart = () => {
+          notifySpeechState(true)
           options.onStart?.()
         }
         utterance.onend = () => {
+          notifySpeechState(false)
           options.onEnded?.()
           resolve()
         }
         utterance.onerror = (e) => {
+          notifySpeechState(false)
           options.onError?.(e)
           options.onEnded?.()
           resolve()
@@ -278,6 +381,7 @@ export async function playNeuralSpeech(
         window.speechSynthesis.speak(utterance)
       })
     } else {
+      notifySpeechState(false)
       options.onError?.(error)
       options.onEnded?.()
     }

@@ -9281,6 +9281,66 @@ def proxy_music_player(subpath=""):
         return f"Music player service unavailable: {e}", 502
 
 
+@app.route("/api/execute-command", methods=["POST"])
+def execute_chat_command():
+    data = request.get_json(force=True, silent=True) or {}
+    cmd = str(data.get("command") or "").strip()
+    cwd = str(data.get("cwd") or "").strip()
+    profile = str(data.get("profile") or "Hermes").strip()
+
+    if not cmd:
+        return jsonify({"ok": False, "error": "No command provided"}), 400
+
+    # Safety: Deny destructive root wipes
+    destructive = [
+        "rm -rf /", "rm -rf /*", "mkfs", "dd if=/dev/zero",
+        ":(){ :|:& };:", "chmod -R 777 /", "> /dev/sda"
+    ]
+    if any(d in cmd for d in destructive):
+        return jsonify({"ok": False, "error": "Command blocked by security guardrails."}), 403
+
+    import subprocess, time
+    from pathlib import Path
+
+    work_dir = Path(cwd).expanduser().resolve() if cwd else Path("/home/doshie/Doshie")
+    if not work_dir.exists():
+        work_dir = Path("/home/doshie/Doshie")
+
+    start_time = time.time()
+    try:
+        proc = subprocess.run(
+            cmd,
+            shell=True,
+            cwd=str(work_dir),
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        duration = round(time.time() - start_time, 2)
+        return jsonify({
+            "ok": proc.returncode == 0,
+            "exit_code": proc.returncode,
+            "stdout": proc.stdout[-10000:] if len(proc.stdout) > 10000 else proc.stdout,
+            "stderr": proc.stderr[-10000:] if len(proc.stderr) > 10000 else proc.stderr,
+            "duration": duration,
+            "cwd": str(work_dir),
+            "command": cmd
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            "ok": False,
+            "exit_code": -1,
+            "error": "Command timed out after 120 seconds.",
+            "command": cmd
+        }), 408
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "error": str(e),
+            "command": cmd
+        }), 500
+
+
 @app.route("/agent-console", methods=["GET"])
 @app.route("/agent-console/", methods=["GET"])
 @app.route("/agent-console/<path:subpath>", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
@@ -12874,6 +12934,11 @@ def _chat_impl():
                 target_agent = candidate_agent
                 text = match_at.group(2).strip()
                 model_text = text + ("\n\nUSER ATTACHMENTS:\n" + attachment_context if attachment_context else "")
+        else:
+            # Automatic multi-agent routing
+            routed = Doshie_agents.auto_route_agent(text)
+            if routed and routed.get("enabled", True):
+                target_agent = routed
 
 
     handled, tool_reply = route_tool(

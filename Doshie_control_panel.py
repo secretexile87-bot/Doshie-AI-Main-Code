@@ -36,6 +36,25 @@ if psutil:
 control_panel_bp = Blueprint("control_panel", __name__)
 
 
+def _ollama_keepalive_worker():
+    """Background daemon to keep Doshie's primary model warm in GPU VRAM for instant responses."""
+    while True:
+        try:
+            target_model = getattr(Doshie_memory, "MODEL", "qwen3.5:9b")
+            ping_req = urllib.request.Request(
+                "http://127.0.0.1:11434/api/generate",
+                data=json.dumps({"model": target_model, "prompt": "", "keep_alive": "30m"}).encode("utf-8"),
+                headers={"Content-Type": "application/json"}
+            )
+            urllib.request.urlopen(ping_req, timeout=10.0)
+        except Exception:
+            pass
+        time.sleep(120)
+
+
+threading.Thread(target=_ollama_keepalive_worker, daemon=True, name="ollama-vram-sentinel").start()
+
+
 def _run_cmd(args, timeout=4):
     """Run shell command safely and return trimmed stdout."""
     try:
@@ -216,7 +235,7 @@ def get_voice_info():
 
 def get_services_status():
     """Check systemd unit and background process statuses."""
-    doshie_active = _run_cmd(["systemctl", "is-active", "doshie"]) == "active"
+    doshie_active = (_run_cmd(["systemctl", "--user", "is-active", "doshie-web.service"]) == "active") or (_run_cmd(["pgrep", "-f", "Doshie_web.py"]) != "")
     ollama_active = _run_cmd(["systemctl", "is-active", "ollama"]) == "active"
     tailscale_active = _run_cmd(["systemctl", "is-active", "tailscaled"]) == "active"
 
@@ -291,7 +310,17 @@ def get_full_telemetry():
     }
 
 
-# --- API Routes ---
+# --- API & UI Routes ---
+
+@control_panel_bp.route("/su")
+@control_panel_bp.route("/control-panel")
+def su_panel_ui():
+    dash_file = Path(__file__).parent / "dashboard" / "index.html"
+    if dash_file.exists():
+        with open(dash_file, "r", encoding="utf-8") as f:
+            return f.read(), 200, {"Content-Type": "text/html; charset=utf-8"}
+    return "SU Control Panel template not found", 404
+
 
 @control_panel_bp.route("/api/control-panel/telemetry", methods=["GET"])
 def api_telemetry():
@@ -302,13 +331,30 @@ def api_telemetry():
 def api_ping_brain():
     """Measure inference latency on Ollama with a compact prompt."""
     req_data = request.get_json(silent=True) or {}
-    model = req_data.get("model") or "qwen3.5:4b"
+    model = (req_data.get("model") or "").strip()
+
+    # If no model specified, prefer the model currently loaded in VRAM
+    if not model:
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:11434/api/ps", timeout=3.0) as ps_resp:
+                ps_data = json.loads(ps_resp.read().decode("utf-8"))
+                active_models = [m.get("name") for m in ps_data.get("models", []) if m.get("name")]
+                if active_models:
+                    model = active_models[0]
+        except Exception:
+            pass
+
+    # Fallback default if nothing is active
+    if not model:
+        model = "qwen3.5:4b"
+
     t0 = time.perf_counter()
     url = "http://127.0.0.1:11434/api/generate"
     payload = json.dumps({
         "model": model,
         "prompt": "Say pong",
         "stream": False,
+        "keep_alive": -1,
         "options": {
             "num_predict": 2,
             "temperature": 0.0
@@ -317,7 +363,8 @@ def api_ping_brain():
 
     try:
         req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=10.0) as resp:
+        # 60s timeout accommodates cold model loads into GPU VRAM
+        with urllib.request.urlopen(req, timeout=60.0) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
             reply = data.get("response", "").strip() or "pong"
@@ -373,8 +420,13 @@ def api_logs():
 
     log_lines = []
     if service == "doshie":
-        out = _run_cmd(["journalctl", "-u", "doshie", "-n", str(lines_count), "--no-pager"], timeout=3)
+        out = _run_cmd(["journalctl", "--user", "-u", "doshie-web", "-n", str(lines_count), "--no-pager"], timeout=3)
+        if not out:
+            out = _run_cmd(["journalctl", "-u", "doshie", "-n", str(lines_count), "--no-pager"], timeout=3)
         log_lines = out.splitlines() if out else ["No Doshie journal logs available."]
+    elif service == "agy":
+        out = _run_cmd(["journalctl", "--user", "-u", "antigravity-cli-daemon", "-n", str(lines_count), "--no-pager"], timeout=3)
+        log_lines = out.splitlines() if out else ["No Antigravity CLI daemon logs available."]
     elif service == "ollama":
         out = _run_cmd(["journalctl", "-u", "ollama", "-n", str(lines_count), "--no-pager"], timeout=3)
         log_lines = out.splitlines() if out else ["No Ollama journal logs available."]
@@ -474,6 +526,23 @@ def api_action():
         except Exception as exc:
             return jsonify({"ok": False, "error": str(exc)}), 500
 
+    elif action == "restart_agy":
+        try:
+            res = subprocess.run(["systemctl", "--user", "restart", "antigravity-cli-daemon.service"], capture_output=True, text=True, timeout=8)
+            if res.returncode == 0:
+                return jsonify({
+                    "ok": True,
+                    "action": "restart_agy",
+                    "message": "Antigravity CLI daemon successfully restarted."
+                })
+            return jsonify({
+                "ok": False,
+                "action": "restart_agy",
+                "message": f"Agy restart failed: {res.stderr.strip()}"
+            }), 500
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
     elif action == "restart_doshie":
         # Graceful restart helper matching /system/restart
         def _terminate():
@@ -487,6 +556,109 @@ def api_action():
             "action": "restart_doshie",
             "message": "Doshie web server is restarting in 1 second..."
         })
+
+    elif action == "load_model":
+        model_name = str(data.get("model") or "").strip()
+        if not model_name:
+            return jsonify({"ok": False, "error": "Model name required"}), 400
+        try:
+            req_data = json.dumps({"model": model_name, "prompt": "", "keep_alive": -1}).encode("utf-8")
+            req = urllib.request.Request("http://127.0.0.1:11434/api/generate", data=req_data, headers={"Content-Type": "application/json"})
+            # 90s timeout ensures large models (7B, 9B, 14B) can finish initializing in VRAM
+            with urllib.request.urlopen(req, timeout=90) as resp:
+                return jsonify({"ok": True, "action": "load_model", "model": model_name, "message": f"Model '{model_name}' loaded into GPU VRAM."})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
+    elif action == "unload_models":
+        try:
+            req = urllib.request.Request("http://127.0.0.1:11434/api/ps")
+            unloaded = []
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                ps_data = json.loads(resp.read().decode("utf-8"))
+                for m in ps_data.get("models", []):
+                    m_name = m.get("name")
+                    if m_name:
+                        req_data = json.dumps({"model": m_name, "keep_alive": 0}).encode("utf-8")
+                        r = urllib.request.Request("http://127.0.0.1:11434/api/generate", data=req_data, headers={"Content-Type": "application/json"})
+                        urllib.request.urlopen(r, timeout=5)
+                        unloaded.append(m_name)
+            return jsonify({"ok": True, "action": "unload_models", "unloaded": unloaded, "message": f"Unloaded {len(unloaded)} models from VRAM."})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
+    elif action == "run_command":
+        cmd_str = str(data.get("command") or "").strip()
+        if not cmd_str:
+            return jsonify({"ok": False, "error": "Command required"}), 400
+        try:
+            res = subprocess.run(["bash", "-c", cmd_str], capture_output=True, text=True, timeout=15)
+            return jsonify({
+                "ok": True,
+                "command": cmd_str,
+                "stdout": res.stdout,
+                "stderr": res.stderr,
+                "returncode": res.returncode
+            })
+        except subprocess.TimeoutExpired:
+            return jsonify({"ok": False, "error": "Command timed out after 15 seconds."}), 408
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
+    elif action == "save_settings":
+        try:
+            import Doshie_settings
+            settings = Doshie_settings.load_settings()
+            new_settings = data.get("settings") or {}
+            for k, v in new_settings.items():
+                if k in Doshie_settings.DEFAULTS:
+                    settings[k] = v
+            Doshie_settings.save_settings(settings)
+            return jsonify({"ok": True, "action": "save_settings", "settings": settings, "message": "Settings updated."})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
+    elif action == "get_settings":
+        try:
+            import Doshie_settings
+            return jsonify({"ok": True, "settings": Doshie_settings.load_settings()})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
+    elif action == "get_memories":
+        try:
+            import Doshie_memory
+            profile = str(data.get("profile") or "Hermes").strip()
+            mems = Doshie_memory.get_memories(profile=profile, include_inactive=True)
+            results = [{"id": m[0], "memory": m[1], "category": m[2], "importance": m[3], "created_at": m[4]} for m in mems[:60]]
+            return jsonify({"ok": True, "memories": results})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
+    elif action == "add_memory":
+        try:
+            import Doshie_memory
+            text = str(data.get("text") or "").strip()
+            profile = str(data.get("profile") or "Hermes").strip()
+            category = str(data.get("category") or "General").strip()
+            importance = str(data.get("importance") or "Normal").strip()
+            if not text:
+                return jsonify({"ok": False, "error": "Memory text required"}), 400
+            msg = Doshie_memory.add_memory(text=text, category=category, importance=importance, profile=profile)
+            return jsonify({"ok": True, "message": msg or "Memory saved to Doshie."})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
+    elif action == "delete_memory":
+        try:
+            import Doshie_memory
+            mem_id = data.get("id")
+            if not mem_id:
+                return jsonify({"ok": False, "error": "Memory ID required"}), 400
+            Doshie_memory.forget_memory(mem_id)
+            return jsonify({"ok": True, "message": f"Memory {mem_id} forgotten."})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
 
     return jsonify({"ok": False, "error": f"Unsupported action '{action}'"}), 400
 
@@ -771,6 +943,26 @@ def _is_requester_admin(requester_name: str) -> bool:
         return requester_name.strip().casefold() in {"hermes", "admin", "owner"}
 
 
+def _sanitize_session_messages(messages):
+    """Clean up stuck pending messages and ensure valid message structure."""
+    if not isinstance(messages, list):
+        return []
+    cleaned = []
+    for m in messages:
+        if not isinstance(m, dict):
+            continue
+        content = str(m.get("content") or "").strip()
+        is_pending = bool(m.get("pending"))
+        # If an assistant message was left pending with no content, discard it so chat never stays stuck
+        if is_pending and not content:
+            continue
+        m_copy = dict(m)
+        if is_pending:
+            m_copy["pending"] = False
+        cleaned.append(m_copy)
+    return cleaned
+
+
 @control_panel_bp.route("/api/chat/sessions", methods=["GET"])
 def api_get_chat_sessions():
     """Get all saved chat sessions for a profile with strict privacy boundaries."""
@@ -788,6 +980,8 @@ def api_get_chat_sessions():
 
     all_sessions = _load_doshie_sessions()
     profile_sessions = all_sessions.get(profile, [])
+    for s in profile_sessions:
+        s["messages"] = _sanitize_session_messages(s.get("messages", []))
     # Sort newest updated first
     profile_sessions.sort(key=lambda s: s.get("updated_at", 0), reverse=True)
     return jsonify({
@@ -805,7 +999,7 @@ def api_save_chat_session():
     profile = (data.get("profile") or "Hermes").strip()
     session_id = data.get("id") or str(int(time.time() * 1000))
     title = data.get("title") or "New Chat"
-    messages = data.get("messages") or []
+    messages = _sanitize_session_messages(data.get("messages") or [])
 
     all_sessions = _load_doshie_sessions()
     profile_sessions = all_sessions.get(profile, [])
@@ -961,7 +1155,437 @@ def api_admin_guest_memories():
     })
 
 
+# =========================================================================
+# Specialist Agents & Autonomous Background Tasks API
+# =========================================================================
+
+ANTIGRAVITY_SKILLS_DIRS = [
+    Path.home() / ".gemini" / "antigravity-cli" / "builtin" / "skills",
+    Path.home() / ".gemini" / "config" / "plugins",
+]
+
+
+def _discover_antigravity_skills():
+    skills = []
+    seen = set()
+    for root_dir in ANTIGRAVITY_SKILLS_DIRS:
+        if not root_dir.exists():
+            continue
+        for skill_file in root_dir.rglob("SKILL.md"):
+            try:
+                content = skill_file.read_text(encoding="utf-8", errors="replace")
+                name = skill_file.parent.name
+                desc = ""
+                if content.startswith("---"):
+                    parts = content.split("---", 2)
+                    if len(parts) >= 3:
+                        fm = parts[1]
+                        for line in fm.splitlines():
+                            if line.startswith("name:"):
+                                name = line.split(":", 1)[1].strip().strip('"\'')
+                            elif line.startswith("description:"):
+                                desc = line.split(":", 1)[1].strip().strip('"\'')
+                if not desc:
+                    for line in content.splitlines():
+                        clean_l = line.strip()
+                        if clean_l and not clean_l.startswith(("#", "---", "-")):
+                            desc = clean_l[:200]
+                            break
+                if name not in seen:
+                    seen.add(name)
+                    skills.append({
+                        "name": name,
+                        "description": desc or "Specialized skill module",
+                        "path": str(skill_file.resolve()),
+                        "category": skill_file.parent.parent.name if skill_file.parent.parent.name != "skills" else "builtin"
+                    })
+            except Exception:
+                pass
+    skills.sort(key=lambda s: s["name"].lower())
+    return skills
+
+
+@control_panel_bp.route("/api/agents", methods=["GET", "POST"])
+@control_panel_bp.route("/api/control-panel/agents", methods=["GET", "POST"])
+def api_specialist_agents_manage():
+    """List, create, or update specialist AI personas / agents."""
+    try:
+        import Doshie_agents
+    except ImportError:
+        import yoshi_agents as Doshie_agents
+
+    if request.method == "GET":
+        agents = Doshie_agents.list_agents()
+        return jsonify({
+            "ok": True,
+            "agents": agents,
+            "model_modes": getattr(Doshie_agents, "MODEL_MODES", []),
+            "memory_scopes": getattr(Doshie_agents, "MEMORY_SCOPES", []),
+            "capabilities": getattr(Doshie_agents, "CAPABILITIES", []),
+        })
+
+    data = request.get_json(silent=True) or {}
+    try:
+        agent = Doshie_agents.save_agent(data)
+        return jsonify({"ok": True, "agent": agent}), 200
+    except ValueError as err:
+        return jsonify({"ok": False, "error": str(err)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Failed to save agent: {exc}"}), 500
+
+
+@control_panel_bp.route("/api/agents/<agent_id>", methods=["DELETE"])
+@control_panel_bp.route("/api/control-panel/agents/<agent_id>", methods=["DELETE"])
+def api_specialist_agents_delete(agent_id):
+    """Delete a specialist AI agent by id."""
+    try:
+        import Doshie_agents
+    except ImportError:
+        import yoshi_agents as Doshie_agents
+
+    if Doshie_agents.delete_agent(agent_id):
+        return jsonify({"ok": True, "deleted_id": agent_id})
+    return jsonify({"ok": False, "error": "Agent not found"}), 404
+
+
+@control_panel_bp.route("/api/control-panel/agents/chat", methods=["POST"])
+def api_agent_direct_chat():
+    """Send a prompt directly to a specific specialist agent and receive their reply."""
+    data = request.get_json(silent=True) or {}
+    agent_id = str(data.get("agent_id") or data.get("agent_name") or "").strip()
+    prompt = str(data.get("prompt") or "").strip()
+    if not agent_id or not prompt:
+        return jsonify({"ok": False, "error": "Both 'agent_id' and 'prompt' are required."}), 400
+
+    try:
+        import Doshie_agents
+    except ImportError:
+        import yoshi_agents as Doshie_agents
+
+    try:
+        import Doshie_memory
+    except ImportError:
+        import yoshi_memory as Doshie_memory
+
+    agent = next(
+        (a for a in Doshie_agents.list_agents() if a.get("id") == agent_id or a.get("name", "").casefold() == agent_id.casefold()),
+        None
+    )
+    if not agent:
+        return jsonify({"ok": False, "error": f"Agent '{agent_id}' not found."}), 404
+
+    try:
+        t0 = time.perf_counter()
+        reply = Doshie_memory.ask_yoshi(
+            [],
+            prompt,
+            raise_on_error=True,
+            profile="Superuser",
+            conversation_profile="Agent " + agent["id"],
+            system_context=Doshie_agents.agent_system_context(agent),
+            brain_mode=agent.get("model_mode", "auto"),
+            memory_scope=agent.get("memory_scope", "none"),
+        )
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+        return jsonify({
+            "ok": True,
+            "agent": agent["name"],
+            "reply": reply,
+            "latency_ms": elapsed_ms
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@control_panel_bp.route("/api/control-panel/agents/delegate", methods=["POST"])
+def api_agent_delegate():
+    """Have Source Agent consult Target Agent on a task and synthesize the response."""
+    data = request.get_json(silent=True) or {}
+    source_id = str(data.get("source_agent") or "").strip()
+    target_id = str(data.get("target_agent") or "").strip()
+    task = str(data.get("task") or "").strip()
+
+    if not source_id or not target_id or not task:
+        return jsonify({"ok": False, "error": "'source_agent', 'target_agent', and 'task' are required."}), 400
+
+    try:
+        import Doshie_agents
+    except ImportError:
+        import yoshi_agents as Doshie_agents
+
+    try:
+        import Doshie_memory
+    except ImportError:
+        import yoshi_memory as Doshie_memory
+
+    agents = {a.get("name"): a for a in Doshie_agents.list_agents()}
+    source = agents.get(source_id) or next((a for a in agents.values() if a.get("id") == source_id), None)
+    target = agents.get(target_id) or next((a for a in agents.values() if a.get("id") == target_id), None)
+
+    if not source:
+        return jsonify({"ok": False, "error": f"Source agent '{source_id}' not found."}), 404
+    if not target:
+        return jsonify({"ok": False, "error": f"Target agent '{target_id}' not found."}), 404
+
+    try:
+        t0 = time.perf_counter()
+        target_reply = Doshie_memory.ask_yoshi(
+            [],
+            task,
+            raise_on_error=True,
+            profile=source["name"],
+            conversation_profile=f"Collab-{source['name']}-{target['name']}",
+            system_context=Doshie_agents.agent_system_context(target),
+            brain_mode=target.get("model_mode", "auto"),
+            memory_scope=target.get("memory_scope", "none"),
+        )
+
+        synthesis_prompt = (
+            f"You delegated the following subtask to specialist agent {target['name']}:\n"
+            f"Subtask: {task}\n\n"
+            f"{target['name']}'s Response & Findings:\n{target_reply}\n\n"
+            f"Synthesize this into a cohesive final briefing for the user."
+        )
+        source_reply = Doshie_memory.ask_yoshi(
+            [],
+            synthesis_prompt,
+            raise_on_error=True,
+            profile="Superuser",
+            conversation_profile=f"Collab-{source['name']}-{target['name']}",
+            system_context=Doshie_agents.agent_system_context(source),
+            brain_mode=source.get("model_mode", "auto"),
+            memory_scope=source.get("memory_scope", "none"),
+        )
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+
+        return jsonify({
+            "ok": True,
+            "source_agent": source["name"],
+            "target_agent": target["name"],
+            "target_reply": target_reply,
+            "source_reply": source_reply,
+            "latency_ms": elapsed_ms
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@control_panel_bp.route("/api/control-panel/persona", methods=["GET"])
+def api_get_persona_settings():
+    """Retrieve current persona tone, directives, identity, and demeanor settings."""
+    try:
+        import Doshie_settings
+    except ImportError:
+        import yoshi_settings as Doshie_settings
+
+    try:
+        import Doshie_profile_preferences
+    except ImportError:
+        import yoshi_profile_preferences as Doshie_profile_preferences
+
+    settings = Doshie_settings.load_settings()
+    
+    gui_customization = {}
+    try:
+        prefs = Doshie_profile_preferences.load_preferences("hermes")
+        gui_customization = prefs.get("gui_customization") or {}
+    except Exception:
+        pass
+
+    return jsonify({
+        "ok": True,
+        "settings": settings,
+        "identity": {
+            "assistantEmoji": gui_customization.get("assistantEmoji", "🦖"),
+            "assistantName": gui_customization.get("assistantName", "Doshie"),
+            "greetingTitle": gui_customization.get("greetingTitle", "How can I help you today?"),
+            "greetingSubtitle": gui_customization.get("greetingSubtitle", "Private local AI companion running directly on your RTX 5070 workstation.")
+        }
+    })
+
+
+@control_panel_bp.route("/api/control-panel/persona", methods=["POST"])
+def api_save_persona_settings():
+    """Update persona, demeanor, identity, and system directives."""
+    data = request.get_json(silent=True) or {}
+
+    try:
+        import Doshie_settings
+    except ImportError:
+        import yoshi_settings as Doshie_settings
+
+    try:
+        import Doshie_profile_preferences
+    except ImportError:
+        import yoshi_profile_preferences as Doshie_profile_preferences
+
+    settings = Doshie_settings.load_settings()
+
+    for field in ("persona_tone", "custom_system_prompt", "mode", "default_weather_location",
+                  "voice_preset", "voice_engine", "voice_rate", "voice_pitch"):
+        if field in data and data[field] is not None:
+            settings[field] = data[field]
+
+    Doshie_settings.save_settings(settings)
+
+    updated_identity = {}
+    try:
+        prefs = Doshie_profile_preferences.load_preferences("hermes")
+        gui = dict(prefs.get("gui_customization") or {})
+        for key in ("assistantEmoji", "assistantName", "greetingTitle", "greetingSubtitle"):
+            if key in data and data[key] is not None:
+                gui[key] = str(data[key]).strip()
+        prefs["gui_customization"] = gui
+        Doshie_profile_preferences.save_preferences("hermes", prefs)
+        updated_identity = gui
+    except Exception:
+        pass
+
+    return jsonify({
+        "ok": True,
+        "message": "Persona configuration saved successfully.",
+        "settings": settings,
+        "identity": updated_identity
+    })
+
+
+@control_panel_bp.route("/api/control-panel/test-persona", methods=["POST"])
+def api_control_panel_test_persona():
+    """Interactive sandbox test: send a test prompt with persona system directives to local Ollama."""
+    data = request.get_json(silent=True) or {}
+    prompt = str(data.get("prompt") or "").strip()
+    system_prompt = str(data.get("system_prompt") or "").strip()
+    model = str(data.get("model") or "").strip()
+    max_tokens = int(data.get("max_tokens") or 140)
+
+    if not prompt:
+        return jsonify({"ok": False, "error": "Prompt is required for testing."}), 400
+
+    if not model:
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:11434/api/ps", timeout=2.5) as ps_resp:
+                ps_data = json.loads(ps_resp.read().decode("utf-8"))
+                active = [m.get("name") for m in ps_data.get("models", []) if m.get("name")]
+                if active:
+                    model = active[0]
+        except Exception:
+            pass
+    if not model:
+        model = "qwen2.5:7b"
+
+    t0 = time.perf_counter()
+    url = "http://127.0.0.1:11434/api/chat"
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+
+    req_body = {
+        "model": model,
+        "messages": messages,
+        "stream": False,
+        "options": {
+            "num_predict": max_tokens,
+            "temperature": 0.7
+        }
+    }
+
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(req_body).encode("utf-8"),
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=30.0) as resp:
+            resp_data = json.loads(resp.read().decode("utf-8"))
+            elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+            msg = resp_data.get("message") or {}
+            reply = msg.get("content", "").strip() or resp_data.get("response", "").strip()
+            return jsonify({
+                "ok": True,
+                "reply": reply,
+                "latency_ms": elapsed_ms,
+                "model": model,
+                "system_prompt": system_prompt
+            })
+    except Exception as exc:
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+        return jsonify({
+            "ok": False,
+            "error": str(exc),
+            "latency_ms": elapsed_ms,
+            "model": model
+        }), 502
+
+
+@control_panel_bp.route("/api/agent-tasks", methods=["GET", "POST"])
+def api_agent_tasks():
+    """List or dispatch autonomous background agent tasks."""
+    import Doshie_background_agent
+    if request.method == "GET":
+        limit = min(int(request.args.get("limit", 50)), 100)
+        return jsonify({
+            "ok": True,
+            "tasks": Doshie_background_agent.list_tasks(limit=limit)
+        })
+
+    data = request.get_json(silent=True) or {}
+    agent_id = str(data.get("agent_id") or data.get("agent_name") or "").strip()
+    goal = str(data.get("goal") or "").strip()
+    profile = str(data.get("profile") or "Hermes").strip()
+    context = str(data.get("context") or "").strip()
+
+    if not agent_id or not goal:
+        return jsonify({"ok": False, "error": "Both 'agent_id' and 'goal' are required."}), 400
+
+    try:
+        task = Doshie_background_agent.dispatch_task(agent_id, goal, profile=profile, context=context)
+        return jsonify({"ok": True, "task": task}), 201
+    except ValueError as err:
+        return jsonify({"ok": False, "error": str(err)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Failed to dispatch agent task: {exc}"}), 500
+
+
+@control_panel_bp.route("/api/agent-tasks/<task_id>", methods=["GET"])
+def api_agent_task_detail(task_id):
+    """Retrieve full execution status and steps for an autonomous task."""
+    import Doshie_background_agent
+    task = Doshie_background_agent.get_task(task_id)
+    if not task:
+        return jsonify({"ok": False, "error": f"Task '{task_id}' not found."}), 404
+    return jsonify({"ok": True, "task": task})
+
+
+@control_panel_bp.route("/api/agent-tasks/<task_id>/cancel", methods=["POST"])
+def api_agent_task_cancel(task_id):
+    """Cancel an active background agent task."""
+    import Doshie_background_agent
+    success = Doshie_background_agent.cancel_task(task_id)
+    return jsonify({"ok": success, "id": task_id})
+
+
+@control_panel_bp.route("/api/agent-tasks/completed", methods=["DELETE"])
+def api_agent_tasks_clear():
+    """Clear finished/completed background tasks."""
+    import Doshie_background_agent
+    cleared = Doshie_background_agent.clear_completed_tasks()
+    return jsonify({"ok": True, "cleared_count": cleared})
+
+
+@control_panel_bp.route("/api/antigravity/skills", methods=["GET"])
+def api_antigravity_skills():
+    """Discover and list installed Google Antigravity skills."""
+    skills = _discover_antigravity_skills()
+    return jsonify({
+        "ok": True,
+        "count": len(skills),
+        "skills": skills,
+    })
+
+
 def register_control_panel(app):
     """Register the control panel blueprint on the main Flask app."""
     app.register_blueprint(control_panel_bp)
+
 

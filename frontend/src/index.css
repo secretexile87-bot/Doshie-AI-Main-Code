@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
 @layer base {
-  :root {
-    --bg-dark: #08120d;
-    --card-dark: #0e2017;
-    --card-hover: #153424;
-    --border-dark: #1d3e2d;
-    --accent: #10b981;
-    --accent-hover: #059669;
-    --accent-light: #6ee7b7;
-    --user-bubble: linear-gradient(135deg, #047857 0%, #059669 100%);
-    --bot-bubble: #0e241a;
-    --bot-border: #1b432e;
+  :root,
+  [data-theme="antigravity"] {
+    --bg-dark: #0d1117;
+    --card-dark: #161b22;
+    --card-hover: #21262d;
+    --border-dark: #30363d;
+    --accent: #38bdf8;
+    --accent-hover: #0284c7;
+    --accent-light: #7dd3fc;
+    --user-bubble: #1f242c;
+    --bot-bubble: #161b22;
+    --bot-border: #30363d;
     --chat-font-size: 14.5px;
     --chat-gap: 0.75rem;
     --bubble-radius: 1.25rem;
@@ -19,6 +20,20 @@
     --bg-pattern: none;
     --native-safe-top: env(safe-area-inset-top, 0px);
     --native-safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Emerald Matrix */
+  [data-theme="emerald"] {
+    --bg-dark: #08120d;
+    --card-dark: #0e2017;
+    --card-hover: #153424;
+    --border-dark: #1d3e2d;
+    --accent: #10b981;
+    --accent-hover: #059669;
+    --accent-light: #6ee7b7;
+    --user-bubble: #132b1e;
+    --bot-bubble: #0e241a;
+    --bot-border: #1b432e;
   }
 
   /* 1. Cyberpunk / Neon Theme */
@@ -30,7 +45,7 @@
     --accent: #a855f7;
     --accent-hover: #9333ea;
     --accent-light: #c084fc;
-    --user-bubble: linear-gradient(135deg, #7e22ce 0%, #a855f7 100%);
+    --user-bubble: #201338;
     --bot-bubble: #160e2b;
     --bot-border: #2f1954;
   }
@@ -44,7 +59,7 @@
     --accent: #0284c7;
     --accent-hover: #0369a1;
     --accent-light: #38bdf8;
-    --user-bubble: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
+    --user-bubble: #141a24;
     --bot-bubble: #0c0f14;
     --bot-border: #1b2230;
   }
@@ -58,7 +73,7 @@
     --accent: #d97706;
     --accent-hover: #b45309;
     --accent-light: #fbbf24;
-    --user-bubble: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+    --user-bubble: #271a10;
     --bot-bubble: #1e150d;
     --bot-border: #382717;
   }
@@ -72,7 +87,7 @@
     --accent: #e11d48;
     --accent-hover: #be123c;
     --accent-light: #fb7185;
-    --user-bubble: linear-gradient(135deg, #be123c 0%, #e11d48 100%);
+    --user-bubble: #2a0f16;
     --bot-bubble: #210c12;
     --bot-border: #3b1420;
   }
@@ -101,7 +116,7 @@
     --accent: #38bdf8;
     --accent-hover: #0284c7;
     --accent-light: #7dd3fc;
-    --user-bubble: linear-gradient(135deg, #0369a1 0%, #38bdf8 100%);
+    --user-bubble: #192332;
     --bot-bubble: #182230;
     --bot-border: #28374d;
   }
@@ -115,7 +130,7 @@
     --accent: #ec4899;
     --accent-hover: #db2777;
     --accent-light: #f472b6;
-    --user-bubble: linear-gradient(135deg, #be185d 0%, #ec4899 100%);
+    --user-bubble: #261c36;
     --bot-bubble: #201a2b;
     --bot-border: #3c304f;
   }
@@ -183,15 +198,11 @@
   }
 
   html, body, #root {
-    height: 100dvh;
-    height: -webkit-fill-available;
-    max-height: 100dvh;
-    width: 100vw;
+    height: 100%;
+    width: 100%;
     margin: 0;
     padding: 0;
     overflow: hidden;
-    position: fixed;
-    inset: 0;
     background-color: var(--bg-dark);
     color: #f8fafc;
     font-family: var(--font-family);
@@ -285,3 +296,173 @@
   overscroll-behavior: contain !important;
   -webkit-overflow-scrolling: touch !important;
 }
+
+/* Modern Glassmorphic Surfaces */
+.glass-surface {
+  background: color-mix(in srgb, var(--card-dark) 72%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in srgb, var(--border-dark) 80%, rgba(255, 255, 255, 0.08));
+}
+
+.glass-surface-hover:hover {
+  background: color-mix(in srgb, var(--card-hover) 85%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 45%, rgba(255, 255, 255, 0.15));
+}
+
+.glass-pill {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: color-mix(in srgb, var(--accent) 50%, rgba(255, 255, 255, 0.2));
+}
+
+.glass-dock {
+  background: color-mix(in srgb, var(--bg-dark) 82%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid color-mix(in srgb, var(--border-dark) 90%, rgba(255, 255, 255, 0.12));
+}
+
+/* Prism Syntax Highlighting Styles */
+code[class*="language-"],
+pre[class*="language-"] {
+  color: #f1f5f9;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  direction: ltr;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  tab-size: 2;
+  hyphens: none;
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.token.punctuation {
+  color: #cbd5e1;
+}
+
+.token.namespace {
+  opacity: 0.7;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: #f43f5e;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: #34d399;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: #38bdf8;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #c084fc;
+  font-weight: 600;
+}
+
+.token.function,
+.token.class-name {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: #fbbf24;
+}
+
+.token.important,
+.token.bold {
+  font-weight: bold;
+}
+
+.token.italic {
+  font-style: italic;
+}
+
+/* Animations & Transitions */
+@keyframes message-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-message-enter {
+  animation: message-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.82;
+    transform: scale(1.03);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2.4s ease-in-out infinite;
+}
+
+@keyframes thinking-wave {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.animate-wave-1 {
+  animation: thinking-wave 1.2s ease-in-out infinite 0s;
+}
+.animate-wave-2 {
+  animation: thinking-wave 1.2s ease-in-out infinite 0.2s;
+}
+.animate-wave-3 {
+  animation: thinking-wave 1.2s ease-in-out infinite 0.4s;
+}
+

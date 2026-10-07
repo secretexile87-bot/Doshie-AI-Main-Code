@@ -1,14 +1,19 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { Send, Square, Mic, MicOff, X, FileText, FileCode, Loader2, ChevronUp, Plus, Edit3 } from 'lucide-react'
-import type { ChatAttachment } from '../types'
+import type { ChatAttachment, SpecialistAgent } from '../types'
 import { FileEditorModal } from './FileEditorModal'
 
 interface ChatComposerProps {
-  onSend: (text: string, attachments?: ChatAttachment[], brainMode?: string) => void
+  onSend: (text: string, attachments?: ChatAttachment[], brainMode?: string, agentId?: string) => void
   onStop: () => void
   isGenerating: boolean
   placeholder?: string
   activeProfile?: string
+  selectedAgent?: SpecialistAgent | null
+  onClearSelectedAgent?: () => void
+  onOpenAgentHub?: () => void
+  isKeyboardOpen?: boolean
+  onKeyboardStateChange?: (open: boolean) => void
 }
 
 interface UploadingFile {
@@ -25,6 +30,11 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   isGenerating,
   placeholder = "Ask anything, @ to mention, / for actions...",
   activeProfile = "Hermes",
+  selectedAgent,
+  onClearSelectedAgent,
+  onOpenAgentHub,
+  isKeyboardOpen = false,
+  onKeyboardStateChange,
 }) => {
   const [input, setInput] = useState('')
   const [isListening, setIsListening] = useState(false)
@@ -208,7 +218,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const handleSend = () => {
     const trimmed = input.trim()
     if ((!trimmed && attachments.length === 0) || isGenerating || uploadingFiles.length > 0) return
-    onSend(trimmed, attachments.length > 0 ? attachments : undefined, selectedBrain)
+    onSend(trimmed, attachments.length > 0 ? attachments : undefined, selectedBrain, selectedAgent?.id)
     setInput('')
     setAttachments([])
     if (textareaRef.current) {
@@ -274,9 +284,11 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       style={{
-        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), var(--native-safe-bottom, 0px), 18px)',
+        paddingBottom: isKeyboardOpen
+          ? '6px'
+          : 'max(env(safe-area-inset-bottom, 0px), var(--native-safe-bottom, 0px), 12px)',
       }}
-      className={`flex-none px-2.5 pt-2.5 sm:px-3 sm:pt-3 bg-[var(--bg-dark)] border-t border-[var(--border-dark)] transition-all ${
+      className={`flex-none sticky bottom-0 z-30 px-2.5 pt-2 sm:px-4 sm:pt-3 bg-gradient-to-t from-[var(--bg-dark)] via-[var(--bg-dark)]/95 to-transparent backdrop-blur-lg border-t border-white/5 transition-all ${
         isDragging ? 'bg-[var(--accent)]/10 ring-2 ring-inset ring-[var(--accent)]' : ''
       }`}
     >
@@ -290,13 +302,52 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       />
 
       <div className="max-w-3xl mx-auto flex flex-col gap-2">
+        {/* Active Specialist Agent Banner */}
+        {selectedAgent && (
+          <div className="flex items-center justify-between px-3.5 py-1.5 rounded-2xl bg-white/[0.04] backdrop-blur-md border border-white/10 text-xs shadow-md animate-fadeIn">
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                style={{ backgroundColor: `${selectedAgent.accent || '#35f2d0'}25`, color: selectedAgent.accent || '#35f2d0', borderColor: `${selectedAgent.accent || '#35f2d0'}40` }}
+                className="px-2.5 py-0.5 rounded-full font-bold text-[11px] flex items-center gap-1.5 flex-none border"
+              >
+                <span>🤖</span>
+                <span>{selectedAgent.name}</span>
+              </span>
+              <span className="text-neutral-400 text-[11px] truncate hidden sm:inline">
+                {selectedAgent.purpose}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-none">
+              {onOpenAgentHub && (
+                <button
+                  type="button"
+                  onClick={onOpenAgentHub}
+                  className="text-[11px] font-semibold text-[var(--accent-light)] hover:underline cursor-pointer"
+                >
+                  Switch
+                </button>
+              )}
+              {onClearSelectedAgent && (
+                <button
+                  type="button"
+                  onClick={onClearSelectedAgent}
+                  className="p-1 text-neutral-400 hover:text-white rounded-lg hover:bg-white/10 cursor-pointer transition-colors"
+                  title="Reset to Default Doshie"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Upload Error Banner */}
         {uploadError && (
-          <div className="px-3 py-1.5 rounded-lg bg-rose-950/80 border border-rose-800 text-rose-200 text-xs flex items-center justify-between animate-fadeIn">
+          <div className="px-3.5 py-2 rounded-2xl bg-rose-950/80 border border-rose-800 text-rose-200 text-xs flex items-center justify-between animate-fadeIn shadow-lg">
             <span>{uploadError}</span>
             <button
               onClick={() => setUploadError(null)}
-              className="text-rose-400 hover:text-white ml-2 p-0.5"
+              className="text-rose-400 hover:text-white ml-2 p-0.5 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -309,10 +360,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             {attachments.map(att => (
               <div
                 key={att.id}
-                className="group relative flex items-center gap-2 pl-2 pr-1.5 py-1.5 rounded-xl bg-[var(--card-dark)] border border-[var(--border-dark)] hover:border-[var(--accent)]/50 text-xs text-neutral-200 shadow-sm transition-all"
+                className="group relative flex items-center gap-2 pl-2 pr-1.5 py-1.5 rounded-2xl bg-white/[0.05] border border-white/10 hover:border-[var(--accent)]/60 text-xs text-neutral-200 shadow-md backdrop-blur-md transition-all"
               >
                 {att.kind === 'image' ? (
-                  <div className="w-8 h-8 rounded-lg overflow-hidden bg-black/40 flex items-center justify-center flex-none border border-white/10">
+                  <div className="w-8 h-8 rounded-xl overflow-hidden bg-black/50 flex items-center justify-center flex-none border border-white/15">
                     <img
                       src={att.previewUrl || att.url || `/chat-attachment/${att.id}?profile=${encodeURIComponent(activeProfile)}`}
                       alt={att.name}
@@ -324,7 +375,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                     type="button"
                     onClick={() => setEditingAttachment(att)}
                     title="View & Edit File Content"
-                    className="w-8 h-8 rounded-lg bg-[var(--accent)]/15 border border-[var(--accent)]/30 hover:border-[var(--accent)] flex items-center justify-center text-[var(--accent-light)] flex-none cursor-pointer transition-colors"
+                    className="w-8 h-8 rounded-xl bg-[var(--accent)]/15 border border-[var(--accent)]/30 hover:border-[var(--accent)] flex items-center justify-center text-[var(--accent-light)] flex-none cursor-pointer transition-colors"
                   >
                     {att.name.endsWith('.py') || att.name.endsWith('.js') || att.name.endsWith('.html') || att.name.endsWith('.json') ? (
                       <FileCode className="w-4 h-4" />
@@ -338,8 +389,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                   onClick={() => att.kind !== 'image' && setEditingAttachment(att)}
                   className={`flex flex-col min-w-0 max-w-[120px] sm:max-w-[170px] ${att.kind !== 'image' ? 'cursor-pointer hover:underline' : ''}`}
                 >
-                  <span className="truncate font-medium text-white text-[11.5px]">{att.name}</span>
-                  <span className="text-[10px] text-neutral-400">{formatFileSize(att.size)}</span>
+                  <span className="truncate font-semibold text-white text-[11.5px]">{att.name}</span>
+                  <span className="text-[10px] text-neutral-400 font-mono">{formatFileSize(att.size)}</span>
                 </div>
 
                 <div className="flex items-center gap-0.5 ml-1">
@@ -348,7 +399,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                       type="button"
                       onClick={() => setEditingAttachment(att)}
                       title="Edit file content"
-                      className="p-1 rounded-md text-neutral-400 hover:text-[var(--accent-light)] hover:bg-[var(--card-hover)] transition-colors cursor-pointer"
+                      className="p-1 rounded-lg text-neutral-400 hover:text-[var(--accent-light)] hover:bg-white/10 transition-colors cursor-pointer"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
@@ -358,7 +409,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                     type="button"
                     onClick={() => removeAttachment(att.id)}
                     title="Remove attachment"
-                    className="p-1 rounded-md text-neutral-400 hover:text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer"
+                    className="p-1 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-rose-950/50 transition-colors cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -369,23 +420,40 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             {uploadingFiles.map(file => (
               <div
                 key={file.id}
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-[var(--card-dark)]/70 border border-dashed border-[var(--accent)]/40 text-xs text-neutral-300 shadow-sm animate-pulse"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white/[0.04] border border-dashed border-[var(--accent)]/50 text-xs text-neutral-300 shadow-md backdrop-blur-md animate-pulse"
               >
                 <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" />
-                <span className="truncate max-w-[120px] text-[11.5px]">{file.name}</span>
+                <span className="truncate max-w-[120px] text-[11.5px] font-medium">{file.name}</span>
               </div>
             ))}
           </div>
         )}
 
-        {/* Integrated Composer Input Box & Bottom Control Pill */}
-        <div className="relative flex flex-col px-3.5 pt-3 pb-2.5 bg-[var(--card-dark)] border border-[var(--border-dark)] focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)]/20 rounded-3xl transition-all shadow-lg shadow-black/40">
+        {/* Integrated Composer Input Capsule */}
+        <div className="relative flex flex-col px-3 sm:px-4 pt-3 pb-2 sm:pb-2.5 bg-white/[0.04] hover:bg-white/[0.05] border border-white/10 hover:border-white/20 focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)]/25 rounded-3xl transition-all shadow-xl shadow-black/50 backdrop-blur-xl group overflow-hidden box-border w-full">
           {/* Top Row: Textarea */}
           <textarea
             ref={textareaRef}
             rows={1}
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={e => {
+              setInput(e.target.value)
+              textareaRef.current?.scrollIntoView({ block: 'nearest' })
+            }}
+            onFocus={() => {
+              onKeyboardStateChange?.(true)
+              setTimeout(() => {
+                textareaRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+              }, 80)
+            }}
+            onBlur={() => {
+              setTimeout(() => {
+                const vv = window.visualViewport
+                if (!vv || window.innerHeight - vv.height < 120) {
+                  onKeyboardStateChange?.(false)
+                }
+              }, 120)
+            }}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             placeholder={isListening ? "Listening... speak now" : placeholder}
@@ -394,57 +462,57 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             autoCapitalize="sentences"
             autoCorrect="on"
             spellCheck="true"
-            className="w-full bg-transparent text-white placeholder-neutral-500 text-[15px] sm:text-[16px] leading-[1.4] outline-none resize-none px-0 py-1 min-h-[36px] max-h-[160px] overflow-y-auto"
+            className="w-full min-w-0 bg-transparent text-white placeholder-neutral-400 text-[15px] sm:text-[16px] leading-relaxed outline-none resize-none px-0 py-0.5 min-h-[36px] max-h-[160px] overflow-y-auto"
           />
 
-          {/* Bottom Bar inside the Input Pill (Attach + Model Selector + Voice + Send/Stop) */}
-          <div className="flex items-center justify-between gap-2 pt-2.5 mt-1 border-t border-white/5">
-            {/* Left Controls: Attach (+) and Model Pill Selector */}
-            <div className="flex items-center gap-2">
+          {/* Bottom Bar: Attach, Model Selector, Voice & Send */}
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2 pt-2 sm:pt-2.5 mt-1 border-t border-white/5 w-full min-w-0">
+            {/* Left Controls */}
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
               {/* Attach File Button (+) */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isGenerating || attachments.length >= 5}
                 title="Attach picture or file"
-                className="w-8 h-8 rounded-full bg-neutral-800/80 hover:bg-neutral-700/80 border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer active:scale-90 flex-none"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
 
               {/* Model Selection Dropdown Pill Button */}
-              <div className="relative flex items-center">
+              <div className="relative flex items-center min-w-0 flex-1 max-w-[110px] sm:max-w-[210px] md:max-w-none">
                 <select
                   value={selectedBrain}
                   onChange={(e) => handleBrainChange(e.target.value)}
-                  className="appearance-none bg-neutral-800/90 hover:bg-neutral-700/90 border border-white/10 hover:border-neutral-500 text-xs font-semibold text-neutral-200 pl-3 pr-7 py-1.5 rounded-full cursor-pointer transition-all outline-none"
+                  className="appearance-none bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-[10.5px] sm:text-[11.5px] font-semibold text-neutral-200 pl-2.5 pr-6 sm:pl-3 sm:pr-7 py-1 sm:py-1.5 rounded-full cursor-pointer transition-all outline-none truncate w-full max-w-full"
                 >
-                  <option value="auto">🧠 Auto (qwen2.5:14b)</option>
-                  <option value="balanced">⚖️ Balanced (qwen2.5:14b)</option>
-                  <option value="advanced">🚀 Genius (deepseek-r1:14b)</option>
-                  <option value="heavyweight">🥊 Heavyweight (deepseek-r1:32b)</option>
-                  <option value="coding">⌨️ Coder (qwen2.5-coder:7b)</option>
-                  <option value="fast">⚡ Fast (qwen3.5:4b)</option>
-                  <option value="vision">👁 Vision (moondream)</option>
+                  <option value="auto" className="bg-[#161b22] text-white">🧠 Auto</option>
+                  <option value="fast" className="bg-[#161b22] text-white">⚡ Fast (9B)</option>
+                  <option value="balanced" className="bg-[#161b22] text-white">⚖️ Balanced (9B)</option>
+                  <option value="advanced" className="bg-[#161b22] text-white">🚀 Genius (14B)</option>
+                  <option value="heavyweight" className="bg-[#161b22] text-white">🥊 Heavy (14B)</option>
+                  <option value="coding" className="bg-[#161b22] text-white">⌨️ Coder (7B)</option>
+                  <option value="vision" className="bg-[#161b22] text-white">👁 Vision (9B)</option>
                 </select>
-                <ChevronUp className="w-3.5 h-3.5 text-neutral-400 absolute right-2.5 pointer-events-none" />
+                <ChevronUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-neutral-400 absolute right-1.5 sm:right-2.5 pointer-events-none" />
               </div>
             </div>
 
-            {/* Right Controls: Voice Input & Send / Stop Thinking */}
-            <div className="flex items-center gap-2">
+            {/* Right Controls */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-none">
               {/* Voice Button */}
               <button
                 type="button"
                 onClick={toggleSpeech}
                 title={isListening ? "Stop listening" : "Voice input"}
-                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-90 shrink-0 flex-none ${
                   isListening
-                    ? 'bg-rose-600 text-white animate-pulse'
-                    : 'text-neutral-400 hover:text-white hover:bg-neutral-800/80 border border-white/10'
+                    ? 'bg-rose-600 text-white animate-pulse shadow-md shadow-rose-900/50'
+                    : 'text-neutral-400 hover:text-white hover:bg-white/10 border border-white/10'
                 }`}
               >
-                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                {isListening ? <MicOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               </button>
 
               {/* Send or Stop Thinking Button */}
@@ -453,10 +521,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                   type="button"
                   onClick={onStop}
                   title="Stop thinking"
-                  className="h-9 px-3.5 rounded-full bg-rose-600 hover:bg-rose-500 active:scale-95 text-white flex items-center justify-center gap-1.5 text-xs font-semibold transition duration-150 shadow-md shadow-black/50 cursor-pointer"
+                  className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-full bg-rose-600 hover:bg-rose-500 active:scale-95 text-white flex items-center justify-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-semibold transition-all shadow-lg shadow-rose-950/60 cursor-pointer border border-rose-400/30 shrink-0 flex-none"
                 >
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                  <span>Stop thinking</span>
+                  <Square className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-current" />
+                  <span>Stop</span>
                 </button>
               ) : (
                 <button
@@ -464,9 +532,9 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                   onClick={handleSend}
                   disabled={!canSend}
                   title="Send message"
-                  className="w-9 h-9 rounded-full bg-neutral-200 text-neutral-900 hover:bg-white active:scale-95 flex items-center justify-center transition duration-150 disabled:opacity-30 disabled:pointer-events-none shadow-md cursor-pointer"
+                  className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-tr from-[var(--accent)] to-[var(--accent-light)] text-neutral-950 font-bold hover:opacity-95 active:scale-90 flex items-center justify-center transition-all disabled:opacity-30 disabled:pointer-events-none shadow-lg shadow-[var(--accent)]/20 cursor-pointer shrink-0 flex-none"
                 >
-                  <Send className="w-4 h-4 ml-0.5" />
+                  <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-0.5 text-neutral-950" />
                 </button>
               )}
             </div>

@@ -63,6 +63,28 @@ function getTimeCategory(dateInput: number | string): 'Today' | 'Yesterday' | 'P
   return 'Older'
 }
 
+
+
+const toggleDesktopSite = () => {
+  const meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) return;
+  const current = meta.getAttribute('content') || '';
+  if (current.includes('width=1200')) {
+    meta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content');
+    document.body.style.minWidth = 'auto';
+    document.body.style.overflowX = 'hidden';
+    document.getElementById('root')!.style.minWidth = 'auto';
+    alert("Mobile Site Restored.");
+  } else {
+    meta.setAttribute('content', 'width=1200, user-scalable=yes, viewport-fit=cover');
+    document.body.style.minWidth = '1200px';
+    document.body.style.overflowX = 'auto';
+    document.getElementById('root')!.style.minWidth = '1200px';
+    alert("Desktop Site Enabled! If it doesn't zoom automatically, you can pinch-to-zoom or scroll sideways.");
+  }
+}
+
+
 export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
@@ -165,7 +187,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed md:relative inset-y-0 left-0 z-50 flex flex-col w-[290px] sm:w-[320px] bg-[var(--bg-dark)] border-r border-[var(--border-dark)] transition-transform duration-200 ease-in-out select-none shadow-2xl md:shadow-none ${
+        className={`fixed md:relative inset-y-0 left-0 z-50 flex flex-col w-[290px] sm:w-[320px] bg-black/85 md:bg-black/60 backdrop-blur-2xl border-r border-white/10 transition-transform duration-200 ease-in-out select-none shadow-2xl md:shadow-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:-translate-x-full md:hidden'
         }`}
       >
@@ -174,13 +196,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           style={{
             paddingTop: 'max(env(safe-area-inset-top, 0px), var(--native-safe-top, 0px), 16px)',
           }}
-          className="flex items-center justify-between px-4 pb-3 border-b border-[var(--border-dark)]"
+          className="flex items-center justify-between px-4 pb-3 border-b border-white/10"
         >
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[var(--card-dark)] border border-[var(--border-dark)] flex items-center justify-center text-sm shadow-sm">
+            <div className="w-7 h-7 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-sm shadow-sm">
               🦖
             </div>
-            <span className="font-semibold text-white text-sm tracking-wide">
+            <span className="font-bold text-white text-sm tracking-wide">
               Chat Explorer
             </span>
           </div>
@@ -188,7 +210,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={onClose}
             title="Collapse sidebar"
-            className="p-1.5 rounded-lg text-[var(--accent-light)]/80 hover:text-white hover:bg-[var(--card-hover)] transition-colors cursor-pointer"
+            className="p-1.5 rounded-xl text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
           >
             <PanelLeftClose className="w-4 h-4" />
           </button>
@@ -201,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onNewChat()
               if (window.innerWidth < 768) onClose()
             }}
-            className="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-hover)] hover:opacity-95 active:scale-[0.98] text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-md shadow-black/40 transition-all cursor-pointer"
+            className="w-full py-2.5 px-3.5 rounded-2xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-hover)] hover:opacity-95 active:scale-[0.98] text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-lg shadow-[var(--accent)]/20 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>New Chat</span>
@@ -485,6 +507,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               })
             )
           )}
+        </div>
+
+                {/* Desktop Site Toggle Button */}
+        <div className="px-3 pb-3">
+          <button
+            onClick={toggleDesktopSite}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-sky-500/40 bg-sky-950/40 hover:bg-sky-900/60 text-sky-300 text-xs font-semibold cursor-pointer transition-colors"
+          >
+            🖥️ Desktop Site Mode
+          </button>
         </div>
 
         {/* Sidebar Footer */}

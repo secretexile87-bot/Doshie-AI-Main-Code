@@ -52,6 +52,11 @@ DEFAULTS = {
     "auto_web_search": True,
     "safe_search": True,
     "age": 18,
+    "voice_identity": "",
+    "voice_engine": "clone",
+    "voice_rate": 1.0,
+    "voice_pitch": 1.0,
+    "speak_replies": False,
 }
 
 
@@ -167,6 +172,32 @@ def _validated(values):
     ).strip().casefold()
     if access_role in ACCESS_ROLES:
         data["access_role"] = access_role
+
+    if "voice_identity" in values:
+        data["voice_identity"] = str(values["voice_identity"] or "").strip().lower()
+
+    if "voice_engine" in values:
+        engine = str(values["voice_engine"] or "").strip().lower()
+        if engine in {"clone", "kokoro", "edge", "piper", "device", "auto"}:
+            data["voice_engine"] = engine
+        else:
+            data["voice_engine"] = "clone"
+
+    if "voice_rate" in values:
+        try:
+            data["voice_rate"] = round(max(0.5, min(2.0, float(values["voice_rate"]))), 2)
+        except (ValueError, TypeError):
+            pass
+
+    if "voice_pitch" in values:
+        try:
+            data["voice_pitch"] = round(max(0.5, min(2.0, float(values["voice_pitch"]))), 2)
+        except (ValueError, TypeError):
+            pass
+
+    if "speak_replies" in values:
+        data["speak_replies"] = bool(values["speak_replies"])
+
     return data
 
 
@@ -241,6 +272,22 @@ def get_preferences(profile):
         if preferences["theme"] == "tron"
         else ACCENTS[preferences["accent"]]
     )
+    if not preferences.get("voice_identity"):
+        try:
+            voices_reg_file = Path.home() / ".local/share/yoshi/voices/verified_voices.json"
+            if voices_reg_file.is_file():
+                reg = json.loads(voices_reg_file.read_text(encoding="utf-8"))
+                voices = reg.get("voices", {})
+                norm_key = name.lower()
+                if norm_key in voices:
+                    preferences["voice_identity"] = norm_key
+                else:
+                    preferences["voice_identity"] = "hermes"
+            else:
+                preferences["voice_identity"] = "hermes"
+        except Exception:
+            preferences["voice_identity"] = "hermes"
+
     return preferences
 
 

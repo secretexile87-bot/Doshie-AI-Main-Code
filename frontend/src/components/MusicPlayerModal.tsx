@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react'
-import { X, ExternalLink, Disc, Minus, Square, Check } from 'lucide-react'
+import { X, ExternalLink, Disc, Minus, Square, Check, ArrowLeft } from 'lucide-react'
 
 interface MusicPlayerModalProps {
   isOpen: boolean
   onClose: () => void
+  activeProfile?: string
 }
 
-export const MusicPlayerModal: React.FC<MusicPlayerModalProps> = ({ isOpen, onClose }) => {
+export const MusicPlayerModal: React.FC<MusicPlayerModalProps> = ({ isOpen, onClose, activeProfile }) => {
   // Remember if modal was ever opened so we don't load the iframe until first use
   const [hasEverOpened, setHasEverOpened] = useState(isOpen)
   const [keepInBackground, setKeepInBackground] = useState<boolean>(() => {
     const saved = localStorage.getItem('doshie_music_keep_in_background')
     return saved !== null ? saved === 'true' : true // Default to true as requested
   })
+
+  const currentProfile = activeProfile || 'Hermes'
 
   useEffect(() => {
     if (isOpen && !hasEverOpened) {
@@ -51,9 +54,12 @@ export const MusicPlayerModal: React.FC<MusicPlayerModalProps> = ({ isOpen, onCl
 
   const handleClose = async () => {
     if (!keepInBackground) {
-      // If user chose NOT to keep in background, stop music on close
+      // If user chose NOT to keep in background, stop music on close for this profile only
       try {
-        await fetch('/music/api/stop', { method: 'POST' })
+        await fetch(`/music/api/stop?profile=${encodeURIComponent(currentProfile)}`, {
+          method: 'POST',
+          headers: { 'X-Profile': currentProfile }
+        })
       } catch (e) {}
     }
     onClose()
@@ -61,7 +67,10 @@ export const MusicPlayerModal: React.FC<MusicPlayerModalProps> = ({ isOpen, onCl
 
   const handleStopAndClose = async () => {
     try {
-      await fetch('/music/api/stop', { method: 'POST' })
+      await fetch(`/music/api/stop?profile=${encodeURIComponent(currentProfile)}`, {
+        method: 'POST',
+        headers: { 'X-Profile': currentProfile }
+      })
     } catch (e) {}
     onClose()
   }
@@ -69,8 +78,8 @@ export const MusicPlayerModal: React.FC<MusicPlayerModalProps> = ({ isOpen, onCl
   // Do not mount iframe until first opened
   if (!hasEverOpened) return null
 
-  // Embedded player URL proxied through Doshie backend for full HTTPS/Tailscale support
-  const playerUrl = '/music/'
+  // Embedded player URL proxied through Doshie backend for full HTTPS/Tailscale support, isolated per profile
+  const playerUrl = `/music/?profile=${encodeURIComponent(currentProfile)}`
 
   return (
     <div
@@ -90,8 +99,21 @@ export const MusicPlayerModal: React.FC<MusicPlayerModalProps> = ({ isOpen, onCl
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Top Bar */}
-        <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 bg-[var(--card-dark)]/90 border-b border-[var(--border-dark)] flex-wrap gap-2">
-          <div className="flex items-center gap-2.5">
+        <div
+          className="flex items-center justify-between px-3 sm:px-4 py-2.5 bg-[var(--card-dark)]/90 border-b border-[var(--border-dark)] flex-wrap gap-2"
+          style={{
+            paddingTop: 'max(env(safe-area-inset-top, 0px), var(--native-safe-top, 0px), 10px)',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleClose}
+              className="p-1.5 rounded-lg bg-[var(--card-hover)] hover:bg-[var(--bg-dark)] border border-[var(--border-dark)] text-neutral-300 hover:text-white transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold sm:hidden"
+              title="Back to chat"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </button>
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-500 flex items-center justify-center shadow-sm flex-none">
               <Disc className="w-4 h-4 text-white animate-spin [animation-duration:8s]" />
             </div>
@@ -101,8 +123,11 @@ export const MusicPlayerModal: React.FC<MusicPlayerModalProps> = ({ isOpen, onCl
                 <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   Universal Audio
                 </span>
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                  👤 {currentProfile}
+                </span>
               </div>
-              <p className="text-[11px] text-[var(--accent-light)]/80">
+              <p className="text-[11px] text-[var(--accent-light)]/80 hidden sm:block">
                 Spotify · YouTube Music · SoundCloud · Live Radio
               </p>
             </div>
@@ -152,22 +177,29 @@ export const MusicPlayerModal: React.FC<MusicPlayerModalProps> = ({ isOpen, onCl
             </button>
 
             {/* Pop Out Button */}
-            <a
-              href={playerUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => {
-                if ((window as any).electron?.shell?.openExternal) {
-                  e.preventDefault()
-                  ;(window as any).electron.shell.openExternal(window.location.origin + playerUrl)
+            <button
+              onClick={async () => {
+                const fullUrl = window.location.origin + playerUrl
+                if ((window as any).Capacitor?.Plugins?.Browser?.open) {
+                  try {
+                    await (window as any).Capacitor.Plugins.Browser.open({ url: fullUrl })
+                    return
+                  } catch (e) {}
                 }
+                if ((window as any).electron?.shell?.openExternal) {
+                  try {
+                    ;(window as any).electron.shell.openExternal(fullUrl)
+                    return
+                  } catch (e) {}
+                }
+                window.open(playerUrl, '_blank')
               }}
               title="Open player in separate tab"
               className="p-1.5 rounded-xl bg-[var(--card-hover)] hover:bg-[var(--accent)]/30 border border-[var(--border-dark)] hover:border-[var(--accent)]/50 text-[var(--accent-light)] hover:text-white transition-all cursor-pointer flex items-center gap-1 text-xs font-medium"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span className="hidden lg:inline">Pop Out</span>
-            </a>
+            </button>
 
             {/* Close Button ("X") */}
             <button

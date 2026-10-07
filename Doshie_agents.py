@@ -111,6 +111,38 @@ def get_agent_by_name(name):
     return None
 
 
+def auto_route_agent(prompt):
+    """Automatically select the best specialist agent for a user prompt."""
+    text = str(prompt or "").lower().strip()
+    if not text:
+        return None
+
+    # Code & Engineering markers -> CodeArchitect
+    if any(k in text for k in (
+        "write code", "fix code", "refactor", "bug in", "traceback",
+        "create an app", "build an app", "build a website", "write a script",
+        "python script", "typescript", "javascript", "sql query", "function",
+        "dockerfile", "bash script", "git command", "api route", "endpoint"
+    )):
+        return get_agent_by_name("CodeArchitect")
+
+    # In-depth research & fact-checking -> Researcher
+    if any(k in text for k in (
+        "deep research", "find sources", "fact check", "scientific study",
+        "literature review", "investigate", "scholarly", "cite sources", "analyze data on"
+    )):
+        return get_agent_by_name("Researcher")
+
+    # Educational & Tutorial -> Tutor
+    if any(k in text for k in (
+        "explain like i'm 5", "eli5", "teach me", "tutoring", "how does math",
+        "solve this equation", "conceptual explanation", "learn how to"
+    )):
+        return get_agent_by_name("Tutor")
+
+    return None
+
+
 def _validated(payload, existing=None):
     payload = payload if isinstance(payload, dict) else {}
     existing = existing if isinstance(existing, dict) else {}
@@ -204,6 +236,11 @@ Approved capabilities: {labels}
 
 Creator instructions:
 {agent.get('instructions') or 'Be accurate, helpful, concise, and transparent.'}
+
+HOST ENVIRONMENT:
+- Host Machine: Acer Nitro gaming laptop running Ubuntu Linux.
+- Hardware: 20-core CPU, 16 GB RAM, and dedicated NVIDIA GeForce RTX 5070 GPU (12 GB VRAM).
+- You run locally on this host PC. You are not a disconnected cloud entity. When asked about PC status or hardware, refer to this local system or use system health tools.
 
 SAFETY CONTRACT:
 - You are a specialized assistant inside DiYoshi, not an independent system owner.

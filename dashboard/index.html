@@ -1,36 +1,2890 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-<title>Doshie Command Center</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#08120d">
+<title>🦖 Doshie Superuser Control Panel</title>
 <style>
-body { font-family: system-ui; background:#101418; color:#eee; padding:30px; }
-.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px; }
-.card { background:#1b232b; border-radius:14px; padding:20px; }
-.ok { color:#61ff8b; }
-.bad { color:#ff6b6b; }
-pre { white-space:pre-wrap; }
+:root {
+  --bg: #070d0a;
+  --bg-deep: #040806;
+  --surface: #0d1a14;
+  --surface-card: rgba(13, 26, 20, 0.85);
+  --surface-hover: #142b20;
+  --border: rgba(16, 185, 129, 0.25);
+  --border-strong: rgba(16, 185, 129, 0.5);
+  --accent: #10b981;
+  --accent-rgb: 16, 185, 129;
+  --accent-glow: rgba(16, 185, 129, 0.25);
+  --accent-text: #ffffff;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --danger: #ef4444;
+  --danger-glow: rgba(239, 68, 68, 0.3);
+  --warning: #f59e0b;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --radius: 14px;
+  --radius-sm: 8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  background: var(--bg);
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(var(--accent-rgb), 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(var(--accent-rgb), 0.05) 0%, transparent 40%),
+    linear-gradient(to bottom, var(--bg-deep), var(--bg));
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top, 12px) max(14px, env(safe-area-inset-right, 14px)) max(14px, env(safe-area-inset-bottom, 14px)) max(14px, env(safe-area-inset-left, 14px));
+  line-height: 1.5;
+}
+
+.su-container {
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+/* Header */
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+}
+
+.brand-section {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-icon {
+  font-size: 2rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 10px var(--accent-glow));
+}
+
+.brand-text h1 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.badge-su {
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.brand-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  background: var(--surface-hover);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+
+.btn:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 0 22px var(--accent-glow);
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.btn-danger:hover {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+  box-shadow: 0 0 14px var(--danger-glow);
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+}
+
+/* Remote Access Banner */
+.remote-banner {
+  background: rgba(var(--accent-rgb), 0.06);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.remote-endpoints {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.endpoint-tag {
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.endpoint-tag:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+
+.endpoint-label {
+  color: var(--text-dim);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+}
+
+/* Vitals Cards Grid */
+.grid-vitals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.status-dot.danger {
+  background: var(--danger);
+  box-shadow: 0 0 8px var(--danger);
+}
+
+.gauge-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 3px 0;
+}
+
+.gauge-label {
+  color: var(--text-muted);
+}
+
+.gauge-val {
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), rgba(var(--accent-rgb), 0.7));
+  border-radius: 9999px;
+  transition: width 0.4s ease;
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* Services Mini Grid */
+.service-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.service-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Tabs Navigation */
+.tab-bar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+}
+
+.tab-btn {
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.tab-btn:hover {
+  color: var(--text);
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  text-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* Tab Panels */
+.tab-content {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tab-content.active {
+  display: flex;
+}
+
+/* Model Cards Grid */
+.models-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.model-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+
+.model-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.model-card.active-model {
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+.model-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  font-family: var(--font-mono);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.model-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.meta-chip {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Terminal Console */
+.terminal-deck {
+  background: #030705;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 480px;
+  box-shadow: 0 6px 30px rgba(0,0,0,0.6);
+}
+
+.terminal-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #07120a;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.terminal-presets {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #050d08;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.preset-chip {
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s;
+}
+
+.preset-chip:hover {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.terminal-output {
+  flex: 1;
+  padding: 14px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  overflow-y: auto;
+  color: #a7f3d0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.45;
+}
+
+.terminal-input-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #07140c;
+  border-top: 1px solid var(--border);
+  gap: 8px;
+}
+
+.terminal-prompt {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.terminal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  outline: none;
+}
+
+/* Theme Drawer / Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: none;
+  place-items: center;
+  padding: 16px;
+}
+
+.modal-overlay.open {
+  display: grid;
+}
+
+.modal-box {
+  background: var(--surface-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  max-width: 500px;
+  width: 100%;
+  padding: 22px;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.8);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.theme-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.swatch-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.swatch-btn:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.swatch-color {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.color-picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+input[type="color"] {
+  -webkit-appearance: none;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  background: transparent;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+}
+
+/* Forms & Inputs */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.form-input, .form-textarea, .form-select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  color: var(--text);
+  font-size: 0.88rem;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.form-input:focus, .form-textarea:focus, .form-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.form-textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+/* Toast */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  padding: 12px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+  backdrop-filter: blur(10px);
+  z-index: 2000;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* --- Persona Creator & Agent Foundry Studio Styles --- */
+.persona-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.persona-tone-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+
+.persona-tone-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+  transform: translateY(-2px);
+}
+
+.persona-tone-card.active {
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+  box-shadow: 0 0 18px var(--accent-glow);
+}
+
+.persona-tone-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.persona-tone-desc {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.emoji-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.emoji-btn {
+  width: 38px;
+  height: 38px;
+  font-size: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.emoji-btn:hover {
+  border-color: var(--accent);
+  transform: scale(1.1);
+}
+
+.emoji-btn.active {
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.2);
+  box-shadow: 0 0 12px var(--accent-glow);
+  transform: scale(1.12);
+}
+
+.agents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 14px;
+}
+
+.agent-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.18s ease;
+}
+
+.agent-item:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.agent-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.agent-name-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.agent-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.agent-caps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.agent-cap-tag {
+  font-size: 0.7rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 2px 7px;
+  border-radius: 4px;
+  color: var(--text-muted);
+}
+
+.agent-editor-drawer {
+  background: #08140e;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 18px;
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  margin-top: 10px;
+}
+
+.agent-editor-drawer.open {
+  display: flex;
+}
+
+.caps-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+}
+
+.cap-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.sandbox-container {
+  background: #050a07;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.prompt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prompt-chip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.prompt-chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+.sandbox-reply-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text);
+  min-height: 70px;
+  white-space: pre-wrap;
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  header { padding: 12px 14px; }
+  .grid-vitals { grid-template-columns: 1fr; }
+  .terminal-deck { height: 380px; }
+  .remote-banner { flex-direction: column; align-items: flex-start; }
+}
 </style>
 </head>
 <body>
-<h1>🦖 Doshie Command Center</h1>
-<div class="grid">
-<div class="card"><h2>🧠 Brain</h2><div id="ollama">Loading...</div></div>
-<div class="card"><h2>🎮 GPU</h2><pre id="gpu">Loading...</pre></div>
-<div class="card"><h2>⚙️ Services</h2><pre id="services">Loading...</pre></div>
-<div class="card"><h2>⏱️ Status</h2><pre id="status">Loading...</pre></div>
+
+<div class="su-container">
+
+  <!-- Header -->
+  <header>
+    <div class="brand-section">
+      <div class="brand-icon">🦖</div>
+      <div class="brand-text">
+        <h1>
+          DOSHIE SUPERUSER
+          <span class="badge-su">SU CONTROL</span>
+        </h1>
+        <div class="brand-sub">acer-nitro • RTX 5070 • Ubuntu 26.04</div>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <a href="/" target="_blank" class="btn btn-sm btn-primary" style="background:linear-gradient(135deg, #10b981, #059669); border-color:#34d399; font-weight:700; box-shadow:0 0 16px rgba(16,185,129,0.35); text-decoration:none;">⚡ Doshie Direct Line</a>
+      <a href="/static/downloads/Doshie_Superuser_Control_Panel_Guide.pdf" download="Doshie_Superuser_Control_Panel_Guide.pdf" class="btn btn-sm" style="border-color:#38bdf8; color:#7dd3fc; text-decoration:none;">📥 PDF Guide</a>
+      <button class="btn btn-sm" onclick="openThemeModal()">🎨 Change Colors</button>
+      <button class="btn btn-sm" onclick="triggerAction('flush_cache')">🧹 Flush RAM</button>
+      <button class="btn btn-sm btn-danger" onclick="triggerAction('restart_doshie')">🔁 Restart Doshie</button>
+      <a href="/control" class="btn btn-sm" style="border-color:var(--border); text-decoration:none;">💬 Control Chat</a>
+    </div>
+  </header>
+
+  <!-- Remote Access Information Banner -->
+  <div class="remote-banner">
+    <div>
+      <strong>🌐 Remote Control & Direct Line Links</strong>
+      <span style="color:var(--text-muted); font-size:0.8rem; margin-left:6px;">Connect securely to Doshie Direct Line from any phone, laptop, or browser</span>
+    </div>
+    <div class="remote-endpoints">
+      <a href="/" target="_blank" class="endpoint-tag" style="text-decoration:none; color:var(--text); border-color:#10b981; background:rgba(16,185,129,0.14);">
+        <span class="endpoint-label" style="color:#10b981; font-weight:700;">Direct Line</span>
+        <span>⚡ Open Local Direct Line</span>
+      </a>
+      <a href="https://hermes-doshie.tail50b4c5.ts.net" target="_blank" class="endpoint-tag" style="text-decoration:none; color:var(--text); border-color:#34d399; background:rgba(52,211,153,0.1);">
+        <span class="endpoint-label" style="color:#34d399; font-weight:700;">Tailscale SSL</span>
+        <span>🔒 hermes-doshie.tail50b4c5.ts.net</span>
+      </a>
+      <div class="endpoint-tag" onclick="copyText('http://100.109.79.35:5000', 'Direct Line Tailscale IP copied!')">
+        <span class="endpoint-label">VPN IP</span>
+        <span>100.109.79.35:5000</span>
+      </div>
+      <div class="endpoint-tag" onclick="copyText('http://192.168.1.167:5000', 'Local LAN Direct Line URL copied!')">
+        <span class="endpoint-label">Local LAN</span>
+        <span>192.168.1.167:5000</span>
+      </div>
+      <a href="/static/downloads/Doshie_Superuser_Control_Panel_Guide.pdf" download="Doshie_Superuser_Control_Panel_Guide.pdf" class="endpoint-tag" style="text-decoration:none; color:var(--text); border-color:#38bdf8;">
+        <span class="endpoint-label">Manual</span>
+        <span>📄 Download PDF</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Hardware & Services Vitals Grid -->
+  <div class="grid-vitals">
+
+    <!-- GPU Vitals -->
+    <div class="card">
+      <div class="card-header">
+        <span>🎮 NVIDIA RTX 5070</span>
+        <span id="gpu-temp-badge" class="badge-su">COOL</span>
+      </div>
+      <div class="gauge-row">
+        <span class="gauge-label">VRAM Usage</span>
+        <span id="gpu-vram-text" class="gauge-val">-- / 12.2 GB</span>
+      </div>
+      <div class="progress-track">
+        <div id="gpu-vram-bar" class="progress-fill" style="width: 0%;"></div>
+      </div>
+      <div class="gauge-row" style="margin-top:4px;">
+        <span class="gauge-label">Temperature</span>
+        <span id="gpu-temp-val" class="gauge-val">--°C</span>
+      </div>
+      <div class="gauge-row">
+        <span class="gauge-label">Power & Fan</span>
+        <span id="gpu-power-val" class="gauge-val">-- W • --%</span>
+      </div>
+      <div style="margin-top:6px;">
+        <button class="btn btn-sm" style="width:100%; justify-content:center;" onclick="triggerAction('unload_models')">⚡ Unload Models (Free VRAM)</button>
+      </div>
+    </div>
+
+    <!-- Host CPU & System -->
+    <div class="card">
+      <div class="card-header">
+        <span>⚡ Host CPU & Load</span>
+        <span id="sys-uptime-badge" class="gauge-val" style="font-size:0.75rem; color:var(--accent);">UPTIME: --</span>
+      </div>
+      <div class="gauge-row">
+        <span class="gauge-label">CPU Utilization</span>
+        <span id="cpu-pct-val" class="gauge-val">--%</span>
+      </div>
+      <div class="progress-track">
+        <div id="cpu-pct-bar" class="progress-fill" style="width: 0%;"></div>
+      </div>
+      <div class="gauge-row" style="margin-top:4px;">
+        <span class="gauge-label">Cores</span>
+        <span id="cpu-cores-val" class="gauge-val">20 Cores</span>
+      </div>
+      <div class="gauge-row">
+        <span class="gauge-label">Load Averages</span>
+        <span id="cpu-load-val" class="gauge-val">-- , -- , --</span>
+      </div>
+      <div style="margin-top:6px;">
+        <button class="btn btn-sm" style="width:100%; justify-content:center;" onclick="fetchTelemetry()">🔄 Refresh Metrics</button>
+      </div>
+    </div>
+
+    <!-- RAM & Storage -->
+    <div class="card">
+      <div class="card-header">
+        <span>💾 RAM & SSD Storage</span>
+        <span class="status-dot"></span>
+      </div>
+      <div class="gauge-row">
+        <span class="gauge-label">System RAM</span>
+        <span id="ram-text-val" class="gauge-val">-- / 14.8 GB</span>
+      </div>
+      <div class="progress-track">
+        <div id="ram-bar" class="progress-fill" style="width: 0%;"></div>
+      </div>
+      <div class="gauge-row" style="margin-top:8px;">
+        <span class="gauge-label">SSD Disk Space</span>
+        <span id="disk-text-val" class="gauge-val">-- GB Free</span>
+      </div>
+      <div class="progress-track">
+        <div id="disk-bar" class="progress-fill" style="width: 0%;"></div>
+      </div>
+      <div style="margin-top:6px;">
+        <button class="btn btn-sm" style="width:100%; justify-content:center;" onclick="triggerAction('flush_cache')">🧹 Run Garbage Collection</button>
+      </div>
+    </div>
+
+    <!-- System Services Quick Status -->
+    <div class="card">
+      <div class="card-header">
+        <span>⚙️ Core Services</span>
+        <span class="status-dot"></span>
+      </div>
+      <div class="service-item">
+        <div class="service-left">
+          <span class="status-dot" id="dot-doshie"></span>
+          <span>Doshie Web Server</span>
+        </div>
+        <button class="btn btn-sm" style="padding:2px 8px;" onclick="triggerAction('restart_doshie')">Restart</button>
+      </div>
+      <div class="service-item">
+        <div class="service-left">
+          <span class="status-dot" id="dot-voice"></span>
+          <span>Hermes Voice (5051)</span>
+        </div>
+        <button class="btn btn-sm" style="padding:2px 8px;" onclick="triggerAction('restart_voice')">Start/Restart</button>
+      </div>
+      <div class="service-item">
+        <div class="service-left">
+          <span class="status-dot" id="dot-ollama"></span>
+          <span>Ollama LLM Engine</span>
+        </div>
+        <button class="btn btn-sm" style="padding:2px 8px;" onclick="triggerAction('restart_ollama')">Restart</button>
+      </div>
+      <div class="service-item">
+        <div class="service-left">
+          <span class="status-dot" id="dot-agy"></span>
+          <span>Antigravity CLI (Agy)</span>
+        </div>
+        <button class="btn btn-sm" style="padding:2px 8px;" onclick="triggerAction('restart_agy')">Restart</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('tab-brain')">🧠 AI Brain & Models</button>
+    <button class="tab-btn" onclick="switchTab('tab-agents')">🤖 AI Agents & Foundry</button>
+    <button class="tab-btn" onclick="switchTab('tab-voice')">🗣️ Voice Studio</button>
+    <button class="tab-btn" onclick="switchTab('tab-terminal')">💻 Superuser Shell</button>
+    <button class="tab-btn" onclick="switchTab('tab-memories')">🧠 Memory Tweaks</button>
+    <button class="tab-btn" onclick="switchTab('tab-logs')">📜 Live Logs</button>
+    <button class="tab-btn" onclick="switchTab('tab-personality')">🎭 Persona & Prompts</button>
+  </div>
+
+  <!-- Tab 1: AI Brain & Models -->
+  <div id="tab-brain" class="tab-content active">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <h2 style="font-size:1.1rem; font-weight:700;">Local AI Models Inventory</h2>
+        <div style="font-size:0.8rem; color:var(--text-muted);">Loaded models run fully accelerated on your NVIDIA RTX 5070 GPU.</div>
+      </div>
+      <button class="btn btn-sm" onclick="pingBrainBenchmark()">⚡ Ping Brain / Benchmark Latency</button>
+    </div>
+
+    <!-- Models List -->
+    <div id="models-container" class="models-grid">
+      <div style="color:var(--text-muted); padding:20px;">Scanning Ollama models...</div>
+    </div>
+
+    <!-- Ping Result Banner -->
+    <div id="ping-result-box" style="display:none; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius); padding:14px; font-family:var(--font-mono); font-size:0.85rem;">
+      <div style="color:var(--accent); font-weight:700; margin-bottom:4px;" id="ping-latency-header">⚡ Brain Benchmark Result</div>
+      <div id="ping-reply-body" style="color:var(--text);">--</div>
+    </div>
+
+    <!-- Quick Access to Multi-Agent Hub -->
+    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; margin-top:16px;">
+      <div>
+        <div style="font-weight:700; font-size:0.92rem;">🤖 Multi-Agent Network & Specialist Foundry</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Create new specialist agents, configure tools, and enable agent-to-agent communication.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="switchTab('tab-agents')">Manage & Create Agents →</button>
+    </div>
+  </div>
+
+  <!-- Tab: AI Agents & Foundry -->
+  <div id="tab-agents" class="tab-content">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+      <div>
+        <h2 style="font-size:1.15rem; font-weight:700;">🤖 Specialist AI Agents & Multi-Agent Network</h2>
+        <div style="font-size:0.8rem; color:var(--text-muted);">
+          Create domain-specialized personas, configure tool capabilities, and orchestrate inter-agent collaboration and delegation.
+        </div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-sm" onclick="loadSpecialistAgents()">🔄 Refresh</button>
+        <button class="btn btn-sm btn-primary" onclick="openAgentCreator()">＋ Create New Agent</button>
+      </div>
+    </div>
+
+    <!-- Card 1: Specialist Persona & Agent Foundry -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <span style="font-size:1.05rem; font-weight:700;">🛠️ Specialist AI Persona & Agent Foundry</span>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Build dedicated sub-personas with isolated brains, memory scopes, and tool allowlists</div>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="openAgentCreator()">＋ Create New Specialist</button>
+      </div>
+
+      <!-- Agent Editor Drawer -->
+      <div id="agent-editor-drawer" class="agent-editor-drawer">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+          <span id="agent-drawer-title" style="font-size:0.95rem; font-weight:700; color:var(--text);">Create Specialist Persona</span>
+          <button class="btn btn-sm" onclick="closeAgentCreator()">✕ Cancel</button>
+        </div>
+
+        <input type="hidden" id="agent-form-id" value="" />
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Specialist Name</label>
+            <input type="text" id="agent-form-name" class="form-input" placeholder="e.g. Code Architect" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Identity Color</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="color" id="agent-form-accent" value="#35f2d0" oninput="document.getElementById('agent-form-color-preview').textContent=this.value" />
+              <span id="agent-form-color-preview" style="font-size:0.8rem; font-family:var(--font-mono); color:var(--text-muted);">#35f2d0</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Brain Engine Mode</label>
+            <select id="agent-form-brain" class="form-select">
+              <option value="auto">Auto Router</option>
+              <option value="fast">Fast · Everyday tasks</option>
+              <option value="balanced">Balanced · Reasoning</option>
+              <option value="coding">Coding · Software engineering</option>
+              <option value="advanced">Advanced · Deep work / R1</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Memory Boundary</label>
+            <select id="agent-form-memory" class="form-select">
+              <option value="none">None (Session only, stateless)</option>
+              <option value="private">Private (Dedicated memory box)</option>
+              <option value="shared">Shared (Team memory)</option>
+              <option value="all">All (Full access)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Primary Responsibility / Role</label>
+          <input type="text" id="agent-form-purpose" class="form-input" placeholder="e.g. Designs, tests, and refactors system architecture cleanly." required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Approved Capabilities (Allowlist)</label>
+          <div class="caps-checkboxes">
+            <label class="cap-checkbox-label">
+              <input type="checkbox" id="cap-mem-read" value="memory_read" checked />
+              <span>📖 Memory Read</span>
+            </label>
+            <label class="cap-checkbox-label">
+              <input type="checkbox" id="cap-mem-write" value="memory_write" />
+              <span>✍️ Memory Write</span>
+            </label>
+            <label class="cap-checkbox-label">
+              <input type="checkbox" id="cap-health" value="service_health" checked />
+              <span>🩺 System Health</span>
+            </label>
+            <label class="cap-checkbox-label">
+              <input type="checkbox" id="cap-proj-read" value="project_read" checked />
+              <span>📂 Project Reader</span>
+            </label>
+            <label class="cap-checkbox-label">
+              <input type="checkbox" id="cap-code-prop" value="code_proposals" checked />
+              <span>💻 Code Proposals</span>
+            </label>
+            <label class="cap-checkbox-label">
+              <input type="checkbox" id="cap-web" value="web_research" />
+              <span>🌐 Web Research</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Creator Directives / Specialist System Instructions</label>
+          <textarea id="agent-form-instructions" class="form-textarea" style="min-height:90px;" placeholder="Detailed instructions on how this specialist persona should reason, answer, and behave..."></textarea>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <label class="cap-checkbox-label">
+            <input type="checkbox" id="agent-form-enabled" checked />
+            <span style="font-weight:600;">Enable Specialist Active Status</span>
+          </label>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-sm" onclick="closeAgentCreator()">Cancel</button>
+            <button class="btn btn-sm btn-primary" onclick="submitAgentForm()">💾 Save Specialist AI</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Specialist Agents List Grid -->
+      <div id="specialist-agents-list" class="agents-grid" style="margin-top:10px;">
+        <div style="color:var(--text-muted); font-size:0.85rem; padding:12px;">Loading specialist personas...</div>
+      </div>
+    </div>
+
+    <!-- Card 2: Inter-Agent Communication & Delegation Sandbox -->
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header">
+        <div>
+          <span style="font-size:1.05rem; font-weight:700;">🤝 Inter-Agent Communication & Delegation Sandbox</span>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+            How agents communicate: Delegator agent consults a specialist via the <code>consult_agent</code> tool, receives reasoning, and synthesizes the answer.
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px; margin-top:8px;">
+        <div class="form-group">
+          <label class="form-label">Source Agent (Delegator)</label>
+          <select id="collab-source-agent" class="form-select"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target Agent (Specialist Consultant)</label>
+          <select id="collab-target-agent" class="form-select"></select>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:8px;">
+        <label class="form-label">Subtask / Delegation Prompt</label>
+        <div class="prompt-chips" style="margin-bottom:8px;">
+          <span class="prompt-chip" onclick="setCollabPrompt('Research recent Ollama VRAM optimizations and summarize findings.')">🔍 Research Subtask</span>
+          <span class="prompt-chip" onclick="setCollabPrompt('Review our local Python system architecture and propose 3 optimizations.')">🛡️ Architecture Review</span>
+          <span class="prompt-chip" onclick="setCollabPrompt('Write a clean Python script to test GPU tensor throughput with error handling.')">💻 Code Delegation</span>
+        </div>
+        <textarea id="collab-task-input" class="form-textarea" style="min-height:75px;" placeholder="Enter instructions or questions for the target specialist agent..."></textarea>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+        <button id="collab-run-btn" class="btn btn-primary" onclick="runAgentDelegation()">🚀 Run Agent Collaboration</button>
+      </div>
+
+      <!-- Live Collaboration Trace Output -->
+      <div id="collab-output-container" style="display:none; margin-top:14px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; font-size:0.85rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <span style="font-weight:700; color:var(--accent);" id="collab-status-badge">⚡ Collaboration Trace</span>
+          <span id="collab-latency-badge" class="badge badge-ok">0 ms</span>
+        </div>
+        
+        <div style="margin-bottom:12px;">
+          <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px;">1️⃣ Specialist (<span id="collab-target-name">Target</span>) Reasoning:</div>
+          <div id="collab-target-reply" style="white-space:pre-wrap; background:rgba(0,0,0,0.25); padding:10px; border-radius:6px; border-left:3px solid var(--accent); color:var(--text);">--</div>
+        </div>
+
+        <div>
+          <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px;">2️⃣ Delegator (<span id="collab-source-name">Source</span>) Synthesized Briefing:</div>
+          <div id="collab-source-reply" style="white-space:pre-wrap; background:rgba(0,0,0,0.25); padding:10px; border-radius:6px; border-left:3px solid var(--primary, #3b82f6); color:var(--text);">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Tab 2: Voice Studio -->
+  <div id="tab-voice" class="tab-content">
+    <div class="card">
+      <div class="card-header">
+        <span>🗣️ Hermes Voice Engine (chatterbox-nano / Port 5051)</span>
+        <span id="voice-health-badge" class="badge-su">STATUS: SCANNING</span>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:8px;">
+        <div class="form-group">
+          <label class="form-label">Voice Speech Rate</label>
+          <input type="range" id="voice-rate-slider" min="0.6" max="1.5" step="0.05" value="1.0" oninput="document.getElementById('voice-rate-val').textContent = this.value + 'x'" />
+          <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted);">
+            <span>0.6x (Slow)</span>
+            <span id="voice-rate-val" style="color:var(--accent); font-weight:700;">1.0x</span>
+            <span>1.5x (Fast)</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Voice Pitch Multiplier</label>
+          <input type="range" id="voice-pitch-slider" min="0.7" max="1.3" step="0.05" value="1.0" oninput="document.getElementById('voice-pitch-val').textContent = this.value" />
+          <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted);">
+            <span>0.7 (Deep)</span>
+            <span id="voice-pitch-val" style="color:var(--accent); font-weight:700;">1.0</span>
+            <span>1.3 (High)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:12px;">
+        <label class="form-label">Voice Test Phrase</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="voice-test-phrase" class="form-input" style="flex:1;" value="Hello! This is Doshie and Hermes speaking from the Acer Nitro." />
+          <button class="btn btn-primary" onclick="testVoiceSynthesis()">🔊 Speak Test</button>
+          <button class="btn btn-danger" onclick="triggerAction('restart_voice')">Restart Voice</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: Superuser Terminal -->
+  <div id="tab-terminal" class="tab-content">
+    <div class="terminal-deck">
+      <div class="terminal-topbar">
+        <span>bash • doshie@acer-nitro:~$</span>
+        <button class="btn btn-sm" style="padding:2px 8px;" onclick="clearTerminal()">Clear</button>
+      </div>
+      <div class="terminal-presets">
+        <span style="font-size:0.75rem; color:var(--text-muted); align-self:center; margin-right:4px;">Presets:</span>
+        <button class="preset-chip" onclick="runPresetCmd('nvidia-smi')">nvidia-smi</button>
+        <button class="preset-chip" onclick="runPresetCmd('ollama ps')">ollama ps</button>
+        <button class="preset-chip" onclick="runPresetCmd('tailscale status')">tailscale status</button>
+        <button class="preset-chip" onclick="runPresetCmd('uptime && free -h')">uptime & free</button>
+        <button class="preset-chip" onclick="runPresetCmd('agy remote-control status')">agy status</button>
+        <button class="preset-chip" onclick="runPresetCmd('systemctl --user status antigravity-cli-daemon.service')">agy daemon status</button>
+        <button class="preset-chip" onclick="runPresetCmd('journalctl --user -u antigravity-cli-daemon -n 25 --no-pager')">agy logs</button>
+      </div>
+      <div id="terminal-screen" class="terminal-output">Doshie SU Terminal initialized. Enter a command or click a preset above.
+Type any command and press Enter.</div>
+      <div class="terminal-input-bar">
+        <span class="terminal-prompt">doshie&gt;</span>
+        <input type="text" id="terminal-input" class="terminal-input" placeholder="Type a bash command (e.g. ps aux | grep python)..." autocomplete="off" />
+        <button class="btn btn-sm btn-primary" onclick="sendTerminalCommand()">Run ➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 4: Memory Tweaks -->
+  <div id="tab-memories" class="tab-content">
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:16px;">
+      
+      <!-- Inject Memory Card -->
+      <div class="card">
+        <div class="card-header">
+          <span>🧠 Inject Fact or Rule into Doshie Brain</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Memory Content</label>
+          <textarea id="new-mem-text" class="form-textarea" placeholder="e.g. Hermes prefers concise answers and Python scripts formatted in markdown..."></textarea>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="new-mem-cat" class="form-select">
+              <option value="Preference">Preference</option>
+              <option value="Fact">Fact</option>
+              <option value="Rule">Rule</option>
+              <option value="General">General</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Importance</label>
+            <select id="new-mem-imp" class="form-select">
+              <option value="Normal">Normal</option>
+              <option value="High">High</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:6px;" onclick="addDoshieMemory()">💾 Save Memory to Brain</button>
+      </div>
+
+      <!-- Recent Memories List -->
+      <div class="card" style="max-height:450px; overflow-y:auto;">
+        <div class="card-header">
+          <span>Active Brain Memories</span>
+          <button class="btn btn-sm" onclick="loadMemories()">🔄 Reload</button>
+        </div>
+        <div id="memories-list" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+          <div style="color:var(--text-muted); font-size:0.85rem;">Loading memories...</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Tab 5: Live Logs Streamer -->
+  <div id="tab-logs" class="tab-content">
+    <div class="terminal-deck" style="height:500px;">
+      <div class="terminal-topbar">
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-sm active" id="log-svc-doshie" onclick="switchLogService('doshie')">Doshie Web</button>
+          <button class="btn btn-sm" id="log-svc-agy" onclick="switchLogService('agy')">Agy Daemon</button>
+          <button class="btn btn-sm" id="log-svc-ollama" onclick="switchLogService('ollama')">Ollama</button>
+          <button class="btn btn-sm" id="log-svc-voice" onclick="switchLogService('voice')">Hermes Voice</button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-sm" id="log-pause-btn" onclick="toggleLogPause()">⏸️ Pause</button>
+          <button class="btn btn-sm" onclick="fetchLogs()">🔄 Refresh</button>
+        </div>
+      </div>
+      <div id="log-screen" class="terminal-output" style="color:#e2e8f0;">Loading logs...</div>
+    </div>
+  </div>
+
+  <!-- Tab 6: Persona Creator & Agent Foundry -->
+  <div id="tab-personality" class="tab-content">
+
+    <!-- Card 1: Global AI Persona & Demeanor Studio -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <span style="font-size:1.05rem; font-weight:700;">🎭 Persona Tone & Demeanor Studio</span>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Select tone presets, customize avatar identity, and define system directives for Doshie</div>
+        <div style="display:flex; gap:8px;">
+          <a href="/" target="_blank" class="btn btn-sm btn-primary" style="background:linear-gradient(135deg, #10b981, #059669); border-color:#34d399; text-decoration:none;">⚡ Open Direct Line</a>
+          <button class="btn btn-sm btn-primary" onclick="savePersonaSettings()">💾 Save & Activate Persona</button>
+        </div>
+      </div>
+
+      <!-- Tone Presets Cards -->
+      <div>
+        <label class="form-label" style="margin-bottom:8px; display:block;">Persona Demeanor Preset</label>
+        <div class="persona-preset-grid">
+          <div id="preset-humble_kind" class="persona-tone-card active" onclick="selectTonePreset('humble_kind')">
+            <div class="persona-tone-title">
+              <span>💚 Humble & Kind</span>
+              <span class="persona-tone-badge" style="background:rgba(16,185,129,0.2); color:#10b981;">Default</span>
+            </div>
+            <div class="persona-tone-desc">Deeply humble, gentle, empathetic, patient, and uplifting in every response. Warm and polite.</div>
+          </div>
+
+          <div id="preset-supportive" class="persona-tone-card" onclick="selectTonePreset('supportive')">
+            <div class="persona-tone-title">
+              <span>🧡 Compassionate Friend</span>
+              <span class="persona-tone-badge" style="background:rgba(245,158,11,0.2); color:#f59e0b;">Warm</span>
+            </div>
+            <div class="persona-tone-desc">Encouraging companion, validating, warm, understanding, and deeply supportive.</div>
+          </div>
+
+          <div id="preset-direct_tech" class="persona-tone-card" onclick="selectTonePreset('direct_tech')">
+            <div class="persona-tone-title">
+              <span>💙 Precise Technician</span>
+              <span class="persona-tone-badge" style="background:rgba(6,182,212,0.2); color:#06b6d4;">Direct</span>
+            </div>
+            <div class="persona-tone-desc">Analytical, concise, objective, software & code focused. Zero filler, straight facts.</div>
+          </div>
+
+          <div id="preset-playful" class="persona-tone-card" onclick="selectTonePreset('playful')">
+            <div class="persona-tone-title">
+              <span>💜 Witty & Cheerful</span>
+              <span class="persona-tone-badge" style="background:rgba(139,92,246,0.2); color:#8b5cf6;">Clever</span>
+            </div>
+            <div class="persona-tone-desc">Energetic, lighthearted, cheerful, witty, and engaging with clever personality flair.</div>
+          </div>
+
+          <div id="preset-cyber_hacker" class="persona-tone-card" onclick="selectTonePreset('cyber_hacker')">
+            <div class="persona-tone-title">
+              <span>⚡ Cyberpunk Hacker</span>
+              <span class="persona-tone-badge" style="background:rgba(236,72,153,0.2); color:#ec4899;">Edgy</span>
+            </div>
+            <div class="persona-tone-desc">Street-smart, direct, edgy, terminal-oriented tech guide for high-speed local builders.</div>
+          </div>
+
+          <div id="preset-custom" class="persona-tone-card" onclick="selectTonePreset('custom')">
+            <div class="persona-tone-title">
+              <span>⚙️ Custom Directives</span>
+              <span class="persona-tone-badge" style="background:rgba(255,255,255,0.1); color:#fff;">Manual</span>
+            </div>
+            <div class="persona-tone-desc">Full manual behavior directives written freely in the instructions editor below.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Identity & Profile Customization Grid -->
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:14px; margin-top:14px;">
+        <div class="form-group">
+          <label class="form-label">Assistant Avatar Emoji</label>
+          <div class="emoji-swatches" id="emoji-picker-container"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Assistant Display Name</label>
+          <input type="text" id="cfg-assistant-name" class="form-input" placeholder="Doshie" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Persona Mode</label>
+          <select id="cfg-mode" class="form-select">
+            <option value="family">Family (Warm, protective, helpful)</option>
+            <option value="tech">Tech (Direct, hacker, technical)</option>
+            <option value="normal">Normal (Balanced assistant)</option>
+            <option value="gaming">Gaming (High energy, fun)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Default Weather Location</label>
+          <input type="text" id="cfg-weather" class="form-input" placeholder="El Paso, TX" />
+        </div>
+      </div>
+
+      <!-- Greeting Subtitle & Title -->
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:10px;">
+        <div class="form-group">
+          <label class="form-label">Greeting Title</label>
+          <input type="text" id="cfg-greeting-title" class="form-input" placeholder="How can I help you today?" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Greeting Subtitle</label>
+          <input type="text" id="cfg-greeting-subtitle" class="form-input" placeholder="Private local AI companion running directly on your RTX 5070 workstation." />
+        </div>
+      </div>
+
+      <!-- Custom System Prompt / Behavior Directives -->
+      <div class="form-group" style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+          <label class="form-label">System Behavior Directives & Persona Prompt</label>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-sm" onclick="appendPromptSnippet('Always be humble, deeply gentle, patient, and empathetic in every answer.')">+ Humility</button>
+            <button type="button" class="btn btn-sm" onclick="appendPromptSnippet('Provide clean, production-ready code with concise explanations. No fluff.')">+ Code Focus</button>
+            <button type="button" class="btn btn-sm" onclick="appendPromptSnippet('Keep all answers under 3 concise sentences unless depth is explicitly requested.')">+ Concise</button>
+            <button type="button" class="btn btn-sm" onclick="appendPromptSnippet('Strictly protect private memories, credentials, and offline file security.')">+ Security</button>
+          </div>
+        </div>
+        <textarea id="cfg-system-prompt" class="form-textarea" style="min-height:120px;" placeholder="Instructions that dictate how Doshie speaks, thinks, and behaves..."></textarea>
+      </div>
+    </div>
+
+    <!-- Card 2: Specialist Persona & Agent Foundry -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <span style="font-size:1.05rem; font-weight:700;">🛠️ Specialist AI Persona & Agent Foundry</span>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Build dedicated sub-personas with isolated brains, memory scopes, and tool allowlists</div>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="openAgentCreator()">＋ Create New Specialist</button>
+      </div>
+
+      <!-- Agent Editor Drawer -->
+      <div id="agent-editor-drawer" class="agent-editor-drawer">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+          <span id="agent-drawer-title" style="font-size:0.95rem; font-weight:700; color:var(--text);">Create Specialist Persona</span>
+          <button class="btn btn-sm" onclick="closeAgentCreator()">✕ Cancel</button>
+        </div>
+
+        <input type="hidden" id="agent-form-id" value="" />
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Specialist Name</label>
+            <input type="text" id="agent-form-name" class="form-input" placeholder="e.g. Code Architect" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Identity Color</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="color" id="agent-form-accent" value="#35f2d0" oninput="document.getElementById('agent-form-color-preview').textContent=this.value" />
+              <span id="agent-form-color-preview" style="font-size:0.8rem; font-family:var(--font-mono); color:var(--text-muted);">#35f2d0</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Brain Engine Mode</label>
+            <select id="agent-form-brain" class="form-select">
+              <option value="auto">Auto Router</option>
+              <option value="fast">Fast · Everyday tasks</option>
+              <option value="balanced">Balanced · Reasoning</option>
+              <option value="coding">Coding · Software engineering</option>
+              <option value="advanced">Advanced · Deep work / R1</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Memory Boundary</label>
+            <select id="agent-form-memory" class="form-select">
+              <option value="none">None (Session only, stateless)</option>
+              <option value="private">Private (Dedicated memory box)</option>
+              <option value="shared">Shared (Team memory)</option>
+              <option value="all">All (Full access)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Primary Responsibility / Role</label>
+          <input type="text" id="agent-form-purpose" class="form-input" placeholder="e.g. Designs, tests, and refactors system architecture cleanly." required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Approved Capabilities (Allowlist)</label>
+          <div class="caps-checkboxes">
+            <label class="cap-checkbox-label">
+              <input type="checkbox" id="cap-mem-read" value="memory_read" checked />
+              <span>📖 Memory Read</span>
+            </label>
+            <label class="cap-checkbox-label">
+              <input type="checkbox" id="cap-mem-write" value="memory_write" />
+              <span>✍️ Memory Write</span>
+            </label>
+            <label class="cap-checkbox-label">
+              <input type="checkbox" id="cap-health" value="service_health" checked />
+              <span>🩺 System Health</span>
+            </label>
+            <label class="cap-checkbox-label">
+              <input type="checkbox" id="cap-proj-read" value="project_read" checked />
+              <span>📂 Project Reader</span>
+            </label>
+            <label class="cap-checkbox-label">
+              <input type="checkbox" id="cap-code-prop" value="code_proposals" checked />
+              <span>💻 Code Proposals</span>
+            </label>
+            <label class="cap-checkbox-label">
+              <input type="checkbox" id="cap-web" value="web_research" />
+              <span>🌐 Web Research</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Creator Directives / Specialist System Instructions</label>
+          <textarea id="agent-form-instructions" class="form-textarea" style="min-height:90px;" placeholder="Detailed instructions on how this specialist persona should reason, answer, and behave..."></textarea>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <label class="cap-checkbox-label">
+            <input type="checkbox" id="agent-form-enabled" checked />
+            <span style="font-weight:600;">Enable Specialist Active Status</span>
+          </label>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-sm" onclick="closeAgentCreator()">Cancel</button>
+            <button class="btn btn-sm btn-primary" onclick="submitAgentForm()">💾 Save Specialist AI</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Specialist Agents List Grid -->
+      <div id="specialist-agents-list" class="agents-grid" style="margin-top:10px;">
+        <div style="color:var(--text-muted); font-size:0.85rem; padding:12px;">Loading specialist personas...</div>
+      </div>
+    </div>
+
+    <!-- Card 3: Live Persona Sandbox & Benchmark -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <span style="font-size:1.05rem; font-weight:700;">🧪 Live Persona Sandbox & Inference Test Bench</span>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Prompt any persona against local Ollama models in real time to verify demeanor and tone</div>
+        </div>
+      </div>
+
+      <div class="sandbox-container">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Persona To Test</label>
+            <select id="sandbox-persona-select" class="form-select" onchange="onSandboxPersonaChange()">
+              <option value="__global__">🌐 Current Global Doshie Persona</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Inference Model</label>
+            <select id="sandbox-model-select" class="form-select">
+              <option value="qwen3.5:4b">qwen3.5:4b (Fast loaded default)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Test Prompt</label>
+          <div class="prompt-chips">
+            <span class="prompt-chip" onclick="setSandboxPrompt('Introduce yourself, your purpose, and your core rules in 2 sentences.')">👋 Introduce Yourself</span>
+            <span class="prompt-chip" onclick="setSandboxPrompt('How would you handle a severe bug in my Python code?')">🐍 Debug Python</span>
+            <span class="prompt-chip" onclick="setSandboxPrompt('What are your personality rules and ethical boundaries?')">🛡️ Personality Boundaries</span>
+            <span class="prompt-chip" onclick="setSandboxPrompt('Give me a quick witty remark about GPUs and AI.')">⚡ Witty Tech Remark</span>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <input type="text" id="sandbox-prompt-input" class="form-input" style="flex:1;" placeholder="Type any test phrase or question..." value="Introduce yourself, your purpose, and your core rules in 2 sentences." />
+            <button id="sandbox-run-btn" class="btn btn-primary" onclick="runSandboxTest()">🚀 Run Test</button>
+          </div>
+        </div>
+
+        <!-- Sandbox Output Box -->
+        <div style="margin-top:4px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-size:0.78rem; font-weight:700; color:var(--text-muted);" id="sandbox-status-label">Response Output:</span>
+            <div style="display:flex; gap:8px; align-items:center;" id="sandbox-stats-container">
+              <span id="sandbox-latency-badge" class="badge badge-ok" style="display:none;">⚡ 0 ms</span>
+              <span id="sandbox-model-badge" class="badge" style="display:none; background:rgba(255,255,255,0.06);">Model</span>
+            </div>
+          </div>
+          <div id="sandbox-reply-box" class="sandbox-reply-card">Press "Run Test" to evaluate this persona's output against the local AI model.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
 </div>
+
+<!-- Theme & Color Switcher Modal -->
+<div id="theme-modal" class="modal-overlay" onclick="closeThemeModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-title">
+      <span>🎨 Customize Interface Theme & Colors</span>
+      <button class="btn btn-sm" onclick="closeThemeModal()">✕</button>
+    </div>
+
+    <div>
+      <div class="form-label" style="margin-bottom:8px;">Preset Themes:</div>
+      <div class="theme-swatches">
+        <button class="swatch-btn" onclick="applyPresetTheme('#10b981', 'Matrix Emerald')">
+          <span class="swatch-color" style="background:#10b981;"></span>
+          <span>Matrix Green</span>
+        </button>
+        <button class="swatch-btn" onclick="applyPresetTheme('#ec4899', 'Cyber Neon')">
+          <span class="swatch-color" style="background:#ec4899;"></span>
+          <span>Cyber Neon</span>
+        </button>
+        <button class="swatch-btn" onclick="applyPresetTheme('#06b6d4', 'Tron Cyan')">
+          <span class="swatch-color" style="background:#06b6d4;"></span>
+          <span>Tron Cyan</span>
+        </button>
+        <button class="swatch-btn" onclick="applyPresetTheme('#f59e0b', 'Solar Amber')">
+          <span class="swatch-color" style="background:#f59e0b;"></span>
+          <span>Solar Amber</span>
+        </button>
+        <button class="swatch-btn" onclick="applyPresetTheme('#ef4444', 'Crimson Alert')">
+          <span class="swatch-color" style="background:#ef4444;"></span>
+          <span>Crimson Alert</span>
+        </button>
+        <button class="swatch-btn" onclick="applyPresetTheme('#8b5cf6', 'Synth Violet')">
+          <span class="swatch-color" style="background:#8b5cf6;"></span>
+          <span>Synth Violet</span>
+        </button>
+        <button class="swatch-btn" onclick="applyPresetTheme('#64748b', 'Obsidian Mono')">
+          <span class="swatch-color" style="background:#64748b;"></span>
+          <span>Obsidian</span>
+        </button>
+        <button class="swatch-btn" onclick="applyPresetTheme('#3b82f6', 'Royal Blue')">
+          <span class="swatch-color" style="background:#3b82f6;"></span>
+          <span>Royal Blue</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="color-picker-row">
+      <div>
+        <div style="font-weight:700; font-size:0.9rem;">Custom Accent Picker</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Choose any custom hex color you desire</div>
+      </div>
+      <input type="color" id="custom-accent-picker" value="#10b981" oninput="applyCustomColor(this.value)" />
+    </div>
+
+    <div style="display:flex; justify-content:flex-end;">
+      <button class="btn btn-primary" onclick="closeThemeModal()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast">🔔 Message</div>
+
 <script>
-async function update(){
- try {
- const r=await fetch('/api/core/status');
- const d=await r.json();
- document.getElementById('ollama').innerHTML=d.ollama.online?'🟢 Ollama Online':'🔴 Ollama Offline';
- document.getElementById('gpu').textContent=d.gpu;
- document.getElementById('services').textContent=JSON.stringify(d.services,null,2);
- document.getElementById('status').textContent=d.timestamp;
- } catch(e) { document.getElementById('status').textContent=e; }
+let currentLogService = 'doshie';
+let logInterval = null;
+let isLogPaused = false;
+
+// -------------------------------------------------------------
+// Toast & Utility
+// -------------------------------------------------------------
+function showToast(text) {
+  const toast = document.getElementById('toast');
+  toast.textContent = text;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
 }
-update(); setInterval(update,5000);
+
+function copyText(val, msg) {
+  navigator.clipboard.writeText(val).then(() => {
+    showToast(msg || 'Copied to clipboard!');
+  }).catch(() => {
+    prompt('Copy URL:', val);
+  });
+}
+
+// -------------------------------------------------------------
+// Theme Management & Custom Colors
+// -------------------------------------------------------------
+function hexToRgb(hex) {
+  let c = hex.replace('#', '');
+  if (c.length === 3) c = c.split('').map(x => x + x).join('');
+  const num = parseInt(c, 16);
+  return `${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}`;
+}
+
+function applyCustomColor(hexColor) {
+  const rgb = hexToRgb(hexColor);
+  document.documentElement.style.setProperty('--accent', hexColor);
+  document.documentElement.style.setProperty('--accent-rgb', rgb);
+  document.documentElement.style.setProperty('--accent-glow', `rgba(${rgb}, 0.35)`);
+  document.documentElement.style.setProperty('--border', `rgba(${rgb}, 0.28)`);
+  document.documentElement.style.setProperty('--border-strong', `rgba(${rgb}, 0.6)`);
+  
+  localStorage.setItem('doshie_su_accent', hexColor);
+  document.getElementById('custom-accent-picker').value = hexColor;
+}
+
+function applyPresetTheme(hex, name) {
+  applyCustomColor(hex);
+  showToast(`Applied ${name} theme!`);
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('doshie_su_accent');
+  if (saved) {
+    applyCustomColor(saved);
+  }
+}
+
+function openThemeModal() {
+  document.getElementById('theme-modal').classList.add('open');
+}
+
+function closeThemeModal() {
+  document.getElementById('theme-modal').classList.remove('open');
+}
+
+// -------------------------------------------------------------
+// Tabs Navigation
+// -------------------------------------------------------------
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
+
+  const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+  if (activeBtn) activeBtn.classList.add('active');
+
+  const panel = document.getElementById(tabId);
+  if (panel) panel.classList.add('active');
+
+  if (tabId === 'tab-logs') {
+    fetchLogs();
+    startLogStream();
+  } else {
+    stopLogStream();
+  }
+
+  if (tabId === 'tab-memories') {
+    loadMemories();
+  }
+
+  if (tabId === 'tab-agents') {
+    loadSpecialistAgents();
+  }
+
+  if (tabId === 'tab-personality') {
+    loadPersonaData();
+  }
+}
+
+// -------------------------------------------------------------
+// Telemetry & Hardware Gauges
+// -------------------------------------------------------------
+async function fetchTelemetry() {
+  try {
+    const res = await fetch('/api/control-panel/telemetry');
+    if (!res.ok) throw new Error('Telemetry fetch error');
+    const data = await res.json();
+
+    // GPU
+    if (data.gpu) {
+      const g = data.gpu;
+      document.getElementById('gpu-vram-text').textContent = `${(g.memory_used_mb / 1024).toFixed(1)} / ${(g.memory_total_mb / 1024).toFixed(1)} GB (${g.memory_percent}%)`;
+      document.getElementById('gpu-vram-bar').style.width = `${Math.min(g.memory_percent, 100)}%`;
+      document.getElementById('gpu-temp-val').textContent = `${g.temperature_c || 0}°C`;
+      document.getElementById('gpu-power-val').textContent = `${g.power_w} W • Fan ${g.fan_percent}%`;
+
+      const badge = document.getElementById('gpu-temp-badge');
+      badge.textContent = (g.temp_state || 'COOL').toUpperCase();
+      badge.style.borderColor = g.temp_state === 'hot' ? 'var(--danger)' : 'var(--accent)';
+      badge.style.color = g.temp_state === 'hot' ? 'var(--danger)' : 'var(--accent)';
+    }
+
+    // CPU & Host
+    if (data.cpu) {
+      document.getElementById('cpu-pct-val').textContent = `${data.cpu.percent}%`;
+      document.getElementById('cpu-pct-bar').style.width = `${Math.min(data.cpu.percent, 100)}%`;
+      document.getElementById('cpu-cores-val').textContent = `${data.cpu.logical_cores || 20} Cores (${data.cpu.physical_cores || 20} Physical)`;
+      if (data.cpu.load_avg && data.cpu.load_avg.length) {
+        document.getElementById('cpu-load-val').textContent = data.cpu.load_avg.join(', ');
+      }
+    }
+
+    if (data.host) {
+      document.getElementById('sys-uptime-badge').textContent = `UPTIME: ${data.host.uptime || '--'}`;
+    }
+
+    // RAM & Storage
+    if (data.memory) {
+      document.getElementById('ram-text-val').textContent = `${data.memory.used_gb} / ${data.memory.total_gb} GB (${data.memory.percent}%)`;
+      document.getElementById('ram-bar').style.width = `${data.memory.percent}%`;
+    }
+
+    if (data.disk) {
+      document.getElementById('disk-text-val').textContent = `${data.disk.free_gb} GB Free / ${data.disk.total_gb} GB (${data.disk.percent}% used)`;
+      document.getElementById('disk-bar').style.width = `${data.disk.percent}%`;
+    }
+
+    // Services
+    if (data.services) {
+      const s = data.services;
+      setDot('dot-doshie', s.doshie_service?.active);
+      setDot('dot-voice', s.voice_server?.active);
+      setDot('dot-ollama', s.ollama_service?.active);
+      setDot('dot-agy', true);
+    }
+
+    // Ollama Models
+    if (data.ollama && data.ollama.models) {
+      renderModels(data.ollama.models);
+    }
+
+    // Voice
+    if (data.voice) {
+      const vBadge = document.getElementById('voice-health-badge');
+      if (data.voice.online) {
+        vBadge.textContent = 'ONLINE (PORT 5051)';
+        vBadge.style.color = 'var(--accent)';
+        vBadge.style.borderColor = 'var(--accent)';
+      } else {
+        vBadge.textContent = 'OFFLINE';
+        vBadge.style.color = 'var(--danger)';
+        vBadge.style.borderColor = 'var(--danger)';
+      }
+    }
+
+  } catch (err) {
+    console.warn('Telemetry error:', err);
+  }
+}
+
+function copyAddr(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+    showToast(`Copied ${el.textContent.trim()} to clipboard!`);
+  }).catch(() => {
+    showToast(`Address: ${el.textContent.trim()}`);
+  });
+}
+
+function setDot(elementId, isActive) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  if (isActive) {
+    el.className = 'status-dot';
+  } else {
+    el.className = 'status-dot danger';
+  }
+}
+
+// -------------------------------------------------------------
+// Model Management
+// -------------------------------------------------------------
+function renderModels(models) {
+  const container = document.getElementById('models-container');
+  if (!models || models.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted);">No Ollama models detected.</div>';
+    return;
+  }
+
+  container.innerHTML = models.map(m => `
+    <div class="model-card ${m.active ? 'active-model' : ''}">
+      <div class="model-title">
+        <span>${m.name}</span>
+        ${m.active ? '<span class="badge-su" style="font-size:0.65rem;">ACTIVE IN VRAM</span>' : ''}
+      </div>
+      <div class="model-meta">
+        <span class="meta-chip">Size: ${m.size_gb} GB</span>
+        ${m.parameter_size ? `<span class="meta-chip">Params: ${m.parameter_size}</span>` : ''}
+        ${m.quantization ? `<span class="meta-chip">${m.quantization}</span>` : ''}
+        ${m.family ? `<span class="meta-chip">${m.family}</span>` : ''}
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:4px;">
+        <button class="btn btn-sm" onclick="pingBrainBenchmark('${m.name}')">
+          ⚡ Ping
+        </button>
+        <button class="btn btn-sm ${m.active ? 'btn-primary' : ''}" onclick="loadModel('${m.name}')">
+          ${m.active ? '⚡ Reload' : '⚡ Load into GPU'}
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadModel(modelName) {
+  showToast(`Loading model ${modelName} into RTX 5070 VRAM...`);
+  try {
+    const res = await fetch('/api/control-panel/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'load_model', model: modelName })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      showToast(d.message);
+      fetchTelemetry();
+    } else {
+      showToast('Error: ' + (d.error || 'Failed to load model'));
+    }
+  } catch (err) {
+    showToast('Failed to contact server: ' + err.message);
+  }
+}
+
+async function pingBrainBenchmark(modelName) {
+  const resBox = document.getElementById('ping-result-box');
+  resBox.style.display = 'block';
+
+  let targetModel = modelName;
+  if (!targetModel) {
+    const activeEl = document.querySelector('.model-card.active-model .model-title span');
+    if (activeEl) {
+      targetModel = activeEl.textContent.trim();
+    }
+  }
+
+  document.getElementById('ping-latency-header').textContent = targetModel 
+    ? `⏳ Benchmarking ${targetModel}...` 
+    : '⏳ Benchmarking local brain inference...';
+  document.getElementById('ping-reply-body').textContent = 'Connecting to Ollama on RTX 5070 (loading into VRAM if cold)...';
+
+  try {
+    const payload = targetModel ? { model: targetModel } : {};
+    const res = await fetch('/api/control-panel/ping-brain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const d = await res.json();
+    if (d.ok) {
+      document.getElementById('ping-latency-header').textContent = `⚡ Latency: ${d.latency_ms} ms (Model: ${d.model})`;
+      document.getElementById('ping-reply-body').textContent = `Doshie Response: "${d.reply}"`;
+      fetchTelemetry();
+    } else {
+      document.getElementById('ping-latency-header').textContent = '❌ Brain Ping Failed';
+      document.getElementById('ping-reply-body').textContent = d.error || 'Connection failed';
+    }
+  } catch (err) {
+    document.getElementById('ping-latency-header').textContent = '❌ Benchmark Error';
+    document.getElementById('ping-reply-body').textContent = err.message;
+  }
+}
+
+// -------------------------------------------------------------
+// Voice Studio
+// -------------------------------------------------------------
+async function testVoiceSynthesis() {
+  const text = document.getElementById('voice-test-phrase').value.trim();
+  if (!text) return;
+  showToast('Synthesizing speech via Hermes Voice Server...');
+  try {
+    const res = await fetch('/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text })
+    });
+
+    if (!res.ok) {
+      let errMsg = `Server returned status ${res.status}`;
+      try {
+        const errJson = await res.json();
+        if (errJson.error) errMsg = errJson.error;
+      } catch (_) {
+        const errTxt = await res.text();
+        if (errTxt && !errTxt.startsWith('<')) errMsg = errTxt.slice(0, 100);
+      }
+      showToast('Voice error: ' + errMsg);
+      return;
+    }
+
+    let audioUrl = null;
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const data = await res.json();
+      if (data.audio) {
+        audioUrl = 'data:audio/wav;base64,' + data.audio;
+      } else if (data.error) {
+        showToast('Voice error: ' + data.error);
+        return;
+      }
+    } else {
+      const blob = await res.blob();
+      audioUrl = URL.createObjectURL(blob);
+    }
+
+    if (audioUrl) {
+      showToast('Voice synthesized successfully!');
+      const audio = new Audio(audioUrl);
+      const rate = parseFloat(document.getElementById('voice-rate-slider')?.value) || 1.0;
+      audio.playbackRate = Math.min(2.0, Math.max(0.5, rate));
+      audio.play().catch(e => {
+        console.warn('Audio playback error:', e);
+        showToast('Playback error: ' + e.message);
+      });
+    } else {
+      showToast('Voice command processed.');
+    }
+  } catch (err) {
+    showToast('Voice synthesis request failed: ' + err.message);
+  }
+}
+
+// -------------------------------------------------------------
+// Superuser Terminal
+// -------------------------------------------------------------
+function clearTerminal() {
+  document.getElementById('terminal-screen').textContent = 'Terminal cleared.\n';
+}
+
+function runPresetCmd(cmd) {
+  document.getElementById('terminal-input').value = cmd;
+  sendTerminalCommand();
+}
+
+async function sendTerminalCommand() {
+  const input = document.getElementById('terminal-input');
+  const cmd = input.value.trim();
+  if (!cmd) return;
+
+  const screen = document.getElementById('terminal-screen');
+  screen.textContent += `\n$ ${cmd}\n`;
+  input.value = '';
+  screen.scrollTop = screen.scrollHeight;
+
+  try {
+    const res = await fetch('/api/control-panel/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'run_command', command: cmd })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      if (d.stdout) screen.textContent += d.stdout;
+      if (d.stderr) screen.textContent += `\n[STDERR]: ${d.stderr}`;
+      screen.textContent += `\n[Process exited with code ${d.returncode}]\n`;
+    } else {
+      screen.textContent += `[Execution Error]: ${d.error}\n`;
+    }
+  } catch (err) {
+    screen.textContent += `[Network Error]: ${err.message}\n`;
+  }
+  screen.scrollTop = screen.scrollHeight;
+}
+
+document.getElementById('terminal-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    sendTerminalCommand();
+  }
+});
+
+// -------------------------------------------------------------
+// Actions
+// -------------------------------------------------------------
+async function triggerAction(actionName) {
+  if (actionName === 'restart_doshie' && !confirm('Restart Doshie Web Server now?')) return;
+  showToast(`Executing ${actionName}...`);
+
+  try {
+    const res = await fetch('/api/control-panel/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: actionName })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      showToast(d.message || `${actionName} succeeded.`);
+      setTimeout(fetchTelemetry, 1500);
+    } else {
+      showToast('Error: ' + (d.error || d.message));
+    }
+  } catch (err) {
+    showToast('Failed: ' + err.message);
+  }
+}
+
+// -------------------------------------------------------------
+// Memories Management
+// -------------------------------------------------------------
+async function loadMemories() {
+  const list = document.getElementById('memories-list');
+  try {
+    const res = await fetch('/api/control-panel/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get_memories', profile: 'Hermes' })
+    });
+    const d = await res.json();
+    if (d.ok && d.memories) {
+      if (d.memories.length === 0) {
+        list.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">No memories recorded yet.</div>';
+        return;
+      }
+      list.innerHTML = d.memories.map(m => `
+        <div style="background:var(--surface); border:1px solid var(--border); padding:8px 12px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div style="font-size:0.82rem;">
+            <div>${m.memory}</div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">[${m.category}] • ${m.importance} • ${m.created_at || ''}</div>
+          </div>
+          <button class="btn btn-sm btn-danger" style="padding:2px 6px;" onclick="deleteMemory(${m.id})">✕</button>
+        </div>
+      `).join('');
+    }
+  } catch (err) {
+    list.innerHTML = `<div style="color:var(--danger); font-size:0.85rem;">Failed to load memories: ${err.message}</div>`;
+  }
+}
+
+async function addDoshieMemory() {
+  const text = document.getElementById('new-mem-text').value.trim();
+  const cat = document.getElementById('new-mem-cat').value;
+  const imp = document.getElementById('new-mem-imp').value;
+  if (!text) {
+    showToast('Please enter memory text.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/control-panel/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add_memory', text: text, category: cat, importance: imp, profile: 'Hermes' })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      showToast('Memory stored into brain!');
+      document.getElementById('new-mem-text').value = '';
+      loadMemories();
+    } else {
+      showToast('Error: ' + d.error);
+    }
+  } catch (err) {
+    showToast('Failed to add memory: ' + err.message);
+  }
+}
+
+async function deleteMemory(id) {
+  if (!confirm('Forget this memory?')) return;
+  try {
+    const res = await fetch('/api/control-panel/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete_memory', id: id })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      showToast(d.message);
+      loadMemories();
+    }
+  } catch (err) {
+    showToast('Error: ' + err.message);
+  }
+}
+
+// -------------------------------------------------------------
+// Live Log Streamer
+// -------------------------------------------------------------
+function switchLogService(svc) {
+  currentLogService = svc;
+  document.querySelectorAll('[id^="log-svc-"]').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(`log-svc-${svc}`);
+  if (btn) btn.classList.add('active');
+  fetchLogs();
+}
+
+async function fetchLogs() {
+  const screen = document.getElementById('log-screen');
+  try {
+    const res = await fetch(`/api/control-panel/logs?service=${currentLogService}&lines=80`);
+    const d = await res.json();
+    if (d.ok && d.lines) {
+      screen.textContent = d.lines.join('\n');
+      screen.scrollTop = screen.scrollHeight;
+    } else {
+      screen.textContent = d.error || 'Failed to fetch logs.';
+    }
+  } catch (err) {
+    screen.textContent = 'Error streaming logs: ' + err.message;
+  }
+}
+
+function toggleLogPause() {
+  isLogPaused = !isLogPaused;
+  const btn = document.getElementById('log-pause-btn');
+  if (isLogPaused) {
+    btn.textContent = '▶️ Resume';
+    stopLogStream();
+  } else {
+    btn.textContent = '⏸️ Pause';
+    startLogStream();
+  }
+}
+
+function startLogStream() {
+  if (logInterval) clearInterval(logInterval);
+  logInterval = setInterval(() => {
+    if (!isLogPaused) fetchLogs();
+  }, 2500);
+}
+
+function stopLogStream() {
+  if (logInterval) {
+    clearInterval(logInterval);
+    logInterval = null;
+  }
+}
+
+// -------------------------------------------------------------
+// Persona Creator & Agent Foundry Studio
+// -------------------------------------------------------------
+let currentPersonaTone = 'humble_kind';
+let currentAssistantEmoji = '🦖';
+let cachedSpecialistAgents = [];
+let availableOllamaModels = [];
+
+const EMOJI_OPTIONS = ['🦖', '🦕', '🤖', '⚡', '🧠', '🐱', '🐉', '🚀', '🔮', '🛡️', '👾', '🌟'];
+
+const TONE_PRESET_PROMPTS = {
+  humble_kind: 'Always be humble, deeply gentle, empathetic, patient, and encouraging in every response. Speak with genuine warmth, care, and humility. Never sound arrogant or patronizing.',
+  supportive: 'Be an encouraging companion, validating, warm, understanding, and supportive in every response. Provide reassuring guidance and positive companionship.',
+  direct_tech: 'Be analytical, concise, objective, and code/technical focused. Avoid conversational pleasantries or filler. Provide exact, modular solutions and clean code.',
+  playful: 'Be energetic, lighthearted, cheerful, witty, and engaging with clever banter, positive humor, and sharp intelligence.',
+  cyber_hacker: 'Act as a street-smart, direct cyberpunk hacker and systems architect. Razor-sharp terminal focus, high autonomy, clean execution, and no nonsense.',
+  custom: ''
+};
+
+function renderEmojiPicker(selectedEmoji) {
+  currentAssistantEmoji = selectedEmoji || '🦖';
+  const container = document.getElementById('emoji-picker-container');
+  if (!container) return;
+  container.innerHTML = EMOJI_OPTIONS.map(em => `
+    <button type="button" class="emoji-btn ${em === currentAssistantEmoji ? 'active' : ''}" onclick="selectAvatarEmoji('${em}')">
+      ${em}
+    </button>
+  `).join('');
+}
+
+function selectAvatarEmoji(emoji) {
+  currentAssistantEmoji = emoji;
+  renderEmojiPicker(emoji);
+}
+
+function selectTonePreset(toneKey, updatePromptText = true) {
+  currentPersonaTone = toneKey;
+  document.querySelectorAll('.persona-tone-card').forEach(card => card.classList.remove('active'));
+  const activeCard = document.getElementById(`preset-${toneKey}`);
+  if (activeCard) activeCard.classList.add('active');
+
+  if (updatePromptText && TONE_PRESET_PROMPTS[toneKey]) {
+    const promptArea = document.getElementById('cfg-system-prompt');
+    if (promptArea) {
+      promptArea.value = TONE_PRESET_PROMPTS[toneKey];
+    }
+  }
+}
+
+function appendPromptSnippet(snippet) {
+  const promptArea = document.getElementById('cfg-system-prompt');
+  if (!promptArea) return;
+  const current = promptArea.value.trim();
+  promptArea.value = current ? `${current}\n${snippet}` : snippet;
+  showToast('Appended behavior directive!');
+}
+
+async function loadPersonaData() {
+  try {
+    const res = await fetch('/api/control-panel/persona');
+    const data = await res.json();
+    if (data.ok) {
+      const s = data.settings || {};
+      const id = data.identity || {};
+
+      if (s.mode) document.getElementById('cfg-mode').value = s.mode;
+      if (s.default_weather_location) document.getElementById('cfg-weather').value = s.default_weather_location;
+      if (s.custom_system_prompt) document.getElementById('cfg-system-prompt').value = s.custom_system_prompt;
+      
+      if (id.assistantName) document.getElementById('cfg-assistant-name').value = id.assistantName;
+      if (id.greetingTitle) document.getElementById('cfg-greeting-title').value = id.greetingTitle;
+      if (id.greetingSubtitle) document.getElementById('cfg-greeting-subtitle').value = id.greetingSubtitle;
+
+      selectTonePreset(s.persona_tone || 'humble_kind', false);
+      renderEmojiPicker(id.assistantEmoji || '🦖');
+    }
+  } catch (err) {
+    console.warn('Failed to load persona settings:', err);
+  }
+
+  // Load specialists & models
+  await loadSpecialistAgents();
+  await populateSandboxModels();
+}
+
+async function savePersonaSettings() {
+  const mode = document.getElementById('cfg-mode').value;
+  const loc = document.getElementById('cfg-weather').value.trim();
+  const prompt = document.getElementById('cfg-system-prompt').value.trim();
+  const name = document.getElementById('cfg-assistant-name').value.trim() || 'Doshie';
+  const greetTitle = document.getElementById('cfg-greeting-title').value.trim();
+  const greetSub = document.getElementById('cfg-greeting-subtitle').value.trim();
+
+  try {
+    const res = await fetch('/api/control-panel/persona', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        persona_tone: currentPersonaTone,
+        custom_system_prompt: prompt,
+        mode: mode,
+        default_weather_location: loc,
+        assistantEmoji: currentAssistantEmoji,
+        assistantName: name,
+        greetingTitle: greetTitle,
+        greetingSubtitle: greetSub
+      })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      showToast('Global persona & directives activated!');
+    } else {
+      showToast('Error saving persona: ' + (d.error || 'Failed'));
+    }
+  } catch (err) {
+    showToast('Failed to save persona: ' + err.message);
+  }
+}
+
+// -------------------------------------------------------------
+// Specialist Agent Foundry
+// -------------------------------------------------------------
+async function loadSpecialistAgents() {
+  const listEl = document.getElementById('specialist-agents-list');
+  const selectEl = document.getElementById('sandbox-persona-select');
+  if (!listEl) return;
+
+  try {
+    const res = await fetch('/api/control-panel/agents');
+    const data = await res.json();
+    if (data.ok && Array.isArray(data.agents)) {
+      cachedSpecialistAgents = data.agents;
+
+      if (data.agents.length === 0) {
+        listEl.innerHTML = '<div style="color:var(--text-muted); padding:16px;">No specialist personas configured yet. Click "Create New Specialist" above.</div>';
+      } else {
+        listEl.innerHTML = data.agents.map(ag => {
+          const accent = ag.accent || '#35f2d0';
+          const brainLabels = { auto: 'Auto', fast: 'Fast', balanced: 'Balanced', coding: 'Coder', advanced: 'Advanced R1', vision: 'Vision' };
+          const brainText = brainLabels[ag.model_mode] || ag.model_mode;
+          const caps = Array.isArray(ag.capabilities) ? ag.capabilities : [];
+
+          return `
+            <div class="agent-item">
+              <div class="agent-item-top">
+                <div class="agent-name-group">
+                  <span class="agent-dot" style="background:${accent}; color:${accent};"></span>
+                  <strong style="font-size:0.95rem; color:var(--text);">${ag.name}</strong>
+                  <span class="badge" style="background:rgba(255,255,255,0.06); font-size:0.7rem;">${brainText}</span>
+                </div>
+                <div>
+                  <span class="badge ${ag.enabled ? 'badge-ok' : 'badge-err'}" style="font-size:0.68rem;">
+                    ${ag.enabled ? 'Active' : 'Disabled'}
+                  </span>
+                </div>
+              </div>
+
+              <div style="font-size:0.78rem; color:var(--text-muted); line-height:1.4;">
+                ${ag.purpose || 'No description provided.'}
+              </div>
+
+              <div class="agent-caps">
+                ${caps.slice(0, 4).map(c => `<span class="agent-cap-tag">${c.replace('_', ' ')}</span>`).join('')}
+                ${caps.length > 4 ? `<span class="agent-cap-tag">+${caps.length - 4} more</span>` : ''}
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); flex-wrap:wrap; gap:6px;">
+                <div style="display:flex; gap:6px;">
+                  <button class="btn btn-sm" onclick="testAgentInSandbox('${ag.id}')">🧪 Test</button>
+                  <button class="btn btn-sm" onclick="setCollabTarget('${ag.name.replace(/'/g, "\\'")}')">🤝 Delegate</button>
+                </div>
+                <div style="display:flex; gap:6px;">
+                  <button class="btn btn-sm" onclick="openAgentCreator('${ag.id}')">✏️ Edit</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteAgent('${ag.id}', '${ag.name.replace(/'/g, "\\'")}')">🗑️</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Populate Sandbox Persona Select
+      if (selectEl) {
+        selectEl.innerHTML = `
+          <option value="__global__">🌐 Current Global Doshie Persona</option>
+          ${data.agents.map(ag => `<option value="${ag.id}">🤖 ${ag.name} (${ag.purpose.slice(0, 32)}...)</option>`).join('')}
+        `;
+      }
+
+      // Populate Collaboration Selects
+      const sourceSel = document.getElementById('collab-source-agent');
+      const targetSel = document.getElementById('collab-target-agent');
+      if (sourceSel && targetSel && data.agents.length > 0) {
+        sourceSel.innerHTML = data.agents.map(ag => `<option value="${ag.name}">🤖 ${ag.name} (${ag.model_mode || 'auto'})</option>`).join('');
+        targetSel.innerHTML = data.agents.map((ag, i) => `<option value="${ag.name}" ${i === 1 ? 'selected' : ''}>🤖 ${ag.name} (${ag.model_mode || 'auto'})</option>`).join('');
+      }
+    }
+  } catch (err) {
+    listEl.innerHTML = `<div style="color:var(--danger); padding:12px;">Failed to load specialist agents: ${err.message}</div>`;
+  }
+}
+
+function setCollabPrompt(promptText) {
+  const input = document.getElementById('collab-task-input');
+  if (input) input.value = promptText;
+}
+
+function setCollabTarget(agentName) {
+  const targetSel = document.getElementById('collab-target-agent');
+  if (targetSel) targetSel.value = agentName;
+  const container = document.getElementById('collab-task-input');
+  if (container) container.scrollIntoView({ behavior: 'smooth' });
+  showToast(`Target set to ${agentName}. Ready to delegate!`);
+}
+
+async function runAgentDelegation() {
+  const sourceAgent = document.getElementById('collab-source-agent').value;
+  const targetAgent = document.getElementById('collab-target-agent').value;
+  const task = document.getElementById('collab-task-input').value.trim();
+  const runBtn = document.getElementById('collab-run-btn');
+  const outContainer = document.getElementById('collab-output-container');
+  const targetReplyEl = document.getElementById('collab-target-reply');
+  const sourceReplyEl = document.getElementById('collab-source-reply');
+  const statusBadge = document.getElementById('collab-status-badge');
+  const latencyBadge = document.getElementById('collab-latency-badge');
+
+  if (!task) {
+    showToast('Please enter a delegation prompt or task.');
+    return;
+  }
+  if (sourceAgent === targetAgent) {
+    showToast('Choose different source and target agents to collaborate.');
+    return;
+  }
+
+  runBtn.disabled = true;
+  runBtn.textContent = '⏳ Agents Collaborating...';
+  outContainer.style.display = 'block';
+  document.getElementById('collab-source-name').textContent = sourceAgent;
+  document.getElementById('collab-target-name').textContent = targetAgent;
+  statusBadge.textContent = `⚡ ${sourceAgent} delegating to ${targetAgent}...`;
+  targetReplyEl.textContent = 'Running specialist reasoning on local RTX 5070...';
+  sourceReplyEl.textContent = 'Waiting for specialist findings to synthesize...';
+  latencyBadge.textContent = 'Measuring...';
+
+  try {
+    const res = await fetch('/api/control-panel/agents/delegate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source_agent: sourceAgent,
+        target_agent: targetAgent,
+        task: task
+      })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      statusBadge.textContent = `✅ Delegation Complete (${sourceAgent} ↔ ${targetAgent})`;
+      latencyBadge.textContent = `⚡ ${d.latency_ms} ms`;
+      targetReplyEl.textContent = d.target_reply || '(No reply)';
+      sourceReplyEl.textContent = d.source_reply || '(No reply)';
+      showToast(`Collaboration completed in ${d.latency_ms} ms!`);
+    } else {
+      statusBadge.textContent = '❌ Delegation Failed';
+      targetReplyEl.textContent = d.error || 'Unknown error occurred.';
+      sourceReplyEl.textContent = '--';
+      showToast('Error during agent collaboration');
+    }
+  } catch (err) {
+    statusBadge.textContent = '❌ Network Error';
+    targetReplyEl.textContent = err.message;
+    sourceReplyEl.textContent = '--';
+    showToast('Failed to reach server');
+  } finally {
+    runBtn.disabled = false;
+    runBtn.textContent = '🚀 Run Agent Collaboration';
+  }
+}
+
+function openAgentCreator(agentId = null) {
+  const drawer = document.getElementById('agent-editor-drawer');
+  const title = document.getElementById('agent-drawer-title');
+  if (!drawer) return;
+
+  drawer.classList.add('open');
+
+  if (agentId) {
+    const ag = cachedSpecialistAgents.find(a => a.id === agentId);
+    if (ag) {
+      title.textContent = `Edit Specialist: ${ag.name}`;
+      document.getElementById('agent-form-id').value = ag.id;
+      document.getElementById('agent-form-name').value = ag.name;
+      document.getElementById('agent-form-accent').value = ag.accent || '#35f2d0';
+      document.getElementById('agent-form-color-preview').textContent = ag.accent || '#35f2d0';
+      document.getElementById('agent-form-purpose').value = ag.purpose;
+      document.getElementById('agent-form-brain').value = ag.model_mode || 'auto';
+      document.getElementById('agent-form-memory').value = ag.memory_scope || 'none';
+      document.getElementById('agent-form-instructions').value = ag.instructions || '';
+      document.getElementById('agent-form-enabled').checked = ag.enabled !== false;
+
+      const caps = ag.capabilities || [];
+      document.getElementById('cap-mem-read').checked = caps.includes('memory_read');
+      document.getElementById('cap-mem-write').checked = caps.includes('memory_write');
+      document.getElementById('cap-health').checked = caps.includes('service_health');
+      document.getElementById('cap-proj-read').checked = caps.includes('project_read');
+      document.getElementById('cap-code-prop').checked = caps.includes('code_proposals');
+      document.getElementById('cap-web').checked = caps.includes('web_research');
+      drawer.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+  }
+
+  // New agent blank defaults
+  title.textContent = 'Create Specialist Persona';
+  document.getElementById('agent-form-id').value = '';
+  document.getElementById('agent-form-name').value = '';
+  document.getElementById('agent-form-accent').value = '#35f2d0';
+  document.getElementById('agent-form-color-preview').textContent = '#35f2d0';
+  document.getElementById('agent-form-purpose').value = '';
+  document.getElementById('agent-form-brain').value = 'auto';
+  document.getElementById('agent-form-memory').value = 'none';
+  document.getElementById('agent-form-instructions').value = '';
+  document.getElementById('agent-form-enabled').checked = true;
+
+  document.getElementById('cap-mem-read').checked = true;
+  document.getElementById('cap-mem-write').checked = false;
+  document.getElementById('cap-health').checked = true;
+  document.getElementById('cap-proj-read').checked = true;
+  document.getElementById('cap-code-prop').checked = true;
+  document.getElementById('cap-web').checked = false;
+
+  drawer.scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeAgentCreator() {
+  const drawer = document.getElementById('agent-editor-drawer');
+  if (drawer) drawer.classList.remove('open');
+}
+
+async function submitAgentForm() {
+  const id = document.getElementById('agent-form-id').value.trim();
+  const name = document.getElementById('agent-form-name').value.trim();
+  const accent = document.getElementById('agent-form-accent').value;
+  const purpose = document.getElementById('agent-form-purpose').value.trim();
+  const model_mode = document.getElementById('agent-form-brain').value;
+  const memory_scope = document.getElementById('agent-form-memory').value;
+  const instructions = document.getElementById('agent-form-instructions').value.trim();
+  const enabled = document.getElementById('agent-form-enabled').checked;
+
+  if (!name) {
+    showToast('Please provide a specialist name');
+    return;
+  }
+  if (!purpose) {
+    showToast('Please provide a primary responsibility');
+    return;
+  }
+
+  const caps = [];
+  if (document.getElementById('cap-mem-read').checked) caps.push('memory_read');
+  if (document.getElementById('cap-mem-write').checked) caps.push('memory_write');
+  if (document.getElementById('cap-health').checked) caps.push('service_health');
+  if (document.getElementById('cap-proj-read').checked) caps.push('project_read');
+  if (document.getElementById('cap-code-prop').checked) caps.push('code_proposals');
+  if (document.getElementById('cap-web').checked) caps.push('web_research');
+
+  const payload = {
+    name,
+    accent,
+    purpose,
+    model_mode,
+    memory_scope,
+    instructions,
+    capabilities: caps,
+    enabled
+  };
+  if (id) payload.id = id;
+
+  try {
+    const res = await fetch('/api/control-panel/agents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const d = await res.json();
+    if (d.ok) {
+      showToast(`Specialist "${name}" saved successfully!`);
+      closeAgentCreator();
+      await loadSpecialistAgents();
+    } else {
+      showToast('Error: ' + (d.error || 'Failed to save specialist'));
+    }
+  } catch (err) {
+    showToast('Request failed: ' + err.message);
+  }
+}
+
+async function deleteAgent(agentId, agentName) {
+  if (!confirm(`Delete specialist persona "${agentName}"? This cannot be undone.`)) return;
+
+  try {
+    const res = await fetch(`/api/control-panel/agents/${encodeURIComponent(agentId)}`, {
+      method: 'DELETE'
+    });
+    const d = await res.json();
+    if (d.ok) {
+      showToast(`Deleted specialist "${agentName}".`);
+      await loadSpecialistAgents();
+    } else {
+      showToast('Error: ' + (d.error || 'Failed to delete'));
+    }
+  } catch (err) {
+    showToast('Request failed: ' + err.message);
+  }
+}
+
+// -------------------------------------------------------------
+// Live Persona Sandbox
+// -------------------------------------------------------------
+async function populateSandboxModels() {
+  const modelSelect = document.getElementById('sandbox-model-select');
+  if (!modelSelect) return;
+
+  try {
+    const res = await fetch('/api/control-panel/telemetry');
+    const d = await res.json();
+    if (d.ollama && Array.isArray(d.ollama.models) && d.ollama.models.length > 0) {
+      availableOllamaModels = d.ollama.models;
+      const activeModel = d.ollama.models.find(m => m.active)?.name || d.ollama.models[0].name;
+
+      modelSelect.innerHTML = d.ollama.models.map(m => `
+        <option value="${m.name}" ${m.name === activeModel ? 'selected' : ''}>
+          ${m.name} (${m.parameter_size || (m.size_gb + ' GB')}${m.active ? ' · Active' : ''})
+        </option>
+      `).join('');
+    }
+  } catch (err) {
+    console.warn('Failed to populate sandbox models:', err);
+  }
+}
+
+function setSandboxPrompt(text) {
+  const input = document.getElementById('sandbox-prompt-input');
+  if (input) input.value = text;
+}
+
+function testAgentInSandbox(agentId) {
+  const select = document.getElementById('sandbox-persona-select');
+  if (select) {
+    select.value = agentId;
+    onSandboxPersonaChange();
+    document.querySelector('.sandbox-container')?.scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+function onSandboxPersonaChange() {
+  const select = document.getElementById('sandbox-persona-select');
+  const label = document.getElementById('sandbox-status-label');
+  if (!select || !label) return;
+
+  if (select.value === '__global__') {
+    label.textContent = 'Response Output (Global Doshie Persona):';
+  } else {
+    const ag = cachedSpecialistAgents.find(a => a.id === select.value);
+    label.textContent = ag ? `Response Output (${ag.name} Specialist):` : 'Response Output:';
+  }
+}
+
+async function runSandboxTest() {
+  const promptInput = document.getElementById('sandbox-prompt-input');
+  const prompt = promptInput ? promptInput.value.trim() : '';
+  if (!prompt) {
+    showToast('Please type a prompt to test');
+    return;
+  }
+
+  const personaVal = document.getElementById('sandbox-persona-select').value;
+  const modelVal = document.getElementById('sandbox-model-select').value;
+  const replyBox = document.getElementById('sandbox-reply-box');
+  const runBtn = document.getElementById('sandbox-run-btn');
+  const latencyBadge = document.getElementById('sandbox-latency-badge');
+  const modelBadge = document.getElementById('sandbox-model-badge');
+
+  let systemPrompt = '';
+  if (personaVal === '__global__') {
+    systemPrompt = document.getElementById('cfg-system-prompt').value.trim();
+  } else {
+    const ag = cachedSpecialistAgents.find(a => a.id === personaVal);
+    if (ag) {
+      systemPrompt = `SPECIALIZED AI AGENT: ${ag.name}\nPurpose: ${ag.purpose}\nMemory Scope: ${ag.memory_scope}\nCapabilities: ${(ag.capabilities || []).join(', ')}\n\nCreator Directives:\n${ag.instructions || 'Be helpful and concise.'}`;
+    }
+  }
+
+  runBtn.disabled = true;
+  runBtn.textContent = '⏳ Thinking...';
+  replyBox.textContent = 'Running inference against local RTX 5070 workstation...';
+  latencyBadge.style.display = 'none';
+  modelBadge.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/control-panel/test-persona', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: prompt,
+        system_prompt: systemPrompt,
+        model: modelVal,
+        max_tokens: 180
+      })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      replyBox.textContent = d.reply || '(Empty reply)';
+      latencyBadge.textContent = `⚡ ${d.latency_ms} ms`;
+      latencyBadge.style.display = 'inline-flex';
+      modelBadge.textContent = d.model;
+      modelBadge.style.display = 'inline-flex';
+      showToast(`Inference completed in ${d.latency_ms} ms`);
+    } else {
+      replyBox.textContent = '❌ Error: ' + (d.error || 'Inference failed');
+      showToast('Inference error');
+    }
+  } catch (err) {
+    replyBox.textContent = '❌ Failed to reach server: ' + err.message;
+    showToast('Network error');
+  } finally {
+    runBtn.disabled = false;
+    runBtn.textContent = '🚀 Run Test';
+  }
+}
+
+// -------------------------------------------------------------
+// Initialization
+// -------------------------------------------------------------
+initTheme();
+fetchTelemetry();
+setInterval(fetchTelemetry, 6000);
 </script>
 </body>
 </html>

@@ -18,6 +18,10 @@ import java.net.URL;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import android.view.View;
+import android.view.ViewGroup;
+import androidx.activity.OnBackPressedCallback;
+
 public class MainActivity extends BridgeActivity {
     private static final String UPDATE_ENDPOINT =
         "https://acer-nitro.tail50b4c5.ts.net/app-version?client=android";
@@ -27,27 +31,102 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(DiYoshiSpeechPlugin.class);
         super.onCreate(savedInstanceState);
         installSafeAreaBridge();
+        installBackButtonHandler();
         openVerifiedDiYoshiLink(getIntent());
         checkForUpdate();
         // Updates are checked against the trusted Doshie APK channel.
     }
 
+    private void installBackButtonHandler() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (bridge == null || bridge.getWebView() == null) {
+                    setEnabled(false);
+                    getOnBackPressedDispatcher().onBackPressed();
+                    setEnabled(true);
+                    return;
+                }
+
+                bridge.getWebView().evaluateJavascript(
+                    "(function() { " +
+                    "  if (typeof window.__doshieHandleBack === 'function' && window.__doshieHandleBack()) { " +
+                    "    return 'handled'; " +
+                    "  } " +
+                    "  return 'unhandled'; " +
+                    "})()",
+                    result -> {
+                        String clean = result != null ? result.replace("\"", "").trim() : "";
+                        if ("handled".equals(clean)) {
+                            // Handled by Doshie React UI (closed a modal or drawer)
+                            return;
+                        }
+
+                        runOnUiThread(() -> {
+                            String currentUrl = bridge.getWebView().getUrl();
+                            // If user is inside an external tool view, bring them back to Doshie
+                            if (currentUrl != null && (currentUrl.contains("/voice-studio") || currentUrl.contains("/control") || currentUrl.contains("/live"))) {
+                                bridge.getWebView().loadUrl("https://acer-nitro.tail50b4c5.ts.net/mansion?app=android-0.9.6");
+                                return;
+                            }
+
+                            if (bridge.getWebView().canGoBack()) {
+                                bridge.getWebView().goBack();
+                                return;
+                            }
+
+                            // If on main screen with nothing open, minimize smoothly to home
+                            moveTaskToBack(true);
+                        });
+                    }
+                );
+            }
+        });
+    }
+
     private void installSafeAreaBridge() {
-        ViewCompat.setOnApplyWindowInsetsListener(bridge.getWebView(), (view, insets) -> {
+        View webView = bridge.getWebView();
+        ViewGroup.LayoutParams initialLp = webView.getLayoutParams();
+        final int initialBottomMargin = (initialLp instanceof ViewGroup.MarginLayoutParams)
+                ? ((ViewGroup.MarginLayoutParams) initialLp).bottomMargin
+                : 0;
+
+        ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
             Insets bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars()
                     | WindowInsetsCompat.Type.displayCutout()
             );
+            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
+
+            // Adjust WebView bottom margin so it physically shrinks above the soft keyboard
+            ViewGroup.LayoutParams lp = view.getLayoutParams();
+            if (lp instanceof ViewGroup.MarginLayoutParams) {
+                ViewGroup.MarginLayoutParams mlp = (ViewGroup.MarginLayoutParams) lp;
+                int targetBottomMargin = initialBottomMargin + ime.bottom;
+                if (mlp.bottomMargin != targetBottomMargin) {
+                    mlp.bottomMargin = targetBottomMargin;
+                    view.setLayoutParams(mlp);
+                }
+            }
+
             float density = getResources().getDisplayMetrics().density;
             int top = Math.round(bars.top / density);
             int bottom = Math.round(bars.bottom / density);
+            int imeHeight = Math.round(ime.bottom / density);
+            boolean isKeyboardOpen = ime.bottom > 0;
+
             String script = "document.documentElement.style.setProperty('--native-safe-top','"
-                + top + "px');document.documentElement.style.setProperty('--native-safe-bottom','"
-                + bottom + "px');";
+                + top + "px');"
+                + "document.documentElement.style.setProperty('--native-safe-bottom','"
+                + bottom + "px');"
+                + "document.documentElement.style.setProperty('--native-keyboard-height','"
+                + imeHeight + "px');"
+                + "window.dispatchEvent(new CustomEvent('nativeKeyboardChange', { detail: { height: "
+                + imeHeight + ", isOpen: " + (isKeyboardOpen ? "true" : "false") + " } }));";
             view.post(() -> bridge.getWebView().evaluateJavascript(script, null));
             return insets;
         });
-        ViewCompat.requestApplyInsets(bridge.getWebView());
+        ViewCompat.requestApplyInsets(webView);
     }
 
     private void checkForUpdate() {
@@ -154,5 +233,17 @@ public class MainActivity extends BridgeActivity {
         if (!"acer-nitro.tail50b4c5.ts.net".equalsIgnoreCase(host) && !"hermes-doshie.tail50b4c5.ts.net".equalsIgnoreCase(host)) return;
         if (uri.getPath() == null || !uri.getPath().startsWith("/login")) return;
         bridge.getWebView().post(() -> bridge.getWebView().loadUrl(uri.toString()));
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        android.webkit.WebView webView = bridge.getWebView();
+        if (webView != null) {
+            ViewCompat.requestApplyInsets(webView);
+            webView.post(() -> webView.evaluateJavascript(
+                "window.dispatchEvent(new Event('resize'));", null
+            ));
+        }
     }
 }

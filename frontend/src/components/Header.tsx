@@ -4,10 +4,6 @@ import {
   PanelLeft,
   MessageSquare,
   User,
-  Bot,
-  Radio,
-  Music,
-  Terminal,
 } from 'lucide-react'
 
 interface HeaderProps {
@@ -31,10 +27,10 @@ export const Header: React.FC<HeaderProps> = ({
   isSidebarOpen,
   onToggleSidebar,
   onOpenSettings,
-  onOpenMusicPlayer,
-  onOpenLiveVoice,
-  onOpenAgentHub,
-  onOpenAgentConsole,
+  onOpenMusicPlayer: _onOpenMusicPlayer,
+  onOpenLiveVoice: _onOpenLiveVoice,
+  onOpenAgentHub: _onOpenAgentHub,
+  onOpenAgentConsole: _onOpenAgentConsole,
   activeViewTitle,
   assistantEmoji = '🦖',
   assistantName = 'Doshie',
@@ -101,64 +97,6 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right: Clean Profile & Settings Hub Access */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-none">
-        {/* Quick Launchers for Tablet & Desktop */}
-        <div className="hidden md:flex items-center gap-1.5 mr-1">
-          {onOpenAgentConsole && (
-            <button
-              onClick={onOpenAgentConsole}
-              title="Autonomous Agent Console (CLI, App Builder, Terminal)"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-2xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-500/30 text-xs font-semibold text-teal-300 hover:text-white transition-all cursor-pointer active:scale-95 shadow-xs"
-            >
-              <Terminal className="w-3.5 h-3.5 text-teal-400" />
-              <span>Agent CLI</span>
-            </button>
-          )}
-
-          {onOpenAgentHub && (
-            <button
-              onClick={onOpenAgentHub}
-              title="Autonomous Agents & Tasks Hub"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-xs font-semibold text-neutral-200 hover:text-white transition-all cursor-pointer active:scale-95 shadow-xs"
-            >
-              <Bot className="w-3.5 h-3.5 text-[var(--accent-light)]" />
-              <span>Agents</span>
-            </button>
-          )}
-
-          {onOpenLiveVoice && (
-            <button
-              onClick={onOpenLiveVoice}
-              title="Continuous Live Voice Mode"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-semibold text-emerald-300 hover:text-white transition-all cursor-pointer active:scale-95 shadow-xs"
-            >
-              <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-              <span>Live Voice</span>
-            </button>
-          )}
-
-          {onOpenMusicPlayer && (
-            <button
-              onClick={onOpenMusicPlayer}
-              title="Universal Music Player"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-2xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-xs font-semibold text-sky-300 hover:text-white transition-all cursor-pointer active:scale-95 shadow-xs"
-            >
-              <Music className="w-3.5 h-3.5 text-sky-400" />
-              <span>Music</span>
-            </button>
-          )}
-        </div>
-
-        {/* Mobile Agent CLI Icon Button */}
-        {onOpenAgentConsole && (
-          <button
-            onClick={onOpenAgentConsole}
-            title="Autonomous Agent Console (CLI, App Builder, Terminal)"
-            className="md:hidden flex items-center justify-center p-2 rounded-2xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-500/30 text-teal-300 hover:text-white transition-all cursor-pointer active:scale-95 shadow-xs"
-          >
-            <Terminal className="w-4 h-4 text-teal-400" />
-          </button>
-        )}
-
         {/* Active Profile Pill (Click opens profile settings) */}
         <button
           onClick={() => onOpenSettings('profiles')}

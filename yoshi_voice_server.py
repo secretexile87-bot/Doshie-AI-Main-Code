@@ -107,8 +107,80 @@ def _json_bytes(payload: dict) -> bytes:
 
 def _clean_text(value: object) -> str:
     text = str(value or "")
-    text = re.sub(r"https?://\S+", " link ", text)
-    text = re.sub(r"[*_#>|`]", " ", text)
+    if not text.strip():
+        return ""
+
+    # 1. Strip reasoning / thinking tags completely (e.g. DeepSeek R1 <think>...</think>)
+    text = re.sub(r"(?is)<think>.*?</think>", " ", text)
+    text = re.sub(r"(?is)<thought>.*?</thought>", " ", text)
+    text = re.sub(r"(?is)<reasoning>.*?</reasoning>", " ", text)
+    text = re.sub(r"(?is)<system>.*?</system>", " ", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+
+    # 2. Remove fenced code blocks completely
+    text = re.sub(r"```[\s\S]*?```", " ", text)
+
+    # 3. Remove inline code backticks, keep code content
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+
+    # 4. Remove LaTeX / Math blocks
+    text = re.sub(r"\$\$[\s\S]*?\$\$", " ", text)
+    text = re.sub(r"\$[^\$]+\$", " ", text)
+    text = re.sub(r"\\\[[\s\S]*?\\\]", " ", text)
+    text = re.sub(r"\\\(.*?\\\)", " ", text)
+
+    # 5. Remove markdown links [text](url) -> keep text, drop url
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+
+    # 6. Remove raw URLs completely
+    text = re.sub(r"https?://\S+", " ", text)
+    text = re.sub(r"www\.\S+", " ", text)
+
+    # 7. Remove bracketed citations like [1], [2], [note]
+    text = re.sub(r"\[\d+\]", " ", text)
+
+    # 8. Remove roleplay / action narrations like *smiles*, *sighs*, *chuckles*, (sighs), etc.
+    text = re.sub(r"\*(?:smiles|chuckles|laughs|giggles|sighs|winks|nods|pauses|clears throat|whispers|gasps|shrugs|waves|blushes|grins|beams)[^*]*\*", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"\((?:smiles|chuckles|laughs|giggles|sighs|winks|nods|pauses|clears throat|whispers|gasps|shrugs|waves|blushes|grins|beams)[^)]*\)", " ", text, flags=re.IGNORECASE)
+
+    # 9. Remove all Emojis and miscellaneous symbols
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F700-\U0001F77F"  # alchemical symbols
+        "\U0001F780-\U0001F7FF"  # geometric shapes extended
+        "\U0001F800-\U0001F8FF"  # supplemental arrows-c
+        "\U0001F900-\U0001F9FF"  # supplemental symbols & pictographs
+        "\U0001FA00-\U0001FA6F"  # chess symbols
+        "\U0001FA70-\U0001FAFF"  # symbols and pictographs extended-a
+        "\U00002702-\U000027B0"  # dingbats
+        "\U000024C2-\U0001F251"  # enclosed characters
+        "\U00002600-\U000026FF"  # misc symbols
+        "\U00002300-\U000023FF"  # misc technical
+        "\U00002B50"              # star
+        "\U0000FE0F"              # variation selector
+        "\U0000200D"              # zero-width joiner
+        "]+",
+        flags=re.UNICODE,
+    )
+    text = emoji_pattern.sub(" ", text)
+
+    # 10. Remove text emoticons like :) :( :D xD <3 :P
+    text = re.sub(r"(?:\s|^)(?::[-~]?[)DPOpP\(/\\|]|;[-~]?[)DPOpP]|<3|xD|XD)(?:\s|$)", " ", text)
+
+    # 11. Remove markdown structure markers: headers (#), bullet points (-, *, +), numbered prefixes
+    text = re.sub(r"^[ \t]*[#>*•\-+][ \t]+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^[ \t]*\d+\.[ \t]+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"[#*_~>|\\^`]", " ", text)
+
+    # 12. Clean up punctuation artifacts: multiple dashes, arrows, slashes
+    text = re.sub(r"-{2,}|—+|–+", ", ", text)
+    text = re.sub(r"->|=>|<-|<=", " ", text)
+    text = re.sub(r"[/\\~@#$%^&*+=]", " ", text)
+
+    # 13. Collapse whitespace and trim
     text = re.sub(r"\s+", " ", text).strip()
     return text[:MAX_TEXT_LENGTH]
 
@@ -172,24 +244,80 @@ def resolve_voice_profile(profile_or_voice: str | None) -> dict:
         reg = _load_registry()
         voices = reg.get("voices", {})
 
+    # Check if this profile has a custom voice configured in profile_preferences.json
+    pref_voice = None
+    try:
+        pref_file = Path.home() / "yoshi" / "profile_preferences.json"
+        if pref_file.is_file():
+            pref_data = json.loads(pref_file.read_text(encoding="utf-8"))
+            profiles = pref_data.get("profiles", {})
+            if norm in profiles:
+                pref_voice = profiles[norm].get("preferences", {}).get("voice_identity")
+            else:
+                for pk, pv in profiles.items():
+                    if _normalize_name(pv.get("profile")) == norm:
+                        pref_voice = pv.get("preferences", {}).get("voice_identity")
+                        break
+    except Exception:
+        pass
+
+    target_keys = [norm]
+    if pref_voice and _normalize_name(pref_voice) != norm:
+        target_keys.insert(0, _normalize_name(pref_voice))
+
     # Check direct match
     entry = None
-    if norm:
+    matched_key = norm
+    for tk in target_keys:
+        if not tk:
+            continue
         for k, v in voices.items():
-            if k == norm or _normalize_name(v.get("name")) == norm or _normalize_name(v.get("id")) == norm:
+            if k == tk or _normalize_name(v.get("name")) == tk or _normalize_name(v.get("id")) == tk:
                 entry = v
+                matched_key = tk
                 break
+        if entry:
+            break
 
     # If matching entry exists, check if verified
     if entry and entry.get("verified", False):
         ref_file = VOICES_DIR / entry.get("file", "")
+        if not ref_file.is_file():
+            alt_candidates = [
+                VOICES_DIR / f"{entry.get('id', matched_key)}-reference.wav",
+                Path.home() / "yoshi/voices" / entry.get("file", ""),
+                Path.home() / ".gemini/antigravity-cli/scratch/voice-clone-studio/saved_voices" / f"{entry.get('name', matched_key)}.wav",
+                Path.home() / ".gemini/antigravity-cli/scratch/voice-clone-studio/saved_voices" / f"{entry.get('id', matched_key)}.wav",
+                Path.home() / ".gemini/antigravity-cli/scratch/voice-clone-studio/saved_voices" / f"{matched_key.title()}.wav",
+            ]
+            for cand in alt_candidates:
+                if cand.is_file():
+                    ref_file = cand
+                    break
+
         return {
-            "id": entry.get("id", norm),
-            "name": entry.get("name", norm.title()),
+            "id": entry.get("id", matched_key),
+            "name": entry.get("name", matched_key.title()),
             "file_path": ref_file if ref_file.is_file() else None,
             "kokoro_voice": entry.get("kokoro_voice", KOKORO_DEFAULT_VOICE),
             "edge_voice": entry.get("edge_voice", "en-US-GuyNeural"),
             "piper_voice": entry.get("piper_voice", "en_US-bryce-medium"),
+            "verified": True,
+            "is_fallback": False,
+        }
+
+    # If no registry entry but a reference WAV exists for this name
+    direct_ref = VOICES_DIR / f"{norm}-reference.wav"
+    studio_ref = Path.home() / ".gemini/antigravity-cli/scratch/voice-clone-studio/saved_voices" / f"{norm.title()}.wav"
+    found_ref = direct_ref if direct_ref.is_file() else (studio_ref if studio_ref.is_file() else None)
+    if found_ref:
+        return {
+            "id": norm,
+            "name": norm.title(),
+            "file_path": found_ref,
+            "kokoro_voice": KOKORO_DEFAULT_VOICE,
+            "edge_voice": "en-US-GuyNeural",
+            "piper_voice": "en_US-bryce-medium",
             "verified": True,
             "is_fallback": False,
         }
@@ -459,17 +587,26 @@ def _synthesize_auto(
     voice: str | None = None,
 ) -> bytes:
     engine = (requested_engine or DEFAULT_ENGINE).lower().strip()
-    voice_meta = resolve_voice_profile(profile or voice)
+    voice_meta = resolve_voice_profile(voice or profile)
 
-    # 1. Kokoro Neural Engine (Option 1)
-    if engine in ("kokoro", "option1", "fast-neural", "auto", "default"):
+    # 1. Cloned Speech: Only when explicitly requested as "clone" or "chatterbox"
+    if engine in ("clone", "chatterbox"):
+        try:
+            if voice_meta.get("file_path") and voice_meta["file_path"].is_file():
+                return _synthesize_clone(text, voice_meta["file_path"])
+        except Exception as err:
+            LOGGER.warning("Clone engine failed (%s); falling back to Kokoro", err)
+            engine = "kokoro"
+
+    # 2. Kokoro Neural Engine (Option 1 - Fast default for all profiles, ~200-500ms)
+    if engine in ("kokoro", "option1", "fast-neural", "auto", "default", "hermes"):
         try:
             return _synthesize_kokoro(text, voice_meta.get("kokoro_voice"))
         except Exception as err:
             LOGGER.warning("Kokoro TTS failed (%s); falling back to Edge", err)
             engine = "edge"
 
-    # 2. Edge Streaming Neural
+    # 3. Edge Streaming Neural
     if engine in ("edge", "neural", "online"):
         try:
             return asyncio.run(_synthesize_edge(text, voice_meta.get("edge_voice")))
@@ -477,7 +614,7 @@ def _synthesize_auto(
             LOGGER.warning("Edge TTS failed (%s); falling back to Piper", err)
             engine = "piper"
 
-    # 3. Piper Offline Neural
+    # 4. Piper Offline Neural
     if engine in ("piper", "fast", "local", "offline"):
         try:
             return _synthesize_piper(text)
@@ -488,13 +625,12 @@ def _synthesize_auto(
             except Exception:
                 return asyncio.run(_synthesize_edge(text, voice_meta.get("edge_voice")))
 
-    # 4. Clone Engine
-    if engine in ("clone", "chatterbox", "hermes"):
+    # 5. Last chance clone fallback
+    if voice_meta.get("file_path") and voice_meta["file_path"].is_file():
         try:
-            if voice_meta.get("file_path") and voice_meta["file_path"].is_file():
-                return _synthesize_clone(text, voice_meta["file_path"])
-        except Exception as err:
-            LOGGER.warning("Clone engine failed (%s); falling back to Kokoro", err)
+            return _synthesize_clone(text, voice_meta["file_path"])
+        except Exception:
+            pass
 
     # Default fallback: Kokoro -> Edge
     try:

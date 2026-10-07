@@ -54,7 +54,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
       const explicit = typeMatch[1].trim()
       if (explicit.includes('house') || explicit.includes('home') || explicit.includes('cottage') || explicit.includes('cabin') || explicit.includes('bungalow') || explicit.includes('mansion') || explicit.includes('residence')) return 'house'
       if (explicit.includes('train') || explicit.includes('locomotive')) return 'train'
-      if (explicit.includes('building') || explicit.includes('skyscraper') || explicit.includes('tower') || explicit.includes('city') || explicit.includes('architecture')) return 'building'
+      if (explicit.includes('building') || explicit.includes('skyscraper') || explicit.includes('tower') || explicit.includes('city') || explicit.includes('architecture') || explicit.includes('school') || explicit.includes('university') || explicit.includes('campus') || explicit.includes('academy')) return 'building'
       if (explicit.includes('car') || explicit.includes('automobile') || explicit.includes('vehicle') || explicit.includes('sportscar')) return 'car'
       if (explicit.includes('robot') || explicit.includes('mech') || explicit.includes('android')) return 'robot'
       if (explicit.includes('rocket') || explicit.includes('spaceship') || explicit.includes('shuttle')) return 'rocket'

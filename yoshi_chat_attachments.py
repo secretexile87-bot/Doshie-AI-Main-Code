@@ -109,6 +109,43 @@ def get_attachment(profile, attachment_id):
     return metadata, matches[0]
 
 
+def _extract_pdf_text(path, max_chars=MAX_TEXT_PREVIEW):
+    """Extract clean text from a PDF file using pypdf or pdftotext."""
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(str(path))
+        pages_text = []
+        total_len = 0
+        for idx, page in enumerate(reader.pages):
+            txt = (page.extract_text() or "").strip()
+            if txt:
+                header = f"\n[Page {idx + 1}]\n"
+                pages_text.append(header + txt)
+                total_len += len(header) + len(txt)
+                if total_len >= max_chars:
+                    break
+        extracted = "".join(pages_text).strip()
+        if extracted:
+            return extracted[:max_chars]
+    except Exception:
+        pass
+
+    try:
+        import subprocess
+        proc = subprocess.run(
+            ["pdftotext", "-layout", "-q", str(path), "-"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            return proc.stdout.strip()[:max_chars]
+    except Exception:
+        pass
+
+    return ""
+
+
 def image_payloads(profile, attachment_ids):
     images = []
     total_bytes = 0
@@ -123,8 +160,17 @@ def image_payloads(profile, attachment_ids):
             with Image.open(path) as img:
                 img = ImageOps.exif_transpose(img)
                 img.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
+                # Composite transparent images (RGBA, LA, P with transparency) onto a clean white background
+                # to prevent black-on-black transparency flattening for signatures, drawings, and logos.
+                if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+                    alpha_img = img.convert("RGBA")
+                    bg = Image.new("RGBA", alpha_img.size, (255, 255, 255, 255))
+                    bg.alpha_composite(alpha_img)
+                    work_img = bg.convert("RGB")
+                else:
+                    work_img = img.convert("RGB")
                 buf = io.BytesIO()
-                img.convert("RGB").save(buf, format="JPEG", quality=85, optimize=True)
+                work_img.save(buf, format="JPEG", quality=85, optimize=True)
                 data = buf.getvalue()
         except Exception:
             pass
@@ -153,10 +199,19 @@ def prompt_context(profile, attachment_ids):
                 encoding="utf-8", errors="replace"
             )[:MAX_TEXT_PREVIEW]
             line += "\n--- file text ---\n" + preview + "\n--- end file ---"
+        elif metadata["kind"] == "file" and path.suffix.casefold() == ".pdf":
+            preview = _extract_pdf_text(path, MAX_TEXT_PREVIEW)
+            if preview:
+                line += (
+                    f"\n--- document text (PDF: {metadata['name']}) ---\n"
+                    + preview
+                    + "\n--- end document ---"
+                )
+            else:
+                line += " (PDF document with no extractable text or scanned pages)"
         elif metadata["kind"] == "image":
             line += (
-                " (stored for display/download; do not claim visual inspection "
-                "unless vision input is available)"
+                " (stored for visual inspection)"
             )
         descriptions.append(line)
     return "\n\n".join(descriptions), public_items

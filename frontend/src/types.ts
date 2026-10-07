@@ -17,11 +17,76 @@ export interface Message {
   pending?: boolean
   space?: string
   attachments?: ChatAttachment[]
+  agent?: {
+    id: string
+    name: string
+    accent: string
+  }
+  thinking?: string
+  steps?: Array<{
+    tool: string
+    arguments?: any
+    preview?: string
+    thought?: string
+  }>
 }
+
+export interface SpecialistAgent {
+  id: string
+  name: string
+  purpose: string
+  model_mode: string
+  memory_scope: string
+  instructions?: string
+  accent: string
+  capabilities: string[]
+  enabled: boolean
+}
+
+export interface AgentTaskStep {
+  step: number
+  type: string
+  thought?: string
+  output?: string
+  tool_calls?: Array<{
+    tool: string
+    arguments: any
+    result?: any
+    error?: string
+    ok: boolean
+  }>
+  timestamp: string
+}
+
+export interface AgentTask {
+  id: string
+  agent_id: string
+  agent_name: string
+  agent_accent: string
+  agent_purpose: string
+  goal: string
+  profile: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
+  progress: number
+  created_at: string
+  started_at?: string | null
+  completed_at?: string | null
+  steps: AgentTaskStep[]
+  result?: string | null
+  error?: string | null
+}
+
+export interface AntigravitySkill {
+  name: string
+  description: string
+  path: string
+  category: string
+}
+
 
 export interface GuiCustomization {
   // Theme & Colors
-  theme: 'emerald' | 'cyberpunk' | 'oled' | 'amber' | 'crimson' | 'terminal' | 'nord' | 'dracula'
+  theme: 'antigravity' | 'emerald' | 'cyberpunk' | 'oled' | 'amber' | 'crimson' | 'terminal' | 'nord' | 'dracula'
   backgroundStyle: 'solid' | 'glow' | 'grid' | 'stars'
   customWallpaperUrl?: string
   glassEffect: boolean

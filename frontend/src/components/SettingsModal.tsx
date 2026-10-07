@@ -36,6 +36,7 @@ import {
   Activity,
   Image as ImageIcon,
   Mic,
+  Radio,
   ExternalLink
 } from 'lucide-react'
 import { playNeuralSpeech, stopSpeech } from '../utils/audio'
@@ -68,7 +69,7 @@ interface AppSettings {
 
 interface SettingsModalProps {
   isOpen: boolean
-  initialTab?: 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor'
+  initialTab?: 'apps' | 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor'
   onClose: () => void
   activeProfile: string
   onSelectProfile: (profile: string) => void
@@ -77,12 +78,44 @@ interface SettingsModalProps {
   isAdmin?: boolean
   onSelectOversightProfile?: (profile: string) => void
   onLockScreen?: () => void
-  onTabChange?: (tab: 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor') => void
+  onTabChange?: (tab: 'apps' | 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor') => void
+  onOpenLiveVoice?: () => void
+  onOpenMusicPlayer?: () => void
+  onOpenVoiceStudio?: () => void
+  onOpenAgentHub?: () => void
+  onOpenAgentConsole?: () => void
 }
+
+const BASE_VOICE_IDENTITIES = [
+  {
+    id: 'hermes',
+    name: 'Hermes (Master Overall Voice)',
+    desc: 'Your neural cloned voice used by default across all profiles and responses',
+    badge: '🎙️ Master Voice',
+  },
+  {
+    id: 'aeriel',
+    name: 'Aeriel Duran Voice',
+    desc: 'Personal voice profile (falls back to Hermes Master Voice until sample is verified)',
+    badge: '👤 Profile Voice',
+  },
+  {
+    id: 'chatterbox_gentle',
+    name: 'Gentle & Soft Companion',
+    desc: 'Quiet, peaceful, gentle vocal delivery',
+    badge: '✨ Gentle',
+  },
+  {
+    id: 'chatterbox_warm',
+    name: 'Warm Conversationalist',
+    desc: 'Friendly, warm, conversational household voice',
+    badge: '🏡 Warm',
+  },
+]
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
-  initialTab = 'settings',
+  initialTab = 'apps',
   onClose,
   activeProfile,
   onSelectProfile,
@@ -92,10 +125,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSelectOversightProfile,
   onLockScreen,
   onTabChange,
+  onOpenLiveVoice,
+  onOpenMusicPlayer,
+  onOpenVoiceStudio,
+  onOpenAgentHub,
+  onOpenAgentConsole,
 }) => {
-  const [tab, setTab] = useState<'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor'>(initialTab)
+  const [tab, setTab] = useState<'apps' | 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor'>(initialTab)
 
-  const handleTabChange = (newTab: 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor') => {
+  const handleTabChange = (newTab: 'apps' | 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor') => {
     setTab(newTab)
     onTabChange?.(newTab)
   }
@@ -139,6 +177,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [customVoices, setCustomVoices] = useState<any[]>([])
 
+  const voiceIdentities = React.useMemo(() => {
+    const map = new Map<string, any>()
+    BASE_VOICE_IDENTITIES.forEach(v => map.set(v.id, v))
+    customVoices.forEach(v => {
+      if (map.has(v.id)) {
+        map.set(v.id, { ...map.get(v.id), ...v })
+      } else {
+        map.set(v.id, v)
+      }
+    })
+    return Array.from(map.values())
+  }, [customVoices])
+
   // Keep local CSS in sync if customization updates externally
   useEffect(() => {
     if (customization.myspaceCustomCss !== undefined) {
@@ -156,15 +207,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     setIsTestingVoice(true)
     const voiceId = settings.voice_identity || 'hermes'
+    const engineToUse = settings.voice_engine || 'kokoro'
     const testText = voiceId === 'hermes'
       ? "Hello Hermes! This is Doshie, speaking with your master neural cloned voice on your RTX 5070."
-      : `Hello! This is Doshie speaking with the ${voiceId} voice profile.`
+      : `Hello! This is Doshie speaking with the ${voiceId} cloned voice profile.`
 
     try {
       await playNeuralSpeech(testText, {
         profile: activeProfile || 'Hermes',
         voice: voiceId,
-        engine: settings.voice_engine || 'auto',
+        engine: engineToUse,
         onStart: () => {
           setIsTestingVoice(false)
           setIsPlayingVoice(true)
@@ -196,10 +248,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     const loadData = async () => {
       try {
-        const [profRes, setRes, voiceRes] = await Promise.all([
+        const [profRes, setRes, voiceRes, prefRes] = await Promise.all([
           fetch('/profiles', { cache: 'no-store' }),
           fetch('/settings', { cache: 'no-store' }),
           fetch('/api/voices', { cache: 'no-store' }).catch(() => null),
+          fetch(`/profile-preferences?profile=${encodeURIComponent(activeProfile || 'Hermes')}`, { cache: 'no-store' }).catch(() => null),
         ])
         if (profRes.ok) {
           const profData = await profRes.json()
@@ -212,6 +265,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             if (typeof setData.custom_system_prompt === 'string') {
               setCustomPrompt(setData.custom_system_prompt)
             }
+          }
+        }
+        if (prefRes && prefRes.ok) {
+          const prefData = await prefRes.json()
+          const pPrefs = prefData?.preferences
+          if (pPrefs && typeof pPrefs === 'object') {
+            setSettings(prev => ({
+              ...prev,
+              ...(pPrefs.voice_identity ? { voice_identity: pPrefs.voice_identity } : {}),
+              ...(pPrefs.voice_engine ? { voice_engine: pPrefs.voice_engine } : {}),
+              ...(typeof pPrefs.voice_rate === 'number' ? { voice_rate: pPrefs.voice_rate } : {}),
+              ...(typeof pPrefs.voice_pitch === 'number' ? { voice_pitch: pPrefs.voice_pitch } : {}),
+              ...(typeof pPrefs.speak_replies === 'boolean' ? { speak_replies: pPrefs.speak_replies } : {}),
+            }))
           }
         }
         if (voiceRes && voiceRes.ok) {
@@ -232,7 +299,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
 
     loadData()
-  }, [isOpen])
+  }, [isOpen, activeProfile])
 
   // Load Doctor AI Telemetry
   const fetchDoctorData = async () => {
@@ -304,17 +371,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }
 
-  if (!isOpen) return null
-
   const handleUpdateSettings = async (updates: Partial<AppSettings>) => {
     const newSettings = { ...settings, ...updates }
     setSettings(newSettings)
     try {
-      await fetch('/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      })
+      await Promise.all([
+        fetch('/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        }),
+        fetch('/profile-preferences', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profile: activeProfile || 'Hermes',
+            preferences: updates,
+          }),
+        }),
+      ])
       setStatusMsg('Saved!')
       setTimeout(() => setStatusMsg(''), 1500)
     } catch (err) {
@@ -376,9 +451,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }
 
   const handleResetCustomization = () => {
-    if (window.confirm('Reset appearance and customizations back to default Emerald Matrix? (Your chat history will be kept)')) {
+    if (window.confirm('Reset appearance and customizations back to default Antigravity Studio? (Your chat history will be kept)')) {
       onUpdateCustomization({
-        theme: 'emerald',
+        theme: 'antigravity',
         backgroundStyle: 'glow',
         fontSize: 'comfortable',
         chatDensity: 'comfortable',
@@ -458,6 +533,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     bgColor: string
     desc: string
   }> = [
+    {
+      id: 'antigravity',
+      name: 'Antigravity Studio',
+      accentColor: '#38bdf8',
+      bgColor: '#0d1117',
+      desc: 'Sleek dark obsidian studio with clean blue/cyan accents & modern AI cards',
+    },
     {
       id: 'emerald',
       name: 'Emerald Matrix',
@@ -559,46 +641,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       color: 'from-purple-600 to-pink-500',
     },
   ]
-
-  const baseVoiceIdentities = [
-    {
-      id: 'hermes',
-      name: 'Hermes (Master Overall Voice)',
-      desc: 'Your neural cloned voice used by default across all profiles and responses',
-      badge: '🎙️ Master Voice',
-    },
-    {
-      id: 'aeriel',
-      name: 'Aeriel Duran Voice',
-      desc: 'Personal voice profile (falls back to Hermes Master Voice until sample is verified)',
-      badge: '👤 Profile Voice',
-    },
-    {
-      id: 'chatterbox_gentle',
-      name: 'Gentle & Soft Companion',
-      desc: 'Quiet, peaceful, gentle vocal delivery',
-      badge: '✨ Gentle',
-    },
-    {
-      id: 'chatterbox_warm',
-      name: 'Warm Conversationalist',
-      desc: 'Friendly, warm, conversational household voice',
-      badge: '🏡 Warm',
-    },
-  ]
-
-  const voiceIdentities = React.useMemo(() => {
-    const map = new Map<string, any>()
-    baseVoiceIdentities.forEach(v => map.set(v.id, v))
-    customVoices.forEach(v => {
-      if (map.has(v.id)) {
-        map.set(v.id, { ...map.get(v.id), ...v })
-      } else {
-        map.set(v.id, v)
-      }
-    })
-    return Array.from(map.values())
-  }, [customVoices])
 
   const MYSPACE_PRESETS = [
     {
@@ -853,6 +895,8 @@ body {
     },
   ]
 
+  if (!isOpen) return null
+
   return (
     <div
       style={{
@@ -890,6 +934,17 @@ body {
 
         {/* Tab Switcher */}
         <div className="flex border-b border-[var(--border-dark)] bg-[var(--bg-dark)] overflow-x-auto flex-none px-3 sm:px-5 py-2.5 gap-2">
+          <button
+            onClick={() => handleTabChange('apps')}
+            className={`flex-none px-3.5 py-2 rounded-xl flex items-center justify-center gap-1.5 text-xs font-semibold transition-all cursor-pointer ${
+              tab === 'apps'
+                ? 'bg-gradient-to-r from-[var(--accent)] to-[var(--accent-hover)] text-white shadow-sm'
+                : 'bg-[var(--card-dark)] text-neutral-300 hover:text-white hover:bg-[var(--card-hover)] border border-[var(--border-dark)]'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>🚀 Apps & Tools</span>
+          </button>
           <button
             onClick={() => handleTabChange('settings')}
             className={`flex-none px-3.5 py-2 rounded-xl flex items-center justify-center gap-1.5 text-xs font-semibold transition-all cursor-pointer ${
@@ -962,7 +1017,217 @@ body {
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-6">
-          {tab === 'settings' ? (
+          {tab === 'apps' ? (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[var(--accent-light)]" />
+                  Doshie Apps & Power Tools
+                </h3>
+                <p className="text-xs text-neutral-400">
+                  Launch interactive companions, specialist agents, entertainment, and system controls.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 1. Live Voice Talk */}
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-[var(--accent)]/50 transition-all flex flex-col justify-between shadow-md">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-xl bg-gradient-to-tr from-[var(--accent)] to-[var(--accent-hover)] text-white shadow-md flex-none">
+                      <Radio className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Live Voice Mode</h4>
+                      <p className="text-xs text-neutral-300 mt-0.5">
+                        Hands-free continuous bidirectional voice conversation with neural cloning.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      onClose()
+                      onOpenLiveVoice?.()
+                    }}
+                    className="mt-3.5 w-full py-2 px-3 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-hover)] hover:opacity-95 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                  >
+                    <Radio className="w-3.5 h-3.5" />
+                    Start Live Talk
+                  </button>
+                </div>
+
+                {/* 2. Universal Music Player */}
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-sky-500/50 transition-all flex flex-col justify-between shadow-md">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-xl bg-sky-950 border border-sky-500/40 text-sky-400 shadow-md flex-none">
+                      <Music className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Universal Music Player</h4>
+                      <p className="text-xs text-neutral-300 mt-0.5">
+                        Stream music, tracks & playlists via Spotify, YouTube, SoundCloud & Radio.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      onClose()
+                      onOpenMusicPlayer?.()
+                    }}
+                    className="mt-3.5 w-full py-2 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                  >
+                    <Music className="w-3.5 h-3.5" />
+                    Open Music Player
+                  </button>
+                </div>
+
+                {/* 3. Neural Voice Studio */}
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-emerald-500/50 transition-all flex flex-col justify-between shadow-md">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-xl bg-emerald-950 border border-emerald-500/40 text-emerald-400 shadow-md flex-none">
+                      <Mic className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Neural Voice Studio</h4>
+                      <p className="text-xs text-neutral-300 mt-0.5">
+                        Record voice samples, fine-tune voice pitch, and clone custom vocal identities.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      onClose()
+                      onOpenVoiceStudio?.()
+                    }}
+                    className="mt-3.5 w-full py-2 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                  >
+                    <Mic className="w-3.5 h-3.5" />
+                    Open Voice Studio
+                  </button>
+                </div>
+
+                {/* 4. Specialist Agents Hub */}
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-purple-500/50 transition-all flex flex-col justify-between shadow-md">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-xl bg-purple-950 border border-purple-500/40 text-purple-400 shadow-md flex-none">
+                      <Bot className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Specialist Agents Hub</h4>
+                      <p className="text-xs text-neutral-300 mt-0.5">
+                        Summon dedicated task specialists and discover Antigravity skills.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      onClose()
+                      onOpenAgentHub?.()
+                    }}
+                    className="mt-3.5 w-full py-2 px-3 rounded-xl bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                  >
+                    <Bot className="w-3.5 h-3.5" />
+                    Open Agent Hub
+                  </button>
+                </div>
+
+                {/* 5. Autonomous Agent Console */}
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-teal-500/50 transition-all flex flex-col justify-between shadow-md">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-xl bg-teal-950 border border-teal-500/40 text-teal-400 shadow-md flex-none">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Agent Console</h4>
+                      <p className="text-xs text-neutral-300 mt-0.5">
+                        Autonomous system execution with terminal access and human sign-off.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      onClose()
+                      onOpenAgentConsole?.()
+                    }}
+                    className="mt-3.5 w-full py-2 px-3 rounded-xl bg-teal-700 hover:bg-teal-600 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Open Agent Console
+                  </button>
+                </div>
+
+                {/* 6. Doctor AI & Diagnostics */}
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-emerald-500/50 transition-all flex flex-col justify-between shadow-md">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-xl bg-emerald-950 border border-emerald-500/40 text-emerald-400 shadow-md flex-none">
+                      <Activity className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Doctor AI & Hardware</h4>
+                      <p className="text-xs text-neutral-300 mt-0.5">
+                        Inspect RTX 5070 GPU VRAM, check server health, and run self-repair.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleTabChange('doctor')}
+                    className="mt-3.5 w-full py-2 px-3 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                  >
+                    <Activity className="w-3.5 h-3.5" />
+                    Inspect Diagnostics
+                  </button>
+                </div>
+
+                {/* 7. Lock Screen */}
+                {onLockScreen && (
+                  <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-amber-500/50 transition-all flex flex-col justify-between shadow-md">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2.5 rounded-xl bg-amber-950 border border-amber-500/40 text-amber-400 shadow-md flex-none">
+                        <Lock className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">Lock Workstation</h4>
+                        <p className="text-xs text-neutral-300 mt-0.5">
+                          Lock session with PIN/password and display the ambient clock.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        onClose()
+                        onLockScreen()
+                      }}
+                      className="mt-3.5 w-full py-2 px-3 rounded-xl bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      Lock Account Now
+                    </button>
+                  </div>
+                )}
+
+                {/* 8. Quick Reload */}
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-neutral-500 transition-all flex flex-col justify-between shadow-md">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-xl bg-neutral-900 border border-white/10 text-neutral-300 shadow-md flex-none">
+                      <RefreshCw className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Quick Reload App</h4>
+                      <p className="text-xs text-neutral-300 mt-0.5">
+                        Instantly refresh web & app client assets and memory.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleHardReload}
+                    className="mt-3.5 w-full py-2 px-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Reload App
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : tab === 'settings' ? (
             <>
               {/* Section 1: Personality Demeanor (Humble & Kind) */}
               <div>
@@ -1047,7 +1312,10 @@ body {
                           <button
                             key={v.id}
                             type="button"
-                            onClick={() => handleUpdateSettings({ voice_identity: v.id })}
+                            onClick={() => {
+                              const engine = (v.id.includes('clone') && !v.id.includes('gentle')) ? 'clone' : 'kokoro'
+                              handleUpdateSettings({ voice_identity: v.id, voice_engine: engine })
+                            }}
                             className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                               isSelected
                                 ? 'bg-[#153826] border-emerald-400 ring-1 ring-emerald-400/40'
@@ -1075,9 +1343,15 @@ body {
                   {/* Open Voice Studio & Voice Changer */}
                   <div className="pt-2 border-t border-[#163625]">
                     <a
-                      href="/voice-studio"
+                      href="/voice-studio/"
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={(e) => {
+                        if ((window as any).electron?.shell?.openExternal) {
+                          e.preventDefault()
+                          ;(window as any).electron.shell.openExternal(window.location.origin + '/voice-studio/')
+                        }
+                      }}
                       className="w-full flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-emerald-900/60 via-teal-900/50 to-emerald-950/80 border border-emerald-500/40 hover:border-emerald-400 text-white transition-all shadow-sm group"
                     >
                       <div className="flex items-center gap-2.5">

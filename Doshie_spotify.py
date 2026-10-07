@@ -133,6 +133,9 @@ def configuration() -> dict:
 
 def connected(profile: object = "Hermes") -> bool:
     token = _read_json(_token_path(profile))
+    if not (token.get("refresh_token") or token.get("access_token")):
+        if str(profile or "").strip().casefold() != "hermes":
+            token = _read_json(_token_path("Hermes"))
     return bool(token.get("refresh_token") or token.get("access_token"))
 
 
@@ -362,12 +365,16 @@ def _refresh_token(profile: object, existing: dict) -> dict:
 
 
 def _valid_token(profile: object, force_refresh: bool = False) -> dict:
-    token = _read_json(_token_path(profile))
+    target_profile = profile
+    token = _read_json(_token_path(target_profile))
+    if not token and str(target_profile or "").strip().casefold() != "hermes":
+        target_profile = "Hermes"
+        token = _read_json(_token_path(target_profile))
     if not token:
-        raise SpotifyError("Connect Spotify for this Yoshi profile first.")
+        raise SpotifyError("Connect Spotify in Settings or use Hermes profile first.")
     expires_at = float(token.get("expires_at") or 0)
     if force_refresh or expires_at <= time.time() + 30:
-        token = _refresh_token(profile, token)
+        token = _refresh_token(target_profile, token)
     return token
 
 

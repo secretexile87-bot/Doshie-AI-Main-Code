@@ -1,5 +1,7 @@
 import html
+import json
 import os
+import re
 import threading
 import time
 import urllib.parse
@@ -360,9 +362,155 @@ def device_search(value):
     }
 
 
+def image_search(value, limit=3, is_under_18=False):
+    """
+    Search for safe, high-resolution images via Wikimedia Commons and Wikipedia.
+    Returns:
+    {
+        "query": query,
+        "results": [
+            {
+                "title": "Title",
+                "image_url": "https://...",
+                "source_url": "https://...",
+                "source": "Wikimedia Commons"
+            }
+        ]
+    }
+    """
+    query = " ".join(str(value or "").split()).strip()
+    if not query:
+        return {"query": "", "results": []}
+
+    # Clean query prefixes & suffixes
+    for p in [
+        "picture of a ", "picture of an ", "picture of the ", "picture of ",
+        "pictures of a ", "pictures of an ", "pictures of the ", "pictures of ",
+        "photo of a ", "photo of an ", "photo of the ", "photo of ",
+        "photos of a ", "photos of an ", "photos of the ", "photos of ",
+        "image of a ", "image of an ", "image of the ", "image of ",
+        "images of a ", "images of an ", "images of the ", "images of ",
+        "pic of a ", "pic of an ", "pic of the ", "pic of ",
+        "pics of a ", "pics of an ", "pics of the ", "pics of ",
+    ]:
+        if query.lower().startswith(p):
+            query = query[len(p):].strip()
+
+    for s in [
+        " picture", " pictures", " photo", " photos",
+        " image", " images", " wallpaper", " pic", " pics"
+    ]:
+        if query.lower().endswith(s):
+            query = query[:-len(s)].strip()
+
+    if is_under_18 and not is_safe_for_minors(query):
+        return {
+            "query": query,
+            "results": [],
+            "source": "Safety Filter",
+            "warning": "Filtered for minor safety.",
+        }
+
+    key = f"image:{query.casefold()}:under18={is_under_18}"
+    now = time.time()
+    with _CACHE_LOCK:
+        cached = _WEB_CACHE.get(key)
+        if cached and now - cached["saved_at"] < WEB_CACHE_SECONDS:
+            return dict(cached["payload"])
+
+    results = []
+
+    # 1. Search Wikimedia Commons
+    try:
+        params = {
+            "action": "query",
+            "generator": "search",
+            "gsrnamespace": "6",
+            "gsrsearch": query,
+            "gsrlimit": str(limit * 3),
+            "prop": "imageinfo",
+            "iiprop": "url|size",
+            "iiurlwidth": "800",
+            "format": "json",
+        }
+        url = "https://commons.wikimedia.org/w/api.php?" + urllib.parse.urlencode(params)
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "DoshieAssistant/1.0 (https://doshie.ai; contact@doshie.ai)",
+                "Accept": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=WEB_TIMEOUT_SECONDS) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            pages = data.get("query", {}).get("pages", {})
+            for pid, p in pages.items():
+                raw_title = p.get("title", "").replace("File:", "")
+                clean_title = re.sub(r"\.[a-zA-Z0-9]{3,4}$", "", raw_title).strip()
+                if any(
+                    raw_title.lower().endswith(ext)
+                    for ext in [".svg", ".pdf", ".ogg", ".webm", ".tif", ".mid", ".djvu", ".gif"]
+                ):
+                    continue
+                if is_under_18 and not is_safe_for_minors(clean_title):
+                    continue
+                ii = p.get("imageinfo", [{}])[0]
+                thumb = ii.get("thumburl") or ii.get("url")
+                page_url = ii.get("descriptionurl") or f"https://commons.wikimedia.org/wiki/File:{urllib.parse.quote(raw_title)}"
+                if thumb and page_url:
+                    results.append({
+                        "title": clean_title,
+                        "image_url": thumb,
+                        "source_url": page_url,
+                        "source": "Wikimedia Commons",
+                    })
+                if len(results) >= limit:
+                    break
+    except Exception:
+        pass
+
+    # 2. Fallback to Wikipedia summary if needed
+    if not results:
+        try:
+            wp_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(query)}"
+            wp_req = urllib.request.Request(
+                wp_url,
+                headers={"User-Agent": "DoshieAssistant/1.0 (contact@doshie.ai)"},
+            )
+            with urllib.request.urlopen(wp_req, timeout=5) as wp_resp:
+                wp_data = json.loads(wp_resp.read().decode("utf-8"))
+                thumb = wp_data.get("thumbnail", {}).get("source") or wp_data.get("originalimage", {}).get("source")
+                page_url = wp_data.get("content_urls", {}).get("desktop", {}).get("page")
+                title = wp_data.get("title", query)
+                if thumb and page_url:
+                    results.append({
+                        "title": title,
+                        "image_url": thumb,
+                        "source_url": page_url,
+                        "source": "Wikipedia",
+                    })
+        except Exception:
+            pass
+
+    payload = {
+        "query": query,
+        "results": results,
+    }
+
+    with _CACHE_LOCK:
+        _WEB_CACHE[key] = {
+            "saved_at": now,
+            "payload": payload,
+        }
+
+    return payload
+
+
 def service_ready():
     return (
         callable(web_search)
+        and callable(image_search)
         and callable(device_search)
         and bool(APPROVED_ROOTS)
     )
+

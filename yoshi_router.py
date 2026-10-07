@@ -18,6 +18,112 @@ def _route_tool_rules(
     lower = clean.lower()
     normalized = lower.rstrip(" ?.!")
 
+    # Interactive 3D Model Generator & WebGL Viewer
+    is_3d_explicit = "3d" in lower and not any(meta in lower for meta in ["can you have it where", "how do i", "how to make", "can you make it where", "why does", "only showing"])
+    # Also detect direct 3D follow-ups (e.g. "show me a school", "show me a car", "show a building")
+    is_3d_followup = bool(re.search(r"^(?:(?:that\s+looks\s+like\s+[^.!?]+[.!?]\s*)?(?:can\s+you\s+)?(?:show(?:\s+me)?|display|render|give\s+me)\s+(?:a\s+|an\s+|the\s+)?([a-z0-9_\-\s]+))", lower) and any(w in lower for w in ["school", "building", "house", "car", "train", "tree", "rocket", "plane", "jet", "robot", "skyscraper", "tower"]))
+
+    if (is_3d_explicit or is_3d_followup) and not any(t in lower for t in ("picture", "photo", "image", "/image", "/photo")):
+        subject = None
+        if "/3d" in lower:
+            parts = clean.split("/3d", 1)
+            if len(parts) > 1 and parts[1].strip():
+                subject = parts[1].strip().rstrip(" ?.!").replace("please", "").strip()
+
+        if not subject:
+            match_3d = re.search(
+                r"(?:(?:can\s+you\s+)?(?:show(?:\s+me)?|display|generate|render|create|build|make)?\s*(?:a\s+|an\s+)?(?:interactive\s+)?)?3d(?:\s+model)?(?:\s+of)?\s*(?:a\s+|an\s+|the\s+)?([a-z0-9_\-\s]+)",
+                lower
+            )
+            if match_3d and match_3d.group(1).strip():
+                raw_subj = match_3d.group(1).strip().rstrip(" ?.!").replace("please", "").strip()
+                raw_subj = re.sub(r"^(?:a\s+|an\s+|the\s+)", "", raw_subj).strip()
+                if raw_subj and raw_subj not in ("model", "models", "object", "objects", "view", "viewer"):
+                    subject = raw_subj
+
+        if not subject and is_3d_followup:
+            m_fu = re.search(r"(?:show(?:\s+me)?|display|render)\s+(?:a\s+|an\s+|the\s+)?([a-z0-9_\-\s]+)", lower)
+            if m_fu:
+                raw_subj = m_fu.group(1).strip().rstrip(" ?.!").replace("please", "").strip()
+                raw_subj = re.sub(r"^(?:a\s+|an\s+|the\s+)", "", raw_subj).strip()
+                if raw_subj:
+                    subject = raw_subj
+
+        if not subject:
+            subject = "building" if "school" in lower else "train"
+
+        if "train" in subject:
+            emoji = "🚂"
+        elif any(w in subject for w in ["building", "skyscraper", "tower", "house", "city", "architecture", "school", "campus"]):
+            emoji = "🏢"
+        elif "car" in subject:
+            emoji = "🚗"
+        elif "robot" in subject:
+            emoji = "🤖"
+        elif "rocket" in subject or "space" in subject:
+            emoji = "🚀"
+        elif "plane" in subject or "jet" in subject:
+            emoji = "✈️"
+        elif "tree" in subject or "plant" in subject:
+            emoji = "🌳"
+        else:
+            emoji = "🧊"
+
+        reply = f"```3d\ntype: {subject}\n```"
+        return True, reply
+
+    # Picture / Photo / Image Search Rule
+    img_triggers = ("picture", "pictures", "photo", "photos", "image", "images", "/image", "/pic", "/photo")
+    if any(t in lower for t in img_triggers) and "3d" not in lower and not any(meta in lower for meta in ["can you have it where", "how do i", "how to make", "can you make it where", "why does"]):
+        img_subject = None
+        if lower.startswith("/image") or lower.startswith("/photo") or lower.startswith("/pic"):
+            parts = re.split(r"/(?:image|photo|pic)\s*", lower, maxsplit=1)
+            if len(parts) > 1 and parts[1].strip():
+                img_subject = parts[1].strip()
+
+        if not img_subject:
+            # Pattern A: 'picture of [subject]' / 'show me a picture of [subject]'
+            mA = re.search(r"(?:(?:can\s+you\s+)?(?:please\s+)?(?:show(?:\s+me)?|display|find|get(?:\s+me)?|give(?:\s+me)?|send(?:\s+me)?|search(?:\s+for)?|look\s+for)?\s*)?(?:a\s+|an\s+|some\s+)?(?:pictures?|photos?|images?|pics?)\s+(?:of|for)\s+(?:a\s+|an\s+|the\s+)?(.+)", lower)
+            if mA:
+                cand = mA.group(1).strip().rstrip(" ?.!").replace("please", "").strip()
+                cand = re.sub(r"^(?:a\s+|an\s+|the\s+)", "", cand).strip()
+                if cand and len(cand) >= 2:
+                    img_subject = cand
+
+        if not img_subject:
+            # Pattern B: '[subject] picture' / 'show me a [subject] photo'
+            mB = re.search(r"(?:(?:can\s+you\s+)?(?:please\s+)?(?:show(?:\s+me)?|display|find|get(?:\s+me)?|give(?:\s+me)?|send(?:\s+me)?|search(?:\s+for)?|look\s+for)?\s*)?(?:a\s+|an\s+|the\s+)?([a-z0-9_\-\s]+?)\s+(?:pictures?|photos?|images?|pics?)$", lower)
+            if mB:
+                cand = mB.group(1).strip().rstrip(" ?.!").replace("please", "").strip()
+                cand = re.sub(r"^(?:a\s+|an\s+|the\s+)", "", cand).strip()
+                if cand and len(cand) >= 2:
+                    img_subject = cand
+
+        if img_subject:
+            try:
+                import Doshie_search
+                try:
+                    import Doshie_profile_preferences
+                    is_under_18 = Doshie_profile_preferences.is_profile_under_18(profile)
+                except Exception:
+                    is_under_18 = False
+                search_res = Doshie_search.image_search(img_subject, limit=2, is_under_18=is_under_18)
+                items = search_res.get("results", [])
+                if items:
+                    reply_lines = []
+                    for itm in items[:2]:
+                        title = itm.get("title", img_subject.capitalize())
+                        img_url = itm.get("image_url", "")
+                        source_url = itm.get("source_url", "")
+                        reply_lines.append(f"![{title}]({img_url})")
+                        if source_url:
+                            reply_lines.append(f"🔗 [View Source & Full Image]({source_url})\n")
+                    return True, "\n".join(reply_lines)
+                else:
+                    return True, f"I looked for pictures of **{img_subject}**, but couldn't find any safe high-quality images right now."
+            except Exception as e:
+                return True, f"Image search could not be completed: {e}"
+
     # Spotify Premium controls are deterministic and profile-aware.
     spotify_now_phrases = {
         "what's playing",
@@ -1213,8 +1319,106 @@ def _route_tool_rules(
     ):
         return True, yoshi_memory.get_battery_status()
 
-    # Full device status
+    # Full device status & diagnostics
     status_phrases = (
+        "test me pc",
+        "test my pc",
+        "test pc",
+        "test the pc",
+        "can you test me pc",
+        "can you test my pc",
+        "can you test pc",
+        "can you test the pc",
+        "test the computer",
+        "test my computer",
+        "test computer",
+        "test system",
+        "test the system",
+        "test my system",
+        "benchmark pc",
+        "benchmark my pc",
+        "run diagnostic",
+        "run diagnostics",
+        "pc diagnostic",
+        "pc diagnostics",
+        "system diagnostic",
+        "system diagnostics",
+        "diagnose pc",
+        "diagnose my pc",
+        "diagnose the pc",
+        "diagnose computer",
+        "check the pc",
+        "check my pc",
+        "check pc",
+        "check computer",
+        "check the computer",
+        "check my computer",
+        "check system",
+        "check the system",
+        "check my system",
+        "check gpu",
+        "check my gpu",
+        "check cpu",
+        "check my cpu",
+        "check ram",
+        "check my ram",
+        "check storage",
+        "check my storage",
+        "check disk",
+        "check my disk",
+        "gpu status",
+        "gpu specs",
+        "gpu temp",
+        "gpu temperature",
+        "cpu status",
+        "cpu specs",
+        "cpu temp",
+        "cpu temperature",
+        "ram status",
+        "ram usage",
+        "memory status",
+        "memory usage",
+        "disk usage",
+        "storage status",
+        "pc status",
+        "pc specs",
+        "pc health",
+        "computer status",
+        "computer specs",
+        "computer health",
+        "system status",
+        "system specs",
+        "system health",
+        "hardware status",
+        "hardware specs",
+        "hardware health",
+        "doshie specs",
+        "doshie status",
+        "doshie health",
+        "yoshi specs",
+        "yoshi status",
+        "your specs",
+        "your specifications",
+        "system specifications",
+        "hardware specifications",
+        "pc specifications",
+        "computer specifications",
+        "check specs",
+        "show specs",
+        "what are your specs",
+        "what are the specs",
+        "what's the specs",
+        "whats the specs",
+        "how is the pc",
+        "how is my pc",
+        "how's the pc",
+        "hows the pc",
+        "how's my pc",
+        "hows my pc",
+        "how is the computer",
+        "how is my computer",
+        "how's my computer",
+        "hows my computer",
         "how's my phone",
         "hows my phone",
         "how is my phone",
@@ -1222,15 +1426,22 @@ def _route_tool_rules(
         "phone status",
         "how much storage",
         "how much space",
+        "how much ram",
+        "how much memory",
         "storage left",
         "storage free",
         "is my battery healthy",
         "battery health",
     )
 
-    if clean == "/status" or any(
-        phrase in lower for phrase in status_phrases
-    ):
+    is_specs_query = bool(
+        clean in ("/status", "/specs")
+        or any(phrase in lower for phrase in status_phrases)
+        or re.search(r"\b(?:check|show|get|view|tell\s+me|what\s+are|what\s+is|whats|what's)\s+(?:the\s+|your\s+|my\s+|doshie(?:'s)?\s+|pc\s+|computer\s+|system\s+)?(?:specs|specifications|hardware|diagnostics|telemetry)\b", lower)
+        or (("specs" in lower or "specifications" in lower) and any(w in lower for w in ("doshie", "yoshi", "pc", "computer", "system", "hardware", "check", "what", "your")))
+    )
+
+    if is_specs_query:
         return True, yoshi_memory.get_device_status()
 
     # Explicit/default weather requests
@@ -1295,6 +1506,92 @@ def _route_tool_rules(
 
         return True, yoshi_memory.get_weather(location)
 
+    # News routing
+    is_news = (
+        normalized in {
+            "news", "new", "the news", "headlines", "the headlines",
+            "daily news", "local news", "tech news", "gaming news",
+            "national news", "world news", "news update", "news updates",
+            "latest news", "today's news", "todays news", "news today",
+            "show news", "get news", "read news", "check news",
+        }
+        or bool(re.search(r"\b(?:news|headlines)\b", lower))
+        or lower.startswith("news ")
+        or lower.endswith(" news")
+    )
+    if is_news:
+        try:
+            import Doshie_news
+            topic = "local"
+            # Check for custom topic queries like "news about tesla" or "news on space"
+            custom_match = re.search(r"(?:news|headlines)\s+(?:about|on|regarding|for)\s+(.+)$", clean, re.IGNORECASE)
+            if custom_match:
+                custom_topic = custom_match.group(1).strip(" ?.!")
+                data = Doshie_news.search_news(custom_topic, limit=6)
+            else:
+                if "tech" in lower or "ai" in lower or "software" in lower:
+                    topic = "tech"
+                elif "gaming" in lower or "game" in lower or "games" in lower:
+                    topic = "gaming"
+                elif "national" in lower or "world" in lower or "us" in lower:
+                    topic = "national"
+                elif "family" in lower or "kids" in lower:
+                    topic = "family"
+                data = Doshie_news.get_headlines(topic=topic, limit=6)
+
+            items = data.get("items", [])
+            if not items:
+                return True, "No news headlines are available right now."
+
+            reply_lines = [f"📰 **{data.get('label', 'NEWS HEADLINES')}**\n"]
+            for idx, item in enumerate(items[:6], 1):
+                title = item.get("title", "")
+                source = item.get("source", "")
+                url = item.get("url", "")
+                if url:
+                    reply_lines.append(f"{idx}. [{title}]({url}) · *{source}*")
+                else:
+                    reply_lines.append(f"{idx}. **{title}** · *{source}*")
+            return True, "\n\n".join(reply_lines)
+        except Exception as error:
+            return True, f"Could not load news: {error}"
+
+    # Web search routing
+    search_match = re.match(
+        r"^(?:search(?:\s+the)?\s+(?:web|internet)|search\s+online\s+for|search\s+for|look\s+up\s+online|google|find\s+online)\s+(?:for\s+)?(.+?)[?.!]?$",
+        clean,
+        flags=re.IGNORECASE,
+    )
+    if not search_match and (lower.startswith("search the web for ") or lower.startswith("search web for ") or lower.startswith("google ")):
+        q = re.sub(r"^(?:search\s+(?:the\s+)?web\s+for|google)\s+", "", clean, flags=re.IGNORECASE).strip(" ?.!")
+        if q:
+            search_match = type("Match", (), {"group": lambda self, n: q})()
+
+    if search_match:
+        search_query = search_match.group(1).strip()
+        if search_query:
+            try:
+                import Doshie_search
+                import Doshie_profile_preferences
+                is_under_18 = Doshie_profile_preferences.is_profile_under_18(profile)
+                res = Doshie_search.web_search(search_query, is_under_18=is_under_18)
+                results = res.get("results", [])
+                if not results:
+                    return True, f"I searched the web for '{search_query}' but found no safe results."
+
+                reply_lines = [f"🔍 **Web search results for *{search_query}***\n"]
+                for idx, item in enumerate(results[:4], 1):
+                    title = item.get("title", "")
+                    snippet = item.get("snippet", "")
+                    url = item.get("url", "")
+                    if url:
+                        reply_lines.append(f"{idx}. [{title}]({url})\n   {snippet}")
+                    else:
+                        reply_lines.append(f"{idx}. **{title}**\n   {snippet}")
+                return True, "\n\n".join(reply_lines)
+            except Exception as error:
+                return True, f"Web search could not be completed: {error}"
+
     return False, None
 
 
@@ -1332,6 +1629,14 @@ def _looks_like_tool_request(text):
         "add ",
         "show my",
         "what do i need",
+        "news",
+        "headline",
+        "headlines",
+        "search",
+        "google",
+        "web search",
+        "search online",
+        "look up",
     )
 
     return any(marker in lower for marker in markers)
@@ -1353,6 +1658,9 @@ none
 battery
 device_status
 weather
+news
+image_search
+web_search
 list_tasks
 add_task
 add_note
@@ -1368,6 +1676,11 @@ JSON format:
 
 Rules:
 - Use none if normal conversation does not require a local tool.
+- device_status means check, test, benchmark, inspect, or diagnose the host PC/computer hardware, CPU, GPU, RAM, storage, or system status.
+- battery means check device battery percentage or charge status.
+- image_search means search for a picture, photo, or image of something. Put the subject or query in text.
+- news means local or current news headlines. Put the topic or location in text.
+- web_search means search the internet or web for info. Put the query in text.
 - add_task means create a task.
 - add_note means save a note.
 - add_shopping means add an item to the shopping list.
@@ -1433,7 +1746,7 @@ User request:
         return None
 
 
-def _execute_ai_tool(result, default_location):
+def _execute_ai_tool(result, default_location, profile="Hermes"):
     if not result:
         return False, None
 
@@ -1453,6 +1766,86 @@ def _execute_ai_tool(result, default_location):
         return True, yoshi_memory.get_weather(
             location or default_location
         )
+
+    if intent == "news":
+        try:
+            import Doshie_news
+            topic = "local"
+            if "tech" in value.lower():
+                topic = "tech"
+            elif "gaming" in value.lower() or "game" in value.lower():
+                topic = "gaming"
+            elif "national" in value.lower() or "world" in value.lower():
+                topic = "national"
+            elif "family" in value.lower():
+                topic = "family"
+
+            data = Doshie_news.get_headlines(topic=topic, limit=6)
+            items = data.get("items", [])
+            if not items:
+                return True, "No news headlines are available right now."
+
+            reply_lines = [f"📰 **{data.get('label', 'NEWS HEADLINES')}**\n"]
+            for idx, item in enumerate(items[:6], 1):
+                title = item.get("title", "")
+                source = item.get("source", "")
+                url = item.get("url", "")
+                if url:
+                    reply_lines.append(f"{idx}. [{title}]({url}) · *{source}*")
+                else:
+                    reply_lines.append(f"{idx}. **{title}** · *{source}*")
+            return True, "\n\n".join(reply_lines)
+        except Exception as error:
+            return True, f"Could not load news: {error}"
+
+    if intent == "image_search":
+        if not value:
+            return True, "What would you like me to find a picture of?"
+        try:
+            import Doshie_search
+            import Doshie_profile_preferences
+            is_under_18 = Doshie_profile_preferences.is_profile_under_18(profile)
+            search_res = Doshie_search.image_search(value, limit=2, is_under_18=is_under_18)
+            items = search_res.get("results", [])
+            if items:
+                reply_lines = [f"Here is a picture of **{value}** for you, {profile}!\n"]
+                for itm in items[:2]:
+                    title = itm.get("title", value.capitalize())
+                    img_url = itm.get("image_url", "")
+                    source_url = itm.get("source_url", "")
+                    reply_lines.append(f"![{title}]({img_url})")
+                    if source_url:
+                        reply_lines.append(f"🔗 [View Source & Full Image]({source_url})\n")
+                return True, "\n".join(reply_lines)
+            else:
+                return True, f"I searched for pictures of **{value}**, but couldn't find any safe results."
+        except Exception as error:
+            return True, f"Image search could not be completed: {error}"
+
+    if intent == "web_search":
+        if not value:
+            return True, "What would you like me to search for on the web?"
+        try:
+            import Doshie_search
+            import Doshie_profile_preferences
+            is_under_18 = Doshie_profile_preferences.is_profile_under_18(profile)
+            res = Doshie_search.web_search(value, is_under_18=is_under_18)
+            results = res.get("results", [])
+            if not results:
+                return True, f"I searched the web for '{value}' but found no safe results."
+
+            reply_lines = [f"🔍 **Web search results for *{value}***\n"]
+            for idx, item in enumerate(results[:4], 1):
+                title = item.get("title", "")
+                snippet = item.get("snippet", "")
+                url = item.get("url", "")
+                if url:
+                    reply_lines.append(f"{idx}. [{title}]({url})\n   {snippet}")
+                else:
+                    reply_lines.append(f"{idx}. **{title}**\n   {snippet}")
+            return True, "\n\n".join(reply_lines)
+        except Exception as error:
+            return True, f"Web search could not be completed: {error}"
 
     if intent == "list_tasks":
         rows = yoshi_memory.get_tasks()
@@ -1543,6 +1936,8 @@ ALLOWED_TOOL_INTENTS = {
     "battery",
     "device_status",
     "weather",
+    "news",
+    "web_search",
     "list_tasks",
     "add_task",
     "add_note",

@@ -133,7 +133,8 @@ export const FileEditorModal: React.FC<FileEditorModalProps> = ({
 
   const getDownloadUrl = () => {
     if (attachment.url) {
-      return `${attachment.url}&download=1`
+      const sep = attachment.url.includes('?') ? '&' : '?'
+      return `${attachment.url}${sep}download=1`
     }
     return `/chat-attachment/${attachment.id}?profile=${encodeURIComponent(activeProfile)}&download=1`
   }

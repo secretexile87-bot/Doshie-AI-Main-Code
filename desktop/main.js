@@ -167,6 +167,23 @@ function createTray() {
       }
     },
     {
+      label: 'Open SU Control Panel (Tweaks & Tools)',
+      click: () => {
+        const suWin = new BrowserWindow({
+          width: 1380,
+          height: 920,
+          title: 'Doshie Superuser Control Panel',
+          backgroundColor: '#070d0a',
+          icon: ICON_PATH,
+          webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true
+          }
+        });
+        suWin.loadURL(`${DOSHIE_URL}/su`);
+      }
+    },
+    {
       label: 'Open Voice Studio (Port 7860)',
       click: () => {
         shell.openExternal(VOICE_STUDIO_URL);
@@ -187,6 +204,18 @@ function createTray() {
           }
         });
         studioWin.loadFile(path.join(__dirname, 'myspace-studio', 'index.html'));
+      }
+    },
+    {
+      label: 'Open Remote Commander (Port 8899)',
+      click: () => {
+        shell.openExternal('http://127.0.0.1:8899');
+      }
+    },
+    {
+      label: 'Download / Export Doshie APK',
+      click: () => {
+        shell.openPath('/home/doshie/Desktop/Doshie-RDP.apk');
       }
     },
     { type: 'separator' },

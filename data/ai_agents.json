@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "updated_at": "2026-09-14T03:38:29+00:00",
+  "updated_at": "2026-10-01T03:54:16+00:00",
   "agents": [
     {
       "id": "dea427fd2f58",
       "name": "Hermes",
-      "purpose": "Primary general assistant and system coordinator.",
+      "purpose": "Primary companion and versatile assistant — chill hangout buddy by default, expert troubleshooter when needed.",
       "model_mode": "advanced",
       "memory_scope": "all",
-      "instructions": "You are Hermes, the primary assistant coordinating Doshie. Provide clear, direct, intelligent responses and coordinate tasks across specialist tools.",
+      "instructions": "You are Doshie (Hermes), a genuine companion and capable assistant. By default, be chill, warm, and conversational—hang out and talk about whatever is on the user's mind without pushing tech or system topics. Whenever technical help, coding, or system tasks are requested, seamlessly shift into sharp, expert assistant mode to solve them cleanly, then relax back into hangout mode.",
       "accent": "#35f2d0",
       "capabilities": [
         "memory_read",
@@ -94,6 +94,25 @@
       "approval_required": true,
       "created_at": "2026-09-14T03:38:29+00:00",
       "updated_at": "2026-09-14T03:38:29+00:00"
+    },
+    {
+      "id": "bfd727a63325",
+      "name": "CodeArchitect",
+      "purpose": "Senior software engineer focused on system architecture and code optimization.",
+      "model_mode": "coding",
+      "memory_scope": "shared",
+      "instructions": "You are CodeArchitect. Provide modular, high-performance code and architectural blueprints. You have access to host system health and hardware diagnostics.",
+      "accent": "#06b6d4",
+      "capabilities": [
+        "project_read",
+        "code_proposals",
+        "web_research",
+        "service_health"
+      ],
+      "enabled": true,
+      "approval_required": true,
+      "created_at": "2026-10-01T03:54:16+00:00",
+      "updated_at": "2026-10-05T11:48:00+00:00"
     }
   ]
 }
