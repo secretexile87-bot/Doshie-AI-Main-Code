@@ -86,7 +86,9 @@ export interface AntigravitySkill {
 
 export interface GuiCustomization {
   // Theme & Colors
-  theme: 'antigravity' | 'emerald' | 'cyberpunk' | 'oled' | 'amber' | 'crimson' | 'terminal' | 'nord' | 'dracula'
+  theme: 'antigravity' | 'emerald' | 'cyberpunk' | 'oled' | 'amber' | 'crimson' | 'terminal' | 'nord' | 'dracula' | 'seasonal'
+  seasonalThemeEnabled?: boolean
+  seasonalCountdownVisible?: boolean
   backgroundStyle: 'solid' | 'glow' | 'grid' | 'stars'
   customWallpaperUrl?: string
   glassEffect: boolean
@@ -113,12 +115,13 @@ export interface GuiCustomization {
   // Lock Screen Customization
   lockScreenTitle?: string
   lockScreenSubtitle?: string
-  lockScreenWallpaper?: 'matrix' | 'glow' | 'stars' | 'cyberpunk' | 'oled' | 'aurora'
+  lockScreenWallpaper?: 'matrix' | 'glow' | 'stars' | 'cyberpunk' | 'oled' | 'aurora' | 'seasonal'
   lockScreenClockFormat?: '12h' | '24h'
   lockScreenAutoLockMinutes?: number
   lockScreenCustomNote?: string
   lockScreenShowWeather?: boolean
   lockScreenShowQuickProfiles?: boolean
+  lockScreenShowSeasonCountdown?: boolean
 
   // MySpace Studio & Custom Code
   myspaceCustomCss?: string

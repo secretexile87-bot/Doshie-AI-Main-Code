@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   X,
   Users,
@@ -43,6 +43,7 @@ import {
 } from 'lucide-react'
 import { playNeuralSpeech, stopSpeech } from '../utils/audio'
 import { isBiometricsSupported, enrollBiometricPasskey, authenticateWithBiometrics } from '../utils/webauthn'
+import { getSeasonalInfo } from '../utils/seasonal'
 import type { GuiCustomization, AdminProfileOversight, AdminGuestMemory } from '../types'
 
 interface Profile {
@@ -736,6 +737,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }
 
+  const seasonalInfo = useMemo(() => getSeasonalInfo(), [])
+
   const themes: Array<{
     id: GuiCustomization['theme']
     name: string
@@ -743,6 +746,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     bgColor: string
     desc: string
   }> = [
+    {
+      id: 'seasonal',
+      name: `Calendar Seasonal (${seasonalInfo.icon} ${seasonalInfo.seasonName})`,
+      accentColor: seasonalInfo.accentColor,
+      bgColor: '#150d06',
+      desc: `Auto-adapts to Earth's calendar seasons: Spring 🌸, Summer ☀️, Autumn 🍂, Winter ❄️ (${seasonalInfo.countdownText})`,
+    },
     {
       id: 'antigravity',
       name: 'Antigravity Studio',
@@ -1811,6 +1821,48 @@ body {
             </>
           ) : tab === 'appearance' ? (
             <>
+              {/* Seasonal Calendar Theme & Solstice Countdown Card */}
+              <div className="p-4 rounded-2xl border border-[var(--border-dark)] bg-gradient-to-r from-white/[0.04] to-white/[0.01] mb-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3 mb-2 flex-wrap sm:flex-nowrap">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl sm:text-3xl flex-none">{seasonalInfo.icon}</span>
+                    <div>
+                      <div className="text-sm font-bold text-white flex items-center gap-2 flex-wrap">
+                        <span>{seasonalInfo.seasonName} Season</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--accent)]/20 text-[var(--accent-light)] font-mono border border-[var(--accent)]/30">
+                          {seasonalInfo.countdownText}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        Next astronomical season: {seasonalInfo.nextIcon} {seasonalInfo.nextSeasonName} starts {seasonalInfo.nextDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextEnabled = customization.theme !== 'seasonal'
+                      onUpdateCustomization({
+                        theme: nextEnabled ? 'seasonal' : 'antigravity',
+                        seasonalThemeEnabled: nextEnabled,
+                        lockScreenWallpaper: nextEnabled ? 'seasonal' : customization.lockScreenWallpaper,
+                      })
+                    }}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex-none active:scale-95 shadow-sm ${
+                      customization.theme === 'seasonal' || customization.seasonalThemeEnabled
+                        ? 'bg-[var(--accent)] text-black border-[var(--accent)] font-bold shadow-md'
+                        : 'bg-white/5 hover:bg-white/10 text-white border-white/10'
+                    }`}
+                  >
+                    {customization.theme === 'seasonal' || customization.seasonalThemeEnabled ? '✓ Seasonal Active' : 'Activate Seasonal'}
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-400/90 leading-relaxed">
+                  Automatically shifts system accent colors, ambient glow, and lock screen wallpapers according to the calendar equinoxes and solstices (Spring 🌸, Summer ☀️, Autumn 🍂, Winter ❄️).
+                </p>
+              </div>
+
               {/* Theme Selector */}
               <div>
                 <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--accent-light)] mb-3">
@@ -2329,6 +2381,7 @@ body {
                     <span className="text-[11px] text-emerald-400/80 block mb-1.5">Lock Screen Wallpaper & Ambient Style</span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {[
+                        { id: 'seasonal', label: `Calendar Seasonal (${seasonalInfo.icon})`, desc: 'Dynamic solstice & equinox aura' },
                         { id: 'matrix', label: 'Emerald Matrix', desc: 'Obsidian emerald glow' },
                         { id: 'cyberpunk', label: 'Cyberpunk Neon', desc: 'Fuchsia & cyan aura' },
                         { id: 'aurora', label: 'Arctic Aurora', desc: 'Teal & indigo waves' },

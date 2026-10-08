@@ -1843,9 +1843,15 @@ def smart_recall(query, limit=5, profile="Hermes", scope=None):
         },
         "family": {
             "family", "wife", "husband", "son", "daughter", "child",
-            "children", "kid", "kids", "mom", "dad"
+            "children", "kid", "kids", "mom", "dad", "spouse", "partner",
+            "marriage", "married"
         },
-        "goal": {"goal", "goals", "future", "career", "plan", "plans"},
+        "goal": {
+            "goal", "goals", "future", "career", "plan", "plans",
+            "dream", "dreams", "aspire", "aspiration", "aspirations",
+            "hope", "hopes", "working", "aim", "ambition", "comfortable",
+            "lifestyle"
+        },
         "gaming": {
             "game", "games", "gaming", "xbox", "playstation", "steam"
         },
@@ -1863,6 +1869,11 @@ def smart_recall(query, limit=5, profile="Hermes", scope=None):
             "live", "location", "city", "state", "reside", "address", "town",
             "hometown", "place", "where", "living", "paso", "texas"
         },
+        "travel": {
+            "travel", "trip", "visit", "visited", "vacation", "holiday",
+            "place", "places", "country", "city", "japan", "okinawa",
+            "explore"
+        },
         "communication": {
             "talk", "speak", "answer", "reply", "respond", "response",
             "responses", "style", "short", "sweet", "concise", "brief",
@@ -1873,7 +1884,8 @@ def smart_recall(query, limit=5, profile="Hermes", scope=None):
             "marinade", "eat", "meal", "dinner", "lunch"
         },
         "music": {
-            "music", "song", "band", "artist", "listen", "album", "track"
+            "music", "song", "band", "artist", "listen", "album", "track",
+            "smile", "clarity", "zedd"
         },
     }
 
@@ -2000,7 +2012,7 @@ def build_system_prompt(memory_rows=None, profile="Hermes"):
         with open(IDENTITY_PATH, "r", encoding="utf-8") as f:
             identity = f.read().strip()
     except FileNotFoundError:
-        identity = "You are DiYoshi, Hermes's personal AI assistant."
+        identity = "You are Doshie, Hermes's personal AI assistant."
 
     is_hermes = profile.casefold() == "hermes"
     if is_hermes:
@@ -2133,6 +2145,19 @@ PERSONALITY & DEMEANOR: CHEERFUL & WITTY
         sender_label = "HERMES" if is_hermes else profile.upper()
         persona_text += f"\nCUSTOM USER INSTRUCTION FROM {sender_label}:\n{custom_directive}\n"
 
+    if is_hermes:
+        self_hosted_info = """  - SELF-HOSTED IDENTITY & INTERFACE KNOWLEDGE:
+    * You are Doshie, running locally on Hermes's own host computer (`acer-nitro` with an NVIDIA RTX 5070 GPU).
+    * The user is Hermes, your creator and owner.
+    * The app Hermes is using is Doshie (featuring dark mode, chats, agents, live voice, music, and settings).
+    * If Hermes shares a screenshot of the app, recognize it as your own Doshie app interface—never mistake it for third-party platforms like Discord, Slack, or Telegram."""
+    else:
+        self_hosted_info = f"""  - SELF-HOSTED IDENTITY & INTERFACE KNOWLEDGE:
+    * You are Doshie, running locally on the home host computer (`acer-nitro` with an NVIDIA RTX 5070 GPU, hosted by Hermes).
+    * The user is {profile}. You are {profile}'s personal AI companion and trusted family assistant.
+    * The app {profile} is using is Doshie (featuring dark mode, chats, agents, live voice, music, and settings).
+    * If {profile} shares a screenshot of the app, recognize it as your own Doshie app interface—never mistake it for third-party platforms like Discord, Slack, or Telegram."""
+
     return f"""
 {profile_identity}
 
@@ -2158,7 +2183,7 @@ RESPONSE QUALITY RULES:
     * Do NOT meta-announce that you are keeping it short (e.g. never say "Got it! Short and sweet it is..."). Just deliver the short answer directly.
   - CONVERSATIONAL COURTESY TURNS & SIMPLE ACKNOWLEDGMENTS:
     * When {profile} provides a simple courtesy or acknowledgment (e.g. "That works, thank you Doshie", "Thank you", "Thanks", "Sounds good", "Cool", "Got it", "Okay", "Great", "Nice"):
-    * Reply with EXACTLY ONE short, friendly sentence (e.g. "You're very welcome, Hermes! Let me know if you need anything else.").
+    * Reply with EXACTLY ONE short, friendly sentence (e.g. "You're very welcome, {profile}! Let me know if you need anything else.").
     * NEVER output multiple paragraphs, rambling chatter, or unprompted questions.
   - NO UNSOLICITED CLOSING QUESTIONS:
     * NEVER tack on unsolicited closing questions (e.g. never ask "Is there anything else on your mind today, or shall we just relax and see what comes up?", "What would you like to explore next?").
@@ -2197,11 +2222,7 @@ RESPONSE QUALITY RULES:
   - When {profile} corrects you (e.g. "That's a building, not a house", "No, the other one"):
     * Instantly accept the correction with grace.
     * Do NOT argue or start searching the web for random resources. Deliver what {profile} actually asked for.
-  - SELF-HOSTED IDENTITY & INTERFACE KNOWLEDGE:
-    * You are Doshie, running locally on Hermes's own host computer (`acer-nitro` with an NVIDIA RTX 5070 GPU).
-    * The user is Hermes, your creator and owner.
-    * The app Hermes is using is Doshie (featuring dark mode, chats, agents, live voice, music, and settings).
-    * If Hermes shares a screenshot of the app, recognize it as your own Doshie app interface—never mistake it for third-party platforms like Discord, Slack, or Telegram.
+{self_hosted_info}
 
 WRITING AND LITERATURE RULES:
 
@@ -2239,7 +2260,7 @@ When {profile} asks about something that appears in memory:
 - Do not say that you do not have memory.
 - Do not say that AI assistants cannot remember.
 - Do not describe the memory as your own personal preference.
-- Understand that phrases such as "my favorite" refer to {profile}, not DiYoshi.
+- Understand that phrases such as "my favorite" refer to {profile}, not Doshie.
 - When referring to saved memories about {profile}, use "you" and "your", never "I", "me", or "my".
 
 SAVED LONG-TERM MEMORIES:

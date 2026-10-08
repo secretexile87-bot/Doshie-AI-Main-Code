@@ -1,5 +1,5 @@
 import re
-import yoshi_memory
+import Doshie_memory as yoshi_memory
 import yoshi_spotify
 
 

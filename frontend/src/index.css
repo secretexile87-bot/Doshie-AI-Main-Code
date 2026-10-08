@@ -135,6 +135,67 @@
     --bot-border: #3c304f;
   }
 
+  /* 8. Seasonal - Spring (Pastel Mint & Blossom) */
+  [data-theme="spring"],
+  [data-theme="seasonal"][data-season="spring"] {
+    --bg-dark: #09140f;
+    --card-dark: #102319;
+    --card-hover: #173827;
+    --border-dark: #1f4532;
+    --accent: #10b981;
+    --accent-hover: #059669;
+    --accent-light: #6ee7b7;
+    --user-bubble: #153423;
+    --bot-bubble: #0f241a;
+    --bot-border: #1d4b34;
+  }
+
+  /* 9. Seasonal - Summer (Sunlit Ocean & Solar Gold) */
+  [data-theme="summer"],
+  [data-theme="seasonal"][data-season="summer"] {
+    --bg-dark: #05141c;
+    --card-dark: #0b2230;
+    --card-hover: #12344a;
+    --border-dark: #194a69;
+    --accent: #06b6d4;
+    --accent-hover: #0891b2;
+    --accent-light: #67e8f9;
+    --user-bubble: #0e2d40;
+    --bot-bubble: #082130;
+    --bot-border: #164663;
+  }
+
+  /* 10. Seasonal - Autumn / Fall (Warm Pumpkin & Maple Amber) */
+  [data-theme="autumn"],
+  [data-theme="seasonal"][data-season="autumn"],
+  [data-theme="seasonal"] {
+    --bg-dark: #150d06;
+    --card-dark: #23160a;
+    --card-hover: #35210e;
+    --border-dark: #4d2f14;
+    --accent: #f97316;
+    --accent-hover: #ea580c;
+    --accent-light: #fdba74;
+    --user-bubble: #2b1709;
+    --bot-bubble: #1f1107;
+    --bot-border: #44240d;
+  }
+
+  /* 11. Seasonal - Winter (Frost Icy Blue & Aurora Obsidian) */
+  [data-theme="winter"],
+  [data-theme="seasonal"][data-season="winter"] {
+    --bg-dark: #070d18;
+    --card-dark: #0e182b;
+    --card-hover: #152642;
+    --border-dark: #1e365e;
+    --accent: #38bdf8;
+    --accent-hover: #0284c7;
+    --accent-light: #bae6fd;
+    --user-bubble: #12213a;
+    --bot-bubble: #0c182b;
+    --bot-border: #1c355c;
+  }
+
   /* Background Glow & Pattern Styles */
   [data-bg-style="glow"] {
     background-image: radial-gradient(circle at 50% 10%, var(--accent-hover) 0%, transparent 65%),

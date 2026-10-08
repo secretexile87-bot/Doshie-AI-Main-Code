@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Unlock,
   Shield,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import type { GuiCustomization, Profile } from '../types'
 import { isBiometricsSupported, authenticateWithBiometrics } from '../utils/webauthn'
+import { getSeasonalInfo } from '../utils/seasonal'
 
 interface LockScreenProps {
   isLocked: boolean
@@ -350,11 +351,19 @@ export const LockScreen: React.FC<LockScreenProps> = ({
     }
   }
 
+  const seasonal = useMemo(() => getSeasonalInfo(), [])
+
   // Determine wallpaper style class / styles
-  const wallpaper = customization.lockScreenWallpaper || 'matrix'
+  const isSeasonal = customization.lockScreenWallpaper === 'seasonal' || customization.theme === 'seasonal' || customization.seasonalThemeEnabled
+  const wallpaper = customization.lockScreenWallpaper || (isSeasonal ? 'seasonal' : 'matrix')
 
   let bgClass = 'bg-[#040d07]'
-  if (wallpaper === 'cyberpunk') {
+  if (isSeasonal || wallpaper === 'seasonal') {
+    if (seasonal.currentSeason === 'autumn') bgClass = 'bg-[#0f0803]'
+    else if (seasonal.currentSeason === 'winter') bgClass = 'bg-[#040912]'
+    else if (seasonal.currentSeason === 'spring') bgClass = 'bg-[#040d07]'
+    else if (seasonal.currentSeason === 'summer') bgClass = 'bg-[#030d14]'
+  } else if (wallpaper === 'cyberpunk') {
     bgClass = 'bg-[#080412]'
   } else if (wallpaper === 'oled') {
     bgClass = 'bg-black'
@@ -370,26 +379,58 @@ export const LockScreen: React.FC<LockScreenProps> = ({
     >
       {/* Dynamic Ambient Background Elements */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {wallpaper === 'matrix' && (
+        {(isSeasonal || wallpaper === 'seasonal') && (
+          <>
+            {seasonal.currentSeason === 'autumn' && (
+              <>
+                <div className="absolute top-1/4 left-1/3 -translate-x-1/2 w-[600px] h-[600px] bg-amber-600/15 rounded-full blur-[140px]" />
+                <div className="absolute bottom-10 right-1/4 w-[500px] h-[450px] bg-orange-500/15 rounded-full blur-[130px]" />
+                <div className="absolute inset-0 opacity-[0.04] bg-[radial-gradient(#f97316_1px,transparent_1px)] [background-size:28px_28px]" />
+              </>
+            )}
+            {seasonal.currentSeason === 'winter' && (
+              <>
+                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-sky-500/15 rounded-full blur-[140px]" />
+                <div className="absolute bottom-10 right-1/4 w-[450px] h-[450px] bg-blue-600/15 rounded-full blur-[120px]" />
+                <div className="absolute inset-0 opacity-[0.05] bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:28px_28px]" />
+              </>
+            )}
+            {seasonal.currentSeason === 'spring' && (
+              <>
+                <div className="absolute top-1/4 left-1/4 w-[550px] h-[550px] bg-emerald-500/15 rounded-full blur-[140px]" />
+                <div className="absolute bottom-1/4 right-1/4 w-[450px] h-[450px] bg-teal-500/15 rounded-full blur-[130px]" />
+                <div className="absolute inset-0 opacity-[0.04] bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:28px_28px]" />
+              </>
+            )}
+            {seasonal.currentSeason === 'summer' && (
+              <>
+                <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-cyan-500/15 rounded-full blur-[140px]" />
+                <div className="absolute bottom-10 right-1/4 w-[450px] h-[450px] bg-amber-500/15 rounded-full blur-[120px]" />
+                <div className="absolute inset-0 opacity-[0.04] bg-[radial-gradient(#06b6d4_1px,transparent_1px)] [background-size:28px_28px]" />
+              </>
+            )}
+          </>
+        )}
+        {wallpaper === 'matrix' && !isSeasonal && (
           <>
             <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[140px]" />
             <div className="absolute -bottom-20 left-1/3 w-[500px] h-[400px] bg-teal-500/10 rounded-full blur-[120px]" />
             <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px]" />
           </>
         )}
-        {wallpaper === 'cyberpunk' && (
+        {wallpaper === 'cyberpunk' && !isSeasonal && (
           <>
             <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-fuchsia-600/15 rounded-full blur-[140px]" />
             <div className="absolute bottom-10 right-1/4 w-[450px] h-[450px] bg-cyan-500/15 rounded-full blur-[120px]" />
           </>
         )}
-        {wallpaper === 'aurora' && (
+        {wallpaper === 'aurora' && !isSeasonal && (
           <>
             <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-teal-500/15 rounded-full blur-[140px]" />
             <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-indigo-500/15 rounded-full blur-[140px]" />
           </>
         )}
-        {wallpaper === 'stars' && (
+        {wallpaper === 'stars' && !isSeasonal && (
           <>
             <div className="absolute inset-0 opacity-[0.08] bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:32px_32px]" />
             <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[160px]" />
@@ -397,11 +438,19 @@ export const LockScreen: React.FC<LockScreenProps> = ({
         )}
       </div>
 
-      {/* Top Header: Security Badge & Custom Status Note */}
-      <div className="relative z-10 w-full max-w-4xl flex items-center justify-between">
+      {/* Top Header: Security Badge, Seasonal Countdown Badge & Host */}
+      <div className="relative z-10 w-full max-w-4xl flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-xs text-[var(--accent-light)] font-medium shadow-lg">
           <Shield className="w-4 h-4 text-[var(--accent)]" />
           <span>{customization.lockScreenCustomNote || 'Secure Workstation • RTX 5070 Local Engine'}</span>
+        </div>
+
+        {/* Small time till next season on top */}
+        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-xs text-[var(--accent-light)] font-medium shadow-lg">
+          <span className="text-sm">{seasonal.icon}</span>
+          <span className="text-white font-semibold">{seasonal.seasonName}</span>
+          <span className="text-white/40">•</span>
+          <span className="font-mono text-[11px] text-[var(--accent-light)]">{seasonal.countdownText}</span>
         </div>
 
         <div className="flex items-center gap-2 text-xs text-gray-400">

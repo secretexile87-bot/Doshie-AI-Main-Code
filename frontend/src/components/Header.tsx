@@ -1,10 +1,11 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import {
   Settings,
   PanelLeft,
   MessageSquare,
   User,
 } from 'lucide-react'
+import { getSeasonalInfo } from '../utils/seasonal'
 
 interface HeaderProps {
   online: boolean
@@ -19,6 +20,7 @@ interface HeaderProps {
   activeViewTitle?: string
   assistantEmoji?: string
   assistantName?: string
+  seasonalCountdownVisible?: boolean
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -34,7 +36,10 @@ export const Header: React.FC<HeaderProps> = ({
   activeViewTitle,
   assistantEmoji = '🦖',
   assistantName = 'Doshie',
+  seasonalCountdownVisible = true,
 }) => {
+  const seasonal = useMemo(() => getSeasonalInfo(), [])
+
   return (
     <header
       style={{
@@ -87,13 +92,28 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Center: Title (if viewing transcript or active conversation) */}
-      {activeViewTitle && (
-        <div className="hidden lg:flex items-center gap-2 text-xs text-[var(--accent-light)]/90 bg-white/5 px-3.5 py-1.5 rounded-full border border-white/10 max-w-sm truncate mx-2 shadow-xs">
-          <MessageSquare className="w-3.5 h-3.5 text-[var(--accent)] flex-none" />
-          <span className="truncate">{activeViewTitle}</span>
-        </div>
-      )}
+      {/* Center: Seasonal Countdown Badge & Active View Title */}
+      <div className="flex items-center gap-2 max-w-sm truncate mx-1 sm:mx-2 min-w-0">
+        {seasonalCountdownVisible && (
+          <button
+            onClick={() => onOpenSettings('appearance')}
+            title={`Current Season: ${seasonal.seasonName} (${seasonal.daysUntilNext} days until ${seasonal.nextSeasonName}). Click to view Appearance & Seasonal Themes.`}
+            className="flex items-center gap-1.5 text-[11px] sm:text-xs text-[var(--accent-light)] bg-white/5 hover:bg-white/10 px-2.5 sm:px-3 py-1 rounded-full border border-white/10 hover:border-white/20 transition-all cursor-pointer shadow-xs font-medium flex-none active:scale-95"
+          >
+            <span className="text-xs sm:text-sm">{seasonal.icon}</span>
+            <span className="font-semibold text-white/95">{seasonal.seasonName}</span>
+            <span className="text-white/40 hidden xs:inline">•</span>
+            <span className="text-[var(--accent-light)] font-mono text-[10px] sm:text-[11px] hidden xs:inline">{seasonal.countdownText}</span>
+          </button>
+        )}
+
+        {activeViewTitle && (
+          <div className="hidden xl:flex items-center gap-2 text-xs text-[var(--accent-light)]/90 bg-white/5 px-3 py-1 rounded-full border border-white/10 max-w-[200px] truncate shadow-xs">
+            <MessageSquare className="w-3.5 h-3.5 text-[var(--accent)] flex-none" />
+            <span className="truncate">{activeViewTitle}</span>
+          </div>
+        )}
+      </div>
 
       {/* Right: Clean Profile & Settings Hub Access */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-none">

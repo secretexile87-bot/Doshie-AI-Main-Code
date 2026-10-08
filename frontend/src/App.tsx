@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useTransition } from 'react'
+import React, { useState, useEffect, useRef, useTransition, useMemo } from 'react'
 import { Header } from './components/Header'
 import { Sidebar } from './components/Sidebar'
 import { ChatMessage } from './components/ChatMessage'
@@ -14,6 +14,7 @@ import { AgentHubModal } from './components/AgentHubModal'
 import { AgentConsoleModal } from './components/AgentConsoleModal'
 import { MobileNavBar } from './components/MobileNavBar'
 import { stopSpeech, subscribeSpeechState } from './utils/audio'
+import { getSeasonalInfo } from './utils/seasonal'
 import type { Message, ChatSession, AntigravitySummary, GuiCustomization, Profile, ChatAttachment, SpecialistAgent } from './types'
 
 
@@ -22,6 +23,8 @@ const getSessionsStorageKey = (profile: string) =>
 
 const DEFAULT_CUSTOMIZATION: GuiCustomization = {
   theme: 'antigravity',
+  seasonalThemeEnabled: false,
+  seasonalCountdownVisible: true,
   backgroundStyle: 'glow',
   fontSize: 'comfortable',
   chatDensity: 'comfortable',
@@ -56,6 +59,8 @@ const loadInitialCustomization = (profile: string): GuiCustomization => {
 }
 
 export function App() {
+  const seasonal = useMemo(() => getSeasonalInfo(), [])
+
   const [activeProfile, setActiveProfile] = useState<string>(() => {
     return localStorage.getItem('Doshie_active_profile') || 'Hermes'
   })
@@ -63,7 +68,26 @@ export function App() {
   const [oversightProfile, setOversightProfile] = useState<string>(() => {
     return localStorage.getItem('Doshie_active_profile') || 'Hermes'
   })
-  const [isLocked, setIsLocked] = useState(false)
+  const [isLocked, setIsLocked] = useState<boolean>(() => {
+    const profile = (localStorage.getItem('Doshie_active_profile') || 'Hermes').toLowerCase()
+    const explicitLock = localStorage.getItem('Doshie_is_locked')
+    if (explicitLock === 'true') return true
+    const profileLock = localStorage.getItem(`Doshie_locked_${profile}`)
+    if (profileLock === 'true') return true
+    const hasLock = localStorage.getItem(`Doshie_has_lock_${profile}`)
+    const sessionUnlocked = sessionStorage.getItem(`Doshie_unlocked_${profile}`)
+    if (hasLock === 'true' && sessionUnlocked !== 'true') return true
+    return false
+  })
+  const [isAuthReady, setIsAuthReady] = useState<boolean>(() => {
+    const profile = (localStorage.getItem('Doshie_active_profile') || 'Hermes').toLowerCase()
+    const sessionUnlocked = sessionStorage.getItem(`Doshie_unlocked_${profile}`)
+    const hasLock = localStorage.getItem(`Doshie_has_lock_${profile}`)
+    if (hasLock === 'true' && sessionUnlocked !== 'true') return true
+    if (localStorage.getItem('Doshie_is_locked') === 'true') return true
+    if (hasLock === 'false' || sessionUnlocked === 'true') return true
+    return false
+  })
   const [isVoiceStudioOpen, setIsVoiceStudioOpen] = useState(false)
   const [isAgentHubOpen, setIsAgentHubOpen] = useState(false)
   const [isAgentConsoleOpen, setIsAgentConsoleOpen] = useState(false)
@@ -124,14 +148,17 @@ export function App() {
 
   // Apply customization attributes to html element
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', customization.theme)
+    const isSeasonal = customization.theme === 'seasonal' || customization.seasonalThemeEnabled
+    const activeTheme = isSeasonal ? 'seasonal' : customization.theme
+    document.documentElement.setAttribute('data-theme', activeTheme)
+    document.documentElement.setAttribute('data-season', seasonal.currentSeason)
     document.documentElement.setAttribute('data-font-size', customization.fontSize)
     document.documentElement.setAttribute('data-density', customization.chatDensity || 'comfortable')
     document.documentElement.setAttribute('data-bubble-style', customization.bubbleStyle)
     document.documentElement.setAttribute('data-bg-style', customization.backgroundStyle || 'glow')
     localStorage.setItem(getCustomizationStorageKey(activeProfile), JSON.stringify(customization))
     localStorage.setItem('Doshie_gui_customization', JSON.stringify(customization))
-  }, [customization, activeProfile])
+  }, [customization, activeProfile, seasonal])
 
   const handleUpdateCustomization = (updates: Partial<GuiCustomization>) => {
     setCustomization(prev => {
@@ -318,6 +345,10 @@ export function App() {
   const handleLockAccount = async (targetProfile: string = activeProfile) => {
     revertToHome()
     setIsLocked(true)
+    const norm = targetProfile.toLowerCase()
+    localStorage.setItem('Doshie_is_locked', 'true')
+    localStorage.setItem(`Doshie_locked_${norm}`, 'true')
+    sessionStorage.removeItem(`Doshie_unlocked_${norm}`)
     try {
       await fetch('/profile-lock/lock', {
         method: 'POST',
@@ -342,15 +373,33 @@ export function App() {
         const data = await res.json()
         if (Array.isArray(data)) {
           setProfiles(data)
+          data.forEach((p: Profile) => {
+            localStorage.setItem(`Doshie_has_lock_${p.name.toLowerCase()}`, p.locked ? 'true' : 'false')
+          })
           // If active profile is locked and not unlocked in this session, revert to home to login!
           const current = data.find((p: Profile) => p.name.toLowerCase() === activeProfile.toLowerCase())
-          if (current && current.locked && !current.unlocked) {
-            revertToHome()
-            setIsLocked(true)
+          if (current) {
+            const norm = current.name.toLowerCase()
+            if (current.locked && !current.unlocked) {
+              sessionStorage.removeItem(`Doshie_unlocked_${norm}`)
+              localStorage.setItem('Doshie_is_locked', 'true')
+              localStorage.setItem(`Doshie_locked_${norm}`, 'true')
+              revertToHome()
+              setIsLocked(true)
+            } else if (!current.locked || current.unlocked) {
+              if (current.unlocked) {
+                sessionStorage.setItem(`Doshie_unlocked_${norm}`, 'true')
+              }
+              localStorage.setItem('Doshie_is_locked', 'false')
+              localStorage.setItem(`Doshie_locked_${norm}`, 'false')
+              setIsLocked(false)
+            }
           }
         }
       }
-    } catch {}
+    } catch {} finally {
+      setIsAuthReady(true)
+    }
   }
 
   useEffect(() => {
@@ -1176,6 +1225,25 @@ export function App() {
     ? `Antigravity: ${antigravityList.find(a => a.id === activeAntigravityId)?.title || activeAntigravityId.slice(0, 8)}`
     : currentSession?.title || `${customization.assistantName || 'Doshie'} Chat`
 
+  if (!isAuthReady && !isLocked) {
+    return (
+      <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#070c12] text-white select-none">
+        <div className="relative flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[var(--accent)] to-[var(--accent-light)] flex items-center justify-center text-3xl shadow-2xl border border-white/20 animate-pulse">
+            {customization.assistantEmoji || '🦖'}
+          </div>
+          <div className="flex flex-col items-center gap-1.5">
+            <h2 className="text-base font-bold tracking-wide text-white font-mono">{customization.assistantName || 'Doshie'}</h2>
+            <div className="flex items-center gap-2 text-xs text-[var(--accent-light)]/80">
+              <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-ping" />
+              <span>Verifying workstation security...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       style={{
@@ -1229,6 +1297,7 @@ export function App() {
           activeViewTitle={activeViewTitle}
           assistantEmoji={customization.assistantEmoji}
           assistantName={customization.assistantName}
+          seasonalCountdownVisible={customization.seasonalCountdownVisible !== false}
         />
 
 
@@ -1457,6 +1526,11 @@ export function App() {
         isLocked={isLocked}
         onUnlock={profileName => {
           setIsLocked(false)
+          const norm = profileName.toLowerCase()
+          localStorage.setItem('Doshie_is_locked', 'false')
+          localStorage.setItem(`Doshie_locked_${norm}`, 'false')
+          sessionStorage.setItem(`Doshie_unlocked_${norm}`, 'true')
+          setIsAuthReady(true)
           revertToHome()
           fetchProfiles()
           if (profileName.toLowerCase() !== activeProfile.toLowerCase()) {
