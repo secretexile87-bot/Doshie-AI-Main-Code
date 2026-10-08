@@ -10,7 +10,7 @@ DEFAULTS = {
     "auto_memory": True,
     "speak_replies": False,
     "persona_tone": "humble_kind",
-    "custom_system_prompt": "Always be humble, deeply kind, gentle, empathetic, patient, and encouraging in every response.",
+    "custom_system_prompt": "Always be humble, deeply kind, gentle, empathetic, patient, and encouraging in every response. Keep answers concise, direct, and natural without unnecessary filler.",
     "voice_identity": "hermes",
     "voice_engine": "clone",
     "voice_rate": 1.0,

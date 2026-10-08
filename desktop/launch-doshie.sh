@@ -26,6 +26,21 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# Ensure audio input (microphone) source is active in PipeWire
+if ! wpctl status 2>/dev/null | sed -n '/Audio/,/Video/p' | grep -A 5 "Sources:" | grep -q "\[vol:"; then
+    echo "[Doshie Desktop] Initializing PipeWire audio input source..."
+    DEV_LINE=$(wpctl status 2>/dev/null | sed -n "/Audio/,/Video/p" | grep -A 10 "Devices:" | grep -E "800 Series ACE|HDA Intel" | head -n 1 || true)
+    DEV_ID=$(echo "$DEV_LINE" | grep -oE "[0-9]+\." | head -n 1 | tr -d "." || true)
+    if [ -n "$DEV_ID" ]; then
+        wpctl set-profile "$DEV_ID" 4 2>/dev/null || true
+    fi
+    SRC_LINE=$(wpctl status 2>/dev/null | sed -n "/Audio/,/Video/p" | grep -A 10 "Sources:" | grep -E "800 Series ACE|HDA Intel" | head -n 1 || true)
+    SRC_ID=$(echo "$SRC_LINE" | grep -oE "[0-9]+\." | head -n 1 | tr -d "." || true)
+    if [ -n "$SRC_ID" ]; then
+        wpctl set-default "$SRC_ID" 2>/dev/null || true
+    fi
+fi
+
 # Detect XAUTHORITY if in Wayland session
 if [ -z "$XAUTHORITY" ]; then
     AUTH_FILE=$(ls -t /run/user/$(id -u)/.mutter-Xwaylandauth.* 2>/dev/null | head -n 1 || true)

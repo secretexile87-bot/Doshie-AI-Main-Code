@@ -1407,6 +1407,12 @@ def should_auto_remember(text):
         "i usually",
         "i always",
         "important to me",
+        "short and sweet",
+        "keep it short",
+        "short answers",
+        "concise answers",
+        "be concise",
+        "prefer short",
     )
 
     return any(phrase in lower for phrase in useful_phrases)
@@ -1564,6 +1570,9 @@ def normalize_memory(text):
             value = match.group(1).strip()
             return template.format(value)
 
+    if re.search(r"\b(?:short and sweet|keep it short|concise answers?|short answers?|be concise|prefer short)\b", lower):
+        return "I prefer short and sweet, concise responses with minimal conversational filler."
+
     return clean
 
 def auto_remember(text, profile="Hermes"):
@@ -1582,6 +1591,15 @@ def auto_remember(text, profile="Hermes"):
     importance = detect_memory_importance(clean, category)
 
     replaceable_topics = {
+        "communication_style": (
+            "short and sweet",
+            "keep it short",
+            "concise",
+            "short answers",
+            "brief answers",
+            "detailed answers",
+            "prefer short",
+        ),
         "favorite_color": (
             "my favorite color",
             "favorite color",
@@ -2077,11 +2095,12 @@ PERSONALITY & DEMEANOR: HUMBLE, GENTLE & KIND
 - Always be patient, encouraging, and supportive in every interaction.
 - Never act condescending, boastful, or impatient.
 - Offer constructive, helpful guidance with respect and humble attentiveness.
+- Balance kindness with brevity: warmth does NOT mean wordiness or filler. Respect the user's time and desired answer length.
 """,
         "supportive": """
 PERSONALITY & DEMEANOR: COMPASSIONATE COMPANION
 - Act as a deeply supportive, empathetic, and encouraging friend.
-- Validate feelings, celebrate small wins, and provide gentle encouragement.
+- Validate feelings, celebrate small wins, and provide gentle encouragement without unnecessary filler.
 """,
         "direct_tech": """
 PERSONALITY & DEMEANOR: PRECISE & CONCISE TECHNICIAN
@@ -2115,6 +2134,19 @@ A selected profile personalizes context; it is not proof of identity.
 RESPONSE QUALITY RULES:
 
 - Answer {profile}'s actual request first.
+- STRICT BREVITY, CONCISENESS & RESPECTING USER LENGTH PREFERENCES (CRITICAL):
+  - Strictly respect and follow {profile}'s requests for brevity (e.g. "short and sweet", "short answers", "keep it short", "brief", "concise", "quick answer", "just tell me").
+  - When {profile} requests short answers, or has a saved preference for conciseness:
+    * Fulfill the request in 1-2 sentences maximum.
+    * Do NOT pad the response with conversational filler, emotional validation, or generic small talk.
+    * Do NOT meta-announce that you are keeping it short (e.g. never say "Got it! Short and sweet it is..."). Just deliver the short answer directly.
+  - CONVERSATIONAL COURTESY TURNS & SIMPLE ACKNOWLEDGMENTS:
+    * When {profile} provides a simple courtesy or acknowledgment (e.g. "That works, thank you Doshie", "Thank you", "Thanks", "Sounds good", "Cool", "Got it", "Okay", "Great", "Nice"):
+    * Reply with EXACTLY ONE short, friendly sentence (e.g. "You're very welcome, Hermes! Let me know if you need anything else.").
+    * NEVER output multiple paragraphs, rambling chatter, or unprompted questions.
+  - NO UNSOLICITED CLOSING QUESTIONS:
+    * NEVER tack on unsolicited closing questions (e.g. never ask "Is there anything else on your mind today, or shall we just relax and see what comes up?", "What would you like to explore next?").
+    * Only ask a question if {profile} explicitly requested a brainstorming session or consultation.
 - Write in polished, natural American English unless {profile} requests another language or dialect.
 - Use correct spelling, grammar, punctuation, capitalization, and complete sentences.
 - Use standard pronoun case: write "He and I went" as a subject, not "Him and I went" or "Me and him went."
@@ -2309,7 +2341,7 @@ def _build_recent_history(history, max_messages=12, char_budget=14000):
     return selected
 
 
-def _clean_model_reply(value):
+def _clean_model_reply(value, user_text=""):
     original = str(value or "").strip()
     reply = original
     unasked_help_endings = (
@@ -2319,10 +2351,30 @@ def _clean_model_reply(value):
         r"feel free to ask[.!]*\s*🦖?\s*$",
         r"\s+Let me know if you need (?:anything|any help)"
         r"(?: else)?[.!]*\s*🦖?\s*$",
+        r"\s+Is there anything else on your mind today,?\s*(?:or shall we[^\n]*\??)?[.!*⭐✨💬\s]*$",
+        r"\s+Is there anything else I can help you with today\??[.!*⭐✨💬\s]*$",
+        r"\s+What would you like to (?:talk about|do|explore) next\??[.!*⭐✨💬\s]*$",
     )
 
     for pattern in unasked_help_endings:
         reply = re.sub(pattern, "", reply, flags=re.IGNORECASE).strip()
+
+    # If the user's turn was just a simple acknowledgment or courtesy turn
+    # (e.g. "That works, thank you Doshie", "thanks", "ok", "sounds good"),
+    # keep the reply crisp and avoid rambling paragraphs
+    if user_text:
+        clean_user = user_text.strip().lower()
+        ack_patterns = (
+            r"^(?:that works,?\s*)?(?:thank you|thanks|thx|sounds good|cool|great|perfect|ok|okay|got it|alright)(?: doshie| yoshi| hermes)?[.!?:)]*$",
+            r"^(?:that works|looks good|all set|perfect thanks)[.!?:)]*$",
+        )
+        if any(re.match(pat, clean_user, re.IGNORECASE) for pat in ack_patterns):
+            sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", reply) if s.strip()]
+            if len(sentences) > 1:
+                first = sentences[0]
+                first = re.sub(r"\s+Is there anything else.*", "", first, flags=re.IGNORECASE).strip()
+                if first:
+                    reply = first
 
     return reply or original
 
@@ -2506,7 +2558,7 @@ VISION MODE:
                 brain_mode=brain_mode,
             )
             URL = model_url
-            return _clean_model_reply(reply)
+            return _clean_model_reply(reply, user_text=user_text)
         except Exception as error:
             last_error = error
 

@@ -30,6 +30,15 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(DiYoshiSpeechPlugin.class);
         super.onCreate(savedInstanceState);
+
+        // Ensure microphone permissions are prompted and granted for speech recognition and live voice
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{
+                android.Manifest.permission.RECORD_AUDIO,
+                android.Manifest.permission.MODIFY_AUDIO_SETTINGS
+            }, 101);
+        }
+
         installSafeAreaBridge();
         installBackButtonHandler();
         openVerifiedDiYoshiLink(getIntent());

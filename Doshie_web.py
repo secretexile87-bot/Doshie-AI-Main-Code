@@ -9024,8 +9024,8 @@ def normalize_brain_mode(value, profile):
 
 def persona_tone_context(tone):
     tones = {
-        "humble_kind": "Always be humble, deeply kind, gentle, empathetic, patient, and encouraging in every response. Speak with genuine warmth, care, and humility.",
-        "supportive": "Be an encouraging companion, validating, warm, and supportive in every response.",
+        "humble_kind": "Always be humble, deeply kind, gentle, empathetic, patient, and encouraging in every response. Speak with genuine warmth, care, and humility while keeping answers concise, natural, and respecting the user's desired length.",
+        "supportive": "Be an encouraging companion, validating, warm, and supportive in every response without unnecessary filler.",
         "direct_tech": "Be analytical, concise, objective, and code/technical focused.",
         "playful": "Be energetic, lighthearted, cheerful, witty, and engaging.",
     }

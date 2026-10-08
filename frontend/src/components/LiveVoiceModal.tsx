@@ -95,6 +95,58 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     })
   }
 
+  const getNativeSpeech = () => {
+    const capacitor = (window as any).Capacitor
+    if (!capacitor) return null
+    if (capacitor.Plugins?.DiYoshiSpeech) {
+      return capacitor.Plugins.DiYoshiSpeech
+    }
+    if (capacitor.Plugins?.DoshieSpeech) {
+      return capacitor.Plugins.DoshieSpeech
+    }
+    return typeof capacitor.registerPlugin === 'function'
+      ? (capacitor.registerPlugin('DiYoshiSpeech') || capacitor.registerPlugin('DoshieSpeech'))
+      : null
+  }
+
+  const listenWithNativeSpeech = (nativeSpeech: any): Promise<string> => {
+    return new Promise<string>((resolve) => {
+      let isResolved = false
+      let partialListener: any = null
+
+      const finish = (text: string) => {
+        if (isResolved) return
+        isResolved = true
+        if (partialListener && typeof partialListener.remove === 'function') {
+          try { partialListener.remove() } catch {}
+        }
+        resolve(text.trim())
+      }
+
+      if (typeof nativeSpeech.addListener === 'function') {
+        try {
+          partialListener = nativeSpeech.addListener('partialResult', (data: any) => {
+            const partialText = String(data?.text || '').trim()
+            if (partialText && !isCancelledRef.current && !isMutedRef.current) {
+              setTranscript(partialText)
+              lastRecognizedRef.current = partialText
+            }
+          })
+        } catch {}
+      }
+
+      nativeSpeech.startListening({
+        language: navigator.language || 'en-US',
+      }).then((result: any) => {
+        const text = String(result?.text || '').trim()
+        finish(text)
+      }).catch((err: any) => {
+        console.warn('Native speech finished or ambient silence:', err)
+        finish('')
+      })
+    })
+  }
+
   useEffect(() => {
     if (!isOpen) {
       releaseWakeLock()
@@ -322,7 +374,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             return
           }
 
-          if (errType === 'network' || errType === 'service-not-allowed' || errType === 'not-allowed') {
+          if (errType === 'network' || errType === 'service-not-allowed' || errType === 'not-allowed' || errType === 'audio-capture') {
             // Speech service unavailable, denied, or not supported; fall back to server Whisper STT
             webSpeechSupportedRef.current = false
             finish(recognizedText)
@@ -340,6 +392,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         rec.start()
       } catch (err) {
         console.warn('Recognition start failed:', err)
+        webSpeechSupportedRef.current = false
         finish('')
       }
     })
@@ -362,7 +415,13 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       mediaStreamRef.current = stream
     } catch (err: any) {
       console.warn('Microphone stream access error:', err)
-      setAssistantText('Microphone permission needed. Please allow microphone access in your browser or Android settings.')
+      if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setAssistantText('No microphone detected. Please plug in or enable your microphone in system sound settings.')
+      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setAssistantText('Microphone permission needed. Please allow microphone access in your browser or app settings.')
+      } else {
+        setAssistantText('Microphone unavailable: ' + (err.message || 'Please check your audio input settings.'))
+      }
       return ''
     }
 
@@ -581,21 +640,32 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       const isAndroid = /Android/i.test(navigator.userAgent)
       const preferServerWhisper = isCapacitor || isElectron || isAndroid
 
-      // Attempt Web Speech API first (only in standard desktop Chrome / Safari)
-      const SpeechRec = !preferServerWhisper && (webSpeechSupportedRef.current !== false) &&
-        ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+      const nativeSpeech = getNativeSpeech()
 
-      if (SpeechRec) {
+      if (nativeSpeech) {
         try {
-          userSpoken = await listenWithWebSpeech(SpeechRec)
-        } catch {
-          webSpeechSupportedRef.current = false
+          userSpoken = await listenWithNativeSpeech(nativeSpeech)
+        } catch (err) {
+          console.warn('Native speech listening error:', err)
           userSpoken = ''
+        }
+      } else {
+        // Attempt Web Speech API first (only in standard desktop Chrome / Safari)
+        const SpeechRec = !preferServerWhisper && (webSpeechSupportedRef.current !== false) &&
+          ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+
+        if (SpeechRec) {
+          try {
+            userSpoken = await listenWithWebSpeech(SpeechRec)
+          } catch {
+            webSpeechSupportedRef.current = false
+            userSpoken = ''
+          }
         }
       }
 
       // Route through workstation GPU Whisper STT (/transcribe) on Android/Capacitor or when Web Speech produced no text
-      if (!userSpoken && !isCancelledRef.current) {
+      if (!userSpoken && !isCancelledRef.current && !nativeSpeech) {
         try {
           userSpoken = await recordAndTranscribe()
         } catch (err) {
@@ -712,6 +782,10 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       mediaStreamRef.current.getTracks().forEach((t) => t.stop())
       mediaStreamRef.current = null
     }
+    const nativeSpeech = getNativeSpeech()
+    if (nativeSpeech) {
+      try { nativeSpeech.stopListening().catch(() => {}) } catch {}
+    }
     stopSpeech()
     releaseWakeLock()
   }
@@ -746,6 +820,10 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           recognitionRef.current.abort()
         } catch {}
       }
+      const nativeSpeech = getNativeSpeech()
+      if (nativeSpeech) {
+        try { nativeSpeech.stopListening().catch(() => {}) } catch {}
+      }
       setVoiceState('idle')
     } else {
       emptyTurnCountRef.current = 0
@@ -757,6 +835,10 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     if (voiceState === 'speaking') {
       handleInterrupt()
     } else if (voiceState === 'listening') {
+      const nativeSpeech = getNativeSpeech()
+      if (nativeSpeech) {
+        try { nativeSpeech.stopListening().catch(() => {}) } catch {}
+      }
       if (recognitionRef.current && lastRecognizedRef.current) {
         // Immediately finalize speech when user taps the orb
         try {
