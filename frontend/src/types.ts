@@ -143,6 +143,10 @@ export interface Profile {
   locked?: boolean
   unlocked?: boolean
   auth_type?: string
+  has_biometrics?: boolean
+  biometrics_count?: number
+  mfa_enabled?: boolean
+  biometrics_quick_unlock?: boolean
 }
 
 export interface AdminGuestMemory {

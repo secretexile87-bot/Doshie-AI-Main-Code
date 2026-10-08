@@ -10228,6 +10228,17 @@ def family_login():
     if not valid:
         return _credential_failure_response(attempt_profile)
 
+    security_status = Doshie_profile_lock.status(profile)
+    if security_status.get("mfa_enabled") and security_status.get("has_biometrics"):
+        mfa_token = Doshie_profile_lock.create_mfa_token(profile)
+        return jsonify({
+            "ok": True,
+            "mfa_required": True,
+            "mfa_token": mfa_token,
+            "profile": profile,
+            "message": "Step 1 verified. Please complete sign-in using your biometric passkey.",
+        })
+
     _clear_profile_failures(profile)
     session.clear()
     session["public_profile"] = profile
@@ -10348,6 +10359,10 @@ def profiles_get():
             security = Doshie_profile_lock.status(item["name"])
             profile["locked"] = security["locked"]
             profile["auth_type"] = security["auth_type"]
+            profile["has_biometrics"] = security.get("has_biometrics", False)
+            profile["biometrics_count"] = security.get("biometrics_count", 0)
+            profile["mfa_enabled"] = security.get("mfa_enabled", False)
+            profile["biometrics_quick_unlock"] = security.get("biometrics_quick_unlock", True)
             profile["unlocked"] = _profile_session_unlocked(item["name"])
             profiles.append(profile)
         return jsonify(profiles)
@@ -10689,6 +10704,243 @@ def profile_lock_remove():
         return jsonify({
             "error": "Doshie's profile security needs repair."
         }), 503
+
+
+@app.route("/profile-lock/status", methods=["GET"])
+def profile_lock_status_endpoint():
+    profile = resolve_profile(request.args.get("profile", ""))
+    if not profile:
+        profile = "Hermes"
+    return jsonify(Doshie_profile_lock.status(profile))
+
+
+@app.route("/profile-lock/biometrics", methods=["GET"])
+def profile_lock_biometrics_get():
+    profile = resolve_profile(request.args.get("profile", ""))
+    if not profile:
+        profile = "Hermes"
+    st = Doshie_profile_lock.status(profile)
+    return jsonify({
+        "ok": True,
+        "profile": profile,
+        "biometrics": Doshie_profile_lock.get_biometrics(profile),
+        "mfa_enabled": st.get("mfa_enabled", False),
+        "biometrics_quick_unlock": st.get("biometrics_quick_unlock", True),
+    })
+
+
+@app.route("/profile-lock/biometrics/remove", methods=["POST"])
+def profile_lock_biometrics_remove():
+    data = request.get_json(silent=True) or {}
+    profile = resolve_profile(data.get("profile", ""))
+    if not profile:
+        profile = "Hermes"
+    credential_id = data.get("credential_id")
+    removed = Doshie_profile_lock.remove_biometric(profile, credential_id)
+    return jsonify({
+        "ok": removed,
+        "profile": profile,
+        "status": Doshie_profile_lock.status(profile),
+        "biometrics": Doshie_profile_lock.get_biometrics(profile),
+    })
+
+
+@app.route("/profile-lock/biometrics/settings", methods=["POST"])
+def profile_lock_biometrics_settings():
+    data = request.get_json(silent=True) or {}
+    profile = resolve_profile(data.get("profile", ""))
+    if not profile:
+        profile = "Hermes"
+    mfa_enabled = data.get("mfa_enabled")
+    quick_unlock = data.get("biometrics_quick_unlock")
+    try:
+        updated = Doshie_profile_lock.set_mfa_settings(
+            profile,
+            mfa_enabled=mfa_enabled,
+            biometrics_quick_unlock=quick_unlock,
+        )
+        return jsonify({
+            "ok": True,
+            "profile": profile,
+            "status": updated,
+        })
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+
+@app.route("/profile-lock/webauthn/register-options", methods=["POST"])
+def profile_lock_webauthn_register_options():
+    data = request.get_json(silent=True) or {}
+    profile = resolve_profile(data.get("profile", ""))
+    if not profile:
+        profile = "Hermes"
+    challenge = Doshie_profile_lock.create_challenge(profile, challenge_type="register")
+    host = request.host.split(":")[0] if request.host else "localhost"
+    return jsonify({
+        "ok": True,
+        "challenge": challenge,
+        "rp": {
+            "name": "Doshie AI Assistant",
+            "id": host if host not in ("localhost", "127.0.0.1") else None,
+        },
+        "user": {
+            "id": Doshie_profile_lock.b64url_encode(profile.lower().encode("utf-8")),
+            "name": profile.lower(),
+            "displayName": profile,
+        },
+        "pubKeyCredParams": [
+            {"type": "public-key", "alg": -7},
+            {"type": "public-key", "alg": -257},
+        ],
+        "authenticatorSelection": {
+            "authenticatorAttachment": "platform",
+            "userVerification": "preferred",
+            "requireResidentKey": False,
+        },
+        "timeout": 60000,
+        "attestation": "none",
+    })
+
+
+@app.route("/profile-lock/webauthn/register-verify", methods=["POST"])
+def profile_lock_webauthn_register_verify():
+    data = request.get_json(silent=True) or {}
+    profile = resolve_profile(data.get("profile", ""))
+    if not profile:
+        profile = "Hermes"
+    cred = data.get("credential") or {}
+    cred_id = cred.get("id") or cred.get("rawId")
+    if not cred_id:
+        return jsonify({"error": "Missing biometric credential ID."}), 400
+
+    resp = cred.get("response") or {}
+    client_data_b64 = resp.get("clientDataJSON")
+    device_name = str(data.get("name") or "Biometric Device").strip()[:80]
+
+    challenge_valid = True
+    if client_data_b64:
+        try:
+            client_json_bytes = Doshie_profile_lock.b64url_decode(client_data_b64)
+            client_data = json.loads(client_json_bytes.decode("utf-8"))
+            challenge = client_data.get("challenge")
+            if not Doshie_profile_lock.verify_and_consume_challenge(
+                profile, challenge, challenge_type="register"
+            ):
+                challenge_valid = False
+        except Exception:
+            challenge_valid = False
+
+    if not challenge_valid:
+        return jsonify({"error": "Biometric registration challenge expired or invalid."}), 400
+
+    Doshie_profile_lock.add_biometric(
+        profile=profile,
+        credential_id=cred_id,
+        name=device_name,
+        raw_id=cred.get("rawId") or cred_id,
+    )
+    return jsonify({
+        "ok": True,
+        "profile": profile,
+        "message": "Biometric authentication enrolled successfully!",
+        "status": Doshie_profile_lock.status(profile),
+        "biometrics": Doshie_profile_lock.get_biometrics(profile),
+    })
+
+
+@app.route("/profile-lock/webauthn/login-options", methods=["POST"])
+def profile_lock_webauthn_login_options():
+    data = request.get_json(silent=True) or {}
+    profile = resolve_profile(data.get("profile", ""))
+    if not profile:
+        profile = "Hermes"
+
+    biometrics = Doshie_profile_lock.get_biometrics(profile)
+    if not biometrics:
+        return jsonify({"error": f"No biometrics registered for profile '{profile}'."}), 400
+
+    challenge = Doshie_profile_lock.create_challenge(profile, challenge_type="login")
+    host = request.host.split(":")[0] if request.host else "localhost"
+    return jsonify({
+        "ok": True,
+        "challenge": challenge,
+        "timeout": 60000,
+        "userVerification": "preferred",
+        "rpId": host if host not in ("localhost", "127.0.0.1") else None,
+        "allowCredentials": [
+            {
+                "id": b["id"],
+                "type": "public-key",
+                "transports": ["internal"],
+            }
+            for b in biometrics
+        ],
+    })
+
+
+@app.route("/profile-lock/webauthn/login-verify", methods=["POST"])
+def profile_lock_webauthn_login_verify():
+    data = request.get_json(silent=True) or {}
+    profile = resolve_profile(data.get("profile", ""))
+    if not profile:
+        profile = "Hermes"
+
+    retry_after = _profile_retry_after(profile)
+    if retry_after:
+        return jsonify({
+            "error": "Too many incorrect sign-in attempts.",
+            "retry_after": retry_after,
+        }), 429
+
+    cred = data.get("credential") or {}
+    cred_id = cred.get("id") or cred.get("rawId")
+    if not cred_id:
+        return jsonify({"error": "Missing biometric credential."}), 400
+
+    mfa_token = data.get("mfa_token")
+    if mfa_token:
+        if not Doshie_profile_lock.verify_and_consume_mfa_token(profile, mfa_token):
+            return jsonify({"error": "2FA session expired. Please re-enter your PIN."}), 401
+
+    if not Doshie_profile_lock.verify_biometric_credential(profile, cred_id):
+        return _credential_failure_response(profile)
+
+    resp = cred.get("response") or {}
+    client_data_b64 = resp.get("clientDataJSON")
+    if client_data_b64:
+        try:
+            client_json_bytes = Doshie_profile_lock.b64url_decode(client_data_b64)
+            client_data = json.loads(client_json_bytes.decode("utf-8"))
+            challenge = client_data.get("challenge")
+            if not Doshie_profile_lock.verify_and_consume_challenge(
+                profile, challenge, challenge_type="login"
+            ):
+                return jsonify({"error": "Biometric challenge expired or invalid. Please try again."}), 400
+        except Exception:
+            return jsonify({"error": "Invalid biometric response format."}), 400
+
+    _clear_profile_failures(profile)
+    session.clear()
+    session["public_profile"] = profile
+    session["public_profile_expires"] = time.time() + 8 * 60 * 60
+    _remember_profile_unlock(profile)
+    session.permanent = True
+    session.modified = True
+    catalog = profile_catalog()
+    record = next((item for item in catalog if item["name"].casefold() == profile.casefold()), {
+        "id": f"profile-{profile.lower()}",
+        "name": profile,
+        "role": "Owner Administrator" if profile.casefold() == "hermes" else "User",
+        "is_admin": profile.casefold() == "hermes",
+        "is_child": False,
+    })
+    return jsonify({
+        "ok": True,
+        "profile": record["name"],
+        "unlocked": True,
+        "is_admin": record.get("is_admin", False),
+        "is_child": record.get("is_child", False),
+    })
 
 
 def _health_request_online(value):

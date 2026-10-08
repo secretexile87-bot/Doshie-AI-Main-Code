@@ -37,9 +37,12 @@ import {
   Image as ImageIcon,
   Mic,
   Radio,
-  ExternalLink
+  ExternalLink,
+  Fingerprint,
+  Key
 } from 'lucide-react'
 import { playNeuralSpeech, stopSpeech } from '../utils/audio'
+import { isBiometricsSupported, enrollBiometricPasskey, authenticateWithBiometrics } from '../utils/webauthn'
 import type { GuiCustomization, AdminProfileOversight, AdminGuestMemory } from '../types'
 
 interface Profile {
@@ -174,6 +177,213 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [myspaceAiPrompt, setMyspaceAiPrompt] = useState('')
   const [myspaceStatusMsg, setMyspaceStatusMsg] = useState('')
   const cssFileInputRef = React.useRef<HTMLInputElement>(null)
+  // Profile Security & MFA / Biometrics State
+  const [profileSecurity, setProfileSecurity] = useState<{
+    locked: boolean
+    auth_type: string
+    has_biometrics: boolean
+    biometrics_count: number
+    mfa_enabled: boolean
+    biometrics_quick_unlock: boolean
+  }>({
+    locked: false,
+    auth_type: 'none',
+    has_biometrics: false,
+    biometrics_count: 0,
+    mfa_enabled: false,
+    biometrics_quick_unlock: true,
+  })
+  const [biometricsList, setBiometricsList] = useState<
+    Array<{ id: string; name: string; created_at: number }>
+  >([])
+  const [bioSupported, setBioSupported] = useState(false)
+  const [isEnrollingBio, setIsEnrollingBio] = useState(false)
+  const [isTestingBio, setIsTestingBio] = useState(false)
+  const [bioMessage, setBioMessage] = useState<{
+    text: string
+    error?: boolean
+  } | null>(null)
+
+  // PIN / Password Change Modal State
+  const [showPinModal, setShowPinModal] = useState(false)
+  const [newAuthType, setNewAuthType] = useState<'pin' | 'password'>('pin')
+  const [newPinVal, setNewPinVal] = useState('')
+  const [confirmPinVal, setConfirmPinVal] = useState('')
+  const [pinChangeError, setPinChangeError] = useState('')
+  const [isSavingPin, setIsSavingPin] = useState(false)
+
+  const loadSecurity = async (profileName: string) => {
+    try {
+      const sup = await isBiometricsSupported()
+      setBioSupported(sup)
+      const res = await fetch(
+        `/profile-lock/status?profile=${encodeURIComponent(profileName)}`
+      )
+      if (res.ok) {
+        const data = await res.json()
+        setProfileSecurity(data)
+      }
+      const bioRes = await fetch(
+        `/profile-lock/biometrics?profile=${encodeURIComponent(profileName)}`
+      )
+      if (bioRes.ok) {
+        const bioData = await bioRes.json()
+        setBiometricsList(bioData.biometrics || [])
+      }
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (activeProfile) {
+      loadSecurity(activeProfile)
+    }
+  }, [activeProfile, tab])
+
+  const handleEnrollBiometric = async () => {
+    setIsEnrollingBio(true)
+    setBioMessage(null)
+    try {
+      const res = await enrollBiometricPasskey(activeProfile)
+      if (res.ok) {
+        setBioMessage({
+          text: res.message || 'Biometric passkey enrolled successfully!',
+          error: false,
+        })
+        await loadSecurity(activeProfile)
+      } else {
+        setBioMessage({
+          text: res.error || 'Failed to enroll biometric device.',
+          error: true,
+        })
+      }
+    } catch (err: any) {
+      setBioMessage({
+        text: err.message || 'Biometric enrollment error.',
+        error: true,
+      })
+    } finally {
+      setIsEnrollingBio(false)
+    }
+  }
+
+  const handleRemoveBiometric = async (credentialId: string) => {
+    if (!window.confirm('Remove this biometric passkey?')) return
+    try {
+      const res = await fetch('/profile-lock/biometrics/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: activeProfile,
+          credential_id: credentialId,
+        }),
+      })
+      if (res.ok) {
+        setBioMessage({ text: 'Biometric passkey removed.', error: false })
+        await loadSecurity(activeProfile)
+      }
+    } catch {
+      setBioMessage({ text: 'Failed to remove biometric device.', error: true })
+    }
+  }
+
+  const handleUpdateMfaSettings = async (
+    mfa: boolean,
+    quickUnlock: boolean
+  ) => {
+    try {
+      const res = await fetch('/profile-lock/biometrics/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: activeProfile,
+          mfa_enabled: mfa,
+          biometrics_quick_unlock: quickUnlock,
+        }),
+      })
+      if (res.ok) {
+        await loadSecurity(activeProfile)
+      }
+    } catch {}
+  }
+
+  const handleTestBiometric = async () => {
+    setIsTestingBio(true)
+    setBioMessage(null)
+    try {
+      const res = await authenticateWithBiometrics(activeProfile)
+      if (res.ok) {
+        setBioMessage({
+          text: 'Biometric verification successful! Your passkey is active.',
+          error: false,
+        })
+      } else {
+        setBioMessage({
+          text: res.error || 'Biometric verification failed or cancelled.',
+          error: true,
+        })
+      }
+    } catch (err: any) {
+      setBioMessage({ text: err.message || 'Test failed.', error: true })
+    } finally {
+      setIsTestingBio(false)
+    }
+  }
+
+  const handleSavePin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newPinVal.trim()) {
+      setPinChangeError('PIN or Password cannot be empty.')
+      return
+    }
+    if (
+      newAuthType === 'pin' &&
+      (!/^\d+$/.test(newPinVal) ||
+        newPinVal.length < 3 ||
+        newPinVal.length > 16)
+    ) {
+      setPinChangeError('PIN must be 3-16 digits.')
+      return
+    }
+    if (newAuthType === 'password' && newPinVal.length < 3) {
+      setPinChangeError('Password must be at least 3 characters.')
+      return
+    }
+    if (newPinVal !== confirmPinVal) {
+      setPinChangeError('Passwords or PINs do not match.')
+      return
+    }
+
+    setIsSavingPin(true)
+    setPinChangeError('')
+    try {
+      const res = await fetch('/profile-lock/configure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: activeProfile,
+          auth_type: newAuthType,
+          credential: newPinVal.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && !data.error) {
+        setShowPinModal(false)
+        setNewPinVal('')
+        setConfirmPinVal('')
+        setBioMessage({
+          text: `Security credential updated for ${activeProfile}!`,
+          error: false,
+        })
+        await loadSecurity(activeProfile)
+      } else {
+        setPinChangeError(data.error || 'Failed to update PIN.')
+      }
+    } catch {
+      setPinChangeError('Network error updating security credentials.')
+    } finally {
+      setIsSavingPin(false)
+    }
+  }
 
   const [customVoices, setCustomVoices] = useState<any[]>([])
 
@@ -2311,6 +2521,206 @@ body {
                 </form>
               </div>
 
+              {/* Profile Security, MFA & Biometrics Section */}
+              <div className="pt-4 border-t border-[var(--border-dark)] space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400/90">
+                    <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Profile Security, MFA & Biometrics</span>
+                  </label>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-mono">
+                    {activeProfile}
+                  </span>
+                </div>
+
+                {bioMessage && (
+                  <div
+                    className={`p-3 rounded-xl border text-xs flex items-center justify-between gap-2 ${
+                      bioMessage.error
+                        ? 'bg-rose-950/40 border-rose-500/30 text-rose-300'
+                        : 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
+                    }`}
+                  >
+                    <span>{bioMessage.text}</span>
+                    <button
+                      type="button"
+                      onClick={() => setBioMessage(null)}
+                      className="text-gray-400 hover:text-white cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Primary Credential & Status Card */}
+                <div className="bg-[#0e2218] p-3.5 rounded-xl border border-[#1b432f] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs sm:text-sm font-semibold text-white flex items-center gap-1.5">
+                        <Key className="w-4 h-4 text-emerald-400" />
+                        <span>Primary Credential</span>
+                      </div>
+                      <p className="text-[11px] text-emerald-300/70 mt-0.5">
+                        {profileSecurity.locked
+                          ? `Secured with ${profileSecurity.auth_type.toUpperCase()}`
+                          : 'No PIN or password set yet'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPinModal(true)
+                        setNewAuthType(profileSecurity.auth_type === 'password' ? 'password' : 'pin')
+                        setPinChangeError('')
+                        setNewPinVal('')
+                        setConfirmPinVal('')
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-700/60 hover:bg-emerald-600 border border-emerald-500/40 text-xs font-semibold text-white transition cursor-pointer"
+                    >
+                      {profileSecurity.locked ? 'Change PIN/Password' : 'Set PIN/Password'}
+                    </button>
+                  </div>
+
+                  {/* Biometric Passkeys (WebAuthn / Fingerprint) */}
+                  <div className="pt-3 border-t border-[#1b432f] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Fingerprint className="w-4 h-4 text-teal-400" />
+                        <div>
+                          <div className="text-xs sm:text-sm font-semibold text-white">
+                            Biometric Passkeys & 2FA
+                          </div>
+                          <p className="text-[11px] text-emerald-300/70">
+                            Fingerprint, Touch ID, Face ID, Android Biometrics & Windows Hello
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleEnrollBiometric}
+                        disabled={isEnrollingBio || !bioSupported}
+                        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-teal-600 to-emerald-600 hover:opacity-90 disabled:opacity-40 text-xs font-semibold text-white flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+                        title={!bioSupported ? 'Biometrics require HTTPS, localhost, or supported platform' : ''}
+                      >
+                        <Fingerprint className="w-3.5 h-3.5" />
+                        <span>{isEnrollingBio ? 'Enrolling...' : 'Enroll Device'}</span>
+                      </button>
+                    </div>
+
+                    {!bioSupported && (
+                      <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300/90">
+                        Notice: WebAuthn hardware biometrics require HTTPS or localhost. If connecting across LAN via HTTP, enrollment is enabled on the host server or via SSL proxy.
+                      </div>
+                    )}
+
+                    {/* Enrolled Keys List */}
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-medium text-emerald-400/80 uppercase tracking-wider">
+                        Enrolled Biometric Keys ({biometricsList.length})
+                      </div>
+                      {biometricsList.length === 0 ? (
+                        <div className="p-3 rounded-lg bg-[#081710] border border-[#173827] text-xs text-gray-400 text-center">
+                          No biometric passkeys enrolled for this profile yet.
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {biometricsList.map(b => (
+                            <div
+                              key={b.id}
+                              className="p-2.5 rounded-lg bg-[#081710] border border-[#173827] flex items-center justify-between text-xs"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Fingerprint className="w-3.5 h-3.5 text-emerald-400" />
+                                <div>
+                                  <span className="font-semibold text-white">{b.name}</span>
+                                  <span className="text-[10px] text-gray-400 ml-2">
+                                    {b.created_at ? new Date(b.created_at * 1000).toLocaleDateString() : ''}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveBiometric(b.id)}
+                                className="p-1 rounded text-gray-400 hover:text-rose-400 hover:bg-rose-950/40 transition cursor-pointer"
+                                title="Remove key"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* MFA and Quick Unlock Toggles */}
+                    <div className="pt-2 border-t border-[#1b432f] space-y-2.5">
+                      {/* MFA 2FA Toggle */}
+                      <label className="flex items-center justify-between cursor-pointer group">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors">
+                            Require Two-Factor Authentication (MFA)
+                          </div>
+                          <div className="text-[11px] text-emerald-300/70">
+                            Requires both PIN/Password AND biometric passkey to sign in.
+                          </div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={profileSecurity.mfa_enabled}
+                          disabled={biometricsList.length === 0}
+                          onChange={e =>
+                            handleUpdateMfaSettings(
+                              e.target.checked,
+                              profileSecurity.biometrics_quick_unlock
+                            )
+                          }
+                          className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400/40 bg-black/40 border-white/20 cursor-pointer disabled:opacity-40"
+                        />
+                      </label>
+
+                      {/* Quick Biometric Unlock Toggle */}
+                      <label className="flex items-center justify-between cursor-pointer group">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors">
+                            Biometric Quick Unlock
+                          </div>
+                          <div className="text-[11px] text-emerald-300/70">
+                            Allow one-tap fingerprint/face unlock on the lock screen without typing PIN.
+                          </div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={profileSecurity.biometrics_quick_unlock}
+                          disabled={biometricsList.length === 0}
+                          onChange={e =>
+                            handleUpdateMfaSettings(
+                              profileSecurity.mfa_enabled,
+                              e.target.checked
+                            )
+                          }
+                          className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400/40 bg-black/40 border-white/20 cursor-pointer disabled:opacity-40"
+                        />
+                      </label>
+                    </div>
+
+                    {/* Test Biometrics Button */}
+                    {biometricsList.length > 0 && (
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={handleTestBiometric}
+                          disabled={isTestingBio}
+                          className="w-full py-2 rounded-lg bg-[#143224] hover:bg-[#1b432f] border border-[#214c36] text-xs font-semibold text-emerald-300 hover:text-white flex items-center justify-center gap-1.5 transition cursor-pointer"
+                        >
+                          <Fingerprint className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{isTestingBio ? 'Testing Biometric Sensor...' : 'Test Biometric Verification Now'}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Logout & Lock Option */}
               <div className="pt-2 border-t border-[var(--border-dark)]">
                 <div className="bg-[#151c18] p-3.5 rounded-xl border border-[#213b2c] flex items-center justify-between gap-3">
@@ -2789,6 +3199,113 @@ body {
           ) : null}
         </div>
       </div>
+
+      {/* Set / Change PIN or Password Modal */}
+      {showPinModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-sm bg-[#0d1612] border border-white/15 rounded-3xl p-6 shadow-2xl text-left text-white space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                  <Key className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white">
+                    {profileSecurity.locked ? 'Change PIN / Password' : 'Set PIN / Password'}
+                  </h3>
+                  <p className="text-[10px] text-gray-400">For profile: {activeProfile}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPinModal(false)}
+                className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePin} className="space-y-3.5">
+              {/* Type selector: PIN vs Password */}
+              <div className="grid grid-cols-2 gap-2 p-1 bg-black/40 rounded-xl border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setNewAuthType('pin')}
+                  className={`py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    newAuthType === 'pin'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Numeric PIN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewAuthType('password')}
+                  className={`py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    newAuthType === 'password'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Password
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-gray-300">
+                  New {newAuthType === 'pin' ? 'PIN (3-16 digits)' : 'Password (min 3 chars)'}
+                </label>
+                <input
+                  type={newAuthType === 'pin' ? 'text' : 'password'}
+                  inputMode={newAuthType === 'pin' ? 'numeric' : 'text'}
+                  value={newPinVal}
+                  onChange={e => setNewPinVal(e.target.value)}
+                  placeholder={newAuthType === 'pin' ? 'e.g. 1234' : 'Enter secure password'}
+                  className="w-full px-3 py-2 rounded-xl bg-black/50 border border-white/15 focus:border-emerald-400 text-xs sm:text-sm text-white placeholder-gray-500"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-gray-300">
+                  Confirm {newAuthType === 'pin' ? 'PIN' : 'Password'}
+                </label>
+                <input
+                  type={newAuthType === 'pin' ? 'text' : 'password'}
+                  inputMode={newAuthType === 'pin' ? 'numeric' : 'text'}
+                  value={confirmPinVal}
+                  onChange={e => setConfirmPinVal(e.target.value)}
+                  placeholder="Re-enter to confirm"
+                  className="w-full px-3 py-2 rounded-xl bg-black/50 border border-white/15 focus:border-emerald-400 text-xs sm:text-sm text-white placeholder-gray-500"
+                  required
+                />
+              </div>
+
+              {pinChangeError && (
+                <p className="text-xs text-rose-400 font-medium">{pinChangeError}</p>
+              )}
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPinModal(false)}
+                  className="flex-1 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-gray-300 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPin || !newPinVal.trim()}
+                  className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white transition disabled:opacity-50 cursor-pointer shadow-sm"
+                >
+                  {isSavingPin ? 'Saving...' : 'Save Credential'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

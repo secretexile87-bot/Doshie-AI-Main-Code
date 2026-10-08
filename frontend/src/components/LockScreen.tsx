@@ -16,8 +16,10 @@ import {
   AlertCircle,
   Lock,
   RefreshCw,
+  Fingerprint,
 } from 'lucide-react'
 import type { GuiCustomization, Profile } from '../types'
+import { isBiometricsSupported, authenticateWithBiometrics } from '../utils/webauthn'
 
 interface LockScreenProps {
   isLocked: boolean
@@ -41,6 +43,11 @@ export const LockScreen: React.FC<LockScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [biometricsAvailable, setBiometricsAvailable] = useState(false)
+  const [profileHasBiometrics, setProfileHasBiometrics] = useState(false)
+  const [isBiometricAuthenticating, setIsBiometricAuthenticating] = useState(false)
+  const [pendingMfaToken, setPendingMfaToken] = useState<string | null>(null)
+  const [mfaRequired, setMfaRequired] = useState(false)
   // Reset Password / PIN State
   const [showResetModal, setShowResetModal] = useState(false)
   const [resetStep, setResetStep] = useState<'request' | 'verify' | 'reset' | 'success'>('request')
@@ -239,7 +246,63 @@ export const LockScreen: React.FC<LockScreenProps> = ({
     }
   }, [activeProfile])
 
+  useEffect(() => {
+    let active = true
+    const checkBio = async () => {
+      const supported = await isBiometricsSupported()
+      if (!active) return
+      setBiometricsAvailable(supported)
+
+      const target = selectedProfile.trim() || 'Hermes'
+      const matched = availableProfiles.find(
+        p => p.name.toLowerCase() === target.toLowerCase()
+      )
+      if (matched && matched.has_biometrics !== undefined) {
+        setProfileHasBiometrics(!!matched.has_biometrics)
+      } else {
+        try {
+          const res = await fetch(
+            `/profile-lock/status?profile=${encodeURIComponent(target)}`
+          )
+          if (res.ok) {
+            const data = await res.json()
+            if (active) {
+              setProfileHasBiometrics(!!data.has_biometrics)
+            }
+          }
+        } catch {}
+      }
+    }
+    checkBio()
+    return () => {
+      active = false
+    }
+  }, [selectedProfile, availableProfiles])
+
   if (!isLocked) return null
+
+  const handleBiometricUnlock = async (mfaTokenOverride?: string) => {
+    const targetProfile = selectedProfile.trim() || 'Hermes'
+    const tokenToUse = mfaTokenOverride || pendingMfaToken || undefined
+    setIsBiometricAuthenticating(true)
+    setErrorMsg('')
+
+    try {
+      const res = await authenticateWithBiometrics(targetProfile, tokenToUse)
+      if (res.ok && res.unlocked) {
+        setCredential('')
+        setPendingMfaToken(null)
+        setMfaRequired(false)
+        onUnlock(targetProfile)
+      } else {
+        setErrorMsg(res.error || 'Biometric verification failed. You can unlock with PIN or password.')
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Biometric authentication was cancelled or unavailable.')
+    } finally {
+      setIsBiometricAuthenticating(false)
+    }
+  }
 
   const handleAttemptUnlock = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -265,7 +328,17 @@ export const LockScreen: React.FC<LockScreenProps> = ({
 
       const data = await res.json()
       if (data.ok) {
+        if (data.mfa_required && data.mfa_token) {
+          setPendingMfaToken(data.mfa_token)
+          setMfaRequired(true)
+          setIsSubmitting(false)
+          // Automatically trigger biometric passkey prompt for 2FA
+          handleBiometricUnlock(data.mfa_token)
+          return
+        }
         setCredential('')
+        setPendingMfaToken(null)
+        setMfaRequired(false)
         onUnlock(targetProfile)
       } else {
         setErrorMsg(data.error || 'Incorrect PIN or password')
@@ -405,85 +478,153 @@ export const LockScreen: React.FC<LockScreenProps> = ({
             ))}
           </datalist>
 
-          {/* Unlock Form */}
-          <form onSubmit={handleAttemptUnlock} className="space-y-3">
-            {/* Editable Profile Name Field */}
-            <div className="text-left space-y-1">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--accent-light)] flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-[var(--accent)]" />
-                <span>Profile Name</span>
-              </label>
-              <input
-                type="text"
-                value={selectedProfile}
-                list="lockscreen-profile-list"
-                onChange={e => {
-                  setSelectedProfile(e.target.value)
-                  setErrorMsg('')
-                }}
-                placeholder="Type profile name (e.g. Hermes)"
-                autoCapitalize="words"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/15 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:outline-none text-xs sm:text-sm text-white placeholder-gray-500 font-medium"
-                required
-              />
-            </div>
-
-            {/* PIN or Password Field */}
-            <div className="text-left space-y-1">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--accent-light)] flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Key className="w-3.5 h-3.5 text-[var(--accent)]" />
-                  <span>PIN or Password</span>
-                </span>
-                <span className="text-[10px] text-gray-400 font-normal lowercase">(required)</span>
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={credential}
-                  onChange={e => {
-                    setCredential(e.target.value)
-                    setErrorMsg('')
-                  }}
-                  placeholder={`Enter PIN or password for ${selectedProfile || 'Profile'}`}
-                  className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-black/50 border border-white/15 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:outline-none text-xs sm:text-sm text-white placeholder-gray-500"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-[var(--accent-light)] transition-colors cursor-pointer"
-                  title={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+          {/* MFA 2FA Biometric Prompt */}
+          {mfaRequired ? (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-left space-y-3 animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                  <Fingerprint className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-xs sm:text-sm text-white">Two-Factor Authentication</h4>
+                  <p className="text-[10px] text-amber-300/80">Step 1 verified • Complete sign-in with biometrics</p>
+                </div>
               </div>
-            </div>
 
-            {errorMsg && (
-              <p className="text-xs text-rose-400 font-medium animate-pulse">{errorMsg}</p>
-            )}
+              {errorMsg && (
+                <p className="text-xs text-rose-400 font-medium">{errorMsg}</p>
+              )}
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-hover)] hover:opacity-90 active:scale-98 text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition duration-150 shadow-lg shadow-black/50 cursor-pointer disabled:opacity-50 mt-1"
-            >
-              <Unlock className="w-4 h-4" />
-              <span>{isSubmitting ? 'Logging in...' : `Log In as ${selectedProfile || 'Profile'}`}</span>
-            </button>
-
-            {/* Forgot PIN / Password Trigger */}
-            <div className="pt-2 text-center">
               <button
                 type="button"
-                onClick={openResetModal}
-                className="text-[11px] text-[var(--accent-light)] hover:text-white underline underline-offset-4 opacity-80 hover:opacity-100 transition-opacity cursor-pointer font-medium"
+                onClick={() => handleBiometricUnlock()}
+                disabled={isBiometricAuthenticating}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 active:scale-98 text-black text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-amber-950/40 cursor-pointer disabled:opacity-50"
               >
-                Forgot PIN or Password? Reset via Phone or Email
+                <Fingerprint className="w-4 h-4 animate-pulse" />
+                <span>{isBiometricAuthenticating ? 'Scanning Passkey / Biometrics...' : 'Verify Biometric (Touch Sensor)'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMfaRequired(false)
+                  setPendingMfaToken(null)
+                  setErrorMsg('')
+                }}
+                className="w-full py-1.5 text-center text-[11px] text-gray-400 hover:text-white underline cursor-pointer"
+              >
+                Back to PIN / Password
               </button>
             </div>
-          </form>
+          ) : (
+            <>
+              {/* Biometric Quick Unlock (When Available & Profile Enrolled) */}
+              {profileHasBiometrics && biometricsAvailable && (
+                <div className="mb-4 space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => handleBiometricUnlock()}
+                    disabled={isBiometricAuthenticating}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 active:scale-98 text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-2.5 transition duration-150 shadow-lg shadow-emerald-950/50 cursor-pointer disabled:opacity-50 border border-emerald-400/40"
+                  >
+                    <Fingerprint className="w-4 h-4 text-emerald-200 animate-pulse" />
+                    <span>
+                      {isBiometricAuthenticating
+                        ? 'Scanning Passkey...'
+                        : `Unlock with Biometrics (${selectedProfile || 'Profile'})`}
+                    </span>
+                  </button>
+
+                  <div className="flex items-center my-2 gap-2 text-gray-500 text-[11px]">
+                    <div className="flex-1 h-px bg-white/10" />
+                    <span>or use PIN / Password</span>
+                    <div className="flex-1 h-px bg-white/10" />
+                  </div>
+                </div>
+              )}
+
+              {/* Unlock Form */}
+              <form onSubmit={handleAttemptUnlock} className="space-y-3">
+                {/* Editable Profile Name Field */}
+                <div className="text-left space-y-1">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--accent-light)] flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-[var(--accent)]" />
+                    <span>Profile Name</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedProfile}
+                    list="lockscreen-profile-list"
+                    onChange={e => {
+                      setSelectedProfile(e.target.value)
+                      setErrorMsg('')
+                    }}
+                    placeholder="Type profile name (e.g. Hermes)"
+                    autoCapitalize="words"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/15 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:outline-none text-xs sm:text-sm text-white placeholder-gray-500 font-medium"
+                    required
+                  />
+                </div>
+
+                {/* PIN or Password Field */}
+                <div className="text-left space-y-1">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--accent-light)] flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Key className="w-3.5 h-3.5 text-[var(--accent)]" />
+                      <span>PIN or Password</span>
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-normal lowercase">(required)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={credential}
+                      onChange={e => {
+                        setCredential(e.target.value)
+                        setErrorMsg('')
+                      }}
+                      placeholder={`Enter PIN or password for ${selectedProfile || 'Profile'}`}
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-black/50 border border-white/15 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 focus:outline-none text-xs sm:text-sm text-white placeholder-gray-500"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-[var(--accent-light)] transition-colors cursor-pointer"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {errorMsg && (
+                  <p className="text-xs text-rose-400 font-medium animate-pulse">{errorMsg}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-hover)] hover:opacity-90 active:scale-98 text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition duration-150 shadow-lg shadow-black/50 cursor-pointer disabled:opacity-50 mt-1"
+                >
+                  <Unlock className="w-4 h-4" />
+                  <span>{isSubmitting ? 'Logging in...' : `Log In as ${selectedProfile || 'Profile'}`}</span>
+                </button>
+
+                {/* Forgot PIN / Password Trigger */}
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={openResetModal}
+                    className="text-[11px] text-[var(--accent-light)] hover:text-white underline underline-offset-4 opacity-80 hover:opacity-100 transition-opacity cursor-pointer font-medium"
+                  >
+                    Forgot PIN or Password? Reset via Phone or Email
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
         </div>
       </div>
 

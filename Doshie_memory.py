@@ -1859,6 +1859,22 @@ def smart_recall(query, limit=5, profile="Hermes", scope=None):
         "school": {
             "school", "class", "classes", "course", "homework", "study"
         },
+        "location": {
+            "live", "location", "city", "state", "reside", "address", "town",
+            "hometown", "place", "where", "living", "paso", "texas"
+        },
+        "communication": {
+            "talk", "speak", "answer", "reply", "respond", "response",
+            "responses", "style", "short", "sweet", "concise", "brief",
+            "brevity"
+        },
+        "food": {
+            "food", "cook", "prepare", "recipe", "dish", "marinate",
+            "marinade", "eat", "meal", "dinner", "lunch"
+        },
+        "music": {
+            "music", "song", "band", "artist", "listen", "album", "track"
+        },
     }
 
     expanded = set(query_words)
@@ -1941,7 +1957,7 @@ def smart_recall(query, limit=5, profile="Hermes", scope=None):
                 score += 8
 
         # Ignore weak accidental matches.
-        if score >= 8:
+        if score >= 8 or (len(query_words) <= 3 and score >= 4):
             scored.append((score, row))
 
     scored.sort(
