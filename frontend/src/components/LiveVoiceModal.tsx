@@ -138,19 +138,6 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     } catch {}
   }
 
-  const ensureMicrophonePermission = async (): Promise<boolean> => {
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        stream.getTracks().forEach((track) => track.stop())
-        return true
-      }
-    } catch (err) {
-      console.warn('Microphone permission request failed:', err)
-      return false
-    }
-    return true
-  }
 
   const handleInterrupt = (initialSpokenText?: string) => {
     isInterruptedRef.current = true
@@ -192,8 +179,12 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
     // Web Speech API transcript detection: Only triggers when user actually speaks words (e.g. "stop", "hold on")
     // Acoustic Echo Cancellation in Web Speech filters out speaker output so Doshie does not self-interrupt
-    const isElectron = !!(window as any).process?.versions?.electron || navigator.userAgent.includes('Electron')
-    const SpeechRec = (webSpeechSupportedRef.current !== false) && !isElectron &&
+    const isCapacitor = Boolean((window as any).Capacitor?.isNativePlatform?.() || (window as any).Capacitor)
+    const isElectron = Boolean((window as any).process?.versions?.electron || navigator.userAgent.includes('Electron'))
+    const isAndroid = /Android/i.test(navigator.userAgent)
+    const preferServerWhisper = isCapacitor || isElectron || isAndroid
+
+    const SpeechRec = !preferServerWhisper && (webSpeechSupportedRef.current !== false) &&
       ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
 
     if (SpeechRec) {
@@ -331,15 +322,10 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             return
           }
 
-          if (errType === 'network' || errType === 'service-not-allowed') {
-            // Network speech service offline or blocked; fall back to server Whisper STT
+          if (errType === 'network' || errType === 'service-not-allowed' || errType === 'not-allowed') {
+            // Speech service unavailable, denied, or not supported; fall back to server Whisper STT
             webSpeechSupportedRef.current = false
             finish(recognizedText)
-            return
-          }
-
-          if (errType === 'not-allowed') {
-            finish('')
             return
           }
 
@@ -374,8 +360,9 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         },
       })
       mediaStreamRef.current = stream
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Microphone stream access error:', err)
+      setAssistantText('Microphone permission needed. Please allow microphone access in your browser or Android settings.')
       return ''
     }
 
@@ -430,12 +417,17 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         if (AudioCtx) {
           try {
             audioCtx = new AudioCtx()
+            if (audioCtx.state === 'suspended') {
+              audioCtx.resume().catch(() => {})
+            }
             const source = audioCtx.createMediaStreamSource(activeStream)
             analyser = audioCtx.createAnalyser()
             analyser.fftSize = 512
             analyser.smoothingTimeConstant = 0.3
             source.connect(analyser)
-          } catch {}
+          } catch (e) {
+            console.warn('AudioContext init error:', e)
+          }
         }
 
         mediaRecorder.ondataavailable = (e) => {
@@ -447,13 +439,15 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         mediaRecorder.onstop = async () => {
           releaseResources()
 
-          if (!hasSpoken || chunks.length === 0 || isCancelledRef.current) {
+          if (chunks.length === 0 || isCancelledRef.current) {
             safeResolve('')
             return
           }
 
           const audioBlob = new Blob(chunks, { type: mediaRecorder?.mimeType || 'audio/webm' })
-          if (audioBlob.size < 2500) {
+
+          // If speech was not flagged and the audio chunk is tiny (< 5KB), treat as ambient silence
+          if (!hasSpoken && audioBlob.size < 5000) {
             safeResolve('')
             return
           }
@@ -469,7 +463,8 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             })
             if (res.ok) {
               const data = await res.json()
-              safeResolve(String(data.text || '').trim())
+              const text = String(data.text || '').trim()
+              safeResolve(text)
             } else {
               safeResolve('')
             }
@@ -515,6 +510,9 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
           const checkAudio = () => {
             if (isResolved || isCancelledRef.current) return
+            if (audioCtx && audioCtx.state === 'suspended') {
+              audioCtx.resume().catch(() => {})
+            }
             analyser!.getByteFrequencyData(dataArray)
             let sum = 0
             for (let i = 0; i < dataArray.length; i++) {
@@ -523,34 +521,34 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             const avg = sum / dataArray.length
             frameCount++
 
-            if (frameCount < 20) {
-              noiseFloor = Math.max(4, Math.min(noiseFloor, avg))
+            if (frameCount < 15) {
+              noiseFloor = Math.max(2, Math.min(noiseFloor, avg))
             }
 
-            const speechThreshold = Math.max(12, noiseFloor + 8)
+            const speechThreshold = Math.max(5, noiseFloor + 3)
             const elapsed = Date.now() - recordStart
 
             if (avg > speechThreshold) {
               speechFrameCount++
-              if (speechFrameCount > 3) {
+              if (speechFrameCount >= 2) {
                 hasSpoken = true
                 silenceStart = 0
               }
             } else if (hasSpoken) {
               if (silenceStart === 0) {
                 silenceStart = Date.now()
-              } else if (Date.now() - silenceStart > 1300) {
-                // Natural 1.3s pause after speech
+              } else if (Date.now() - silenceStart > 1200) {
+                // Natural 1.2s pause after speech
                 stopRecordingNow(true)
                 return
               }
-            } else if (elapsed > 7000) {
-              // 7s ambient silence without speech - finish turn cleanly
+            } else if (elapsed > 6000) {
+              // 6s ambient silence without speech - finish turn cleanly
               stopRecordingNow(false)
               return
             }
 
-            if (elapsed > 18000) {
+            if (elapsed > 16000) {
               stopRecordingNow(hasSpoken)
               return
             }
@@ -578,23 +576,26 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
       let userSpoken = ''
 
-      // Attempt Web Speech API first (if available in Chrome desktop/mobile)
-      const isElectron = !!(window as any).process?.versions?.electron || navigator.userAgent.includes('Electron')
-      const SpeechRec = (webSpeechSupportedRef.current !== false) && !isElectron &&
+      const isCapacitor = Boolean((window as any).Capacitor?.isNativePlatform?.() || (window as any).Capacitor)
+      const isElectron = Boolean((window as any).process?.versions?.electron || navigator.userAgent.includes('Electron'))
+      const isAndroid = /Android/i.test(navigator.userAgent)
+      const preferServerWhisper = isCapacitor || isElectron || isAndroid
+
+      // Attempt Web Speech API first (only in standard desktop Chrome / Safari)
+      const SpeechRec = !preferServerWhisper && (webSpeechSupportedRef.current !== false) &&
         ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
 
       if (SpeechRec) {
         try {
           userSpoken = await listenWithWebSpeech(SpeechRec)
         } catch {
+          webSpeechSupportedRef.current = false
           userSpoken = ''
         }
-      } else {
-        webSpeechSupportedRef.current = false
       }
 
-      // If Web Speech is unavailable (Electron, Firefox, Android without Google Speech) or failed with error, use server Whisper
-      if (!userSpoken && webSpeechSupportedRef.current === false && !isCancelledRef.current) {
+      // Route through workstation GPU Whisper STT (/transcribe) on Android/Capacitor or when Web Speech produced no text
+      if (!userSpoken && !isCancelledRef.current) {
         try {
           userSpoken = await recordAndTranscribe()
         } catch (err) {
@@ -612,7 +613,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             if (isContinuousRef.current && !isCancelledRef.current) {
               runVoiceTurn()
             }
-          }, 150)
+          }, 200)
         }
         return
       }
@@ -725,11 +726,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       setAssistantText('I’m listening. Talk to me anytime!')
       setTranscript('')
       unlockAudioContext()
-      ensureMicrophonePermission().then(() => {
-        if (!isCancelledRef.current) {
-          runVoiceTurn()
-        }
-      })
+      runVoiceTurn()
     } else {
       cleanupAllVoice()
     }
