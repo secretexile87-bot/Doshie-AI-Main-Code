@@ -445,11 +445,12 @@ export const LockScreen: React.FC<LockScreenProps> = ({
         </div>
 
         {/* Small time till next season on top */}
-        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-xs text-[var(--accent-light)] font-medium shadow-lg">
-          <span className="text-sm">{seasonal.icon}</span>
+        <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-[11px] sm:text-xs text-[var(--accent-light)] font-medium shadow-lg whitespace-nowrap">
+          <span className="text-xs sm:text-sm">{seasonal.icon}</span>
           <span className="text-white font-semibold">{seasonal.seasonName}</span>
-          <span className="text-white/40">•</span>
-          <span className="font-mono text-[11px] text-[var(--accent-light)]">{seasonal.countdownText}</span>
+          <span className="text-white/40 hide-on-ultranarrow">•</span>
+          <span className="font-mono text-[10px] text-[var(--accent-light)] seasonal-mobile-short hide-on-ultranarrow">{seasonal.daysUntilNext}d to {seasonal.nextSeasonName}</span>
+          <span className="font-mono text-[11px] text-[var(--accent-light)] seasonal-desktop-full">{seasonal.countdownText}</span>
         </div>
 
         <div className="flex items-center gap-2 text-xs text-gray-400">

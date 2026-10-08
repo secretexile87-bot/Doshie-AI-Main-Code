@@ -527,3 +527,28 @@ pre[class*="language-"] {
   animation: thinking-wave 1.2s ease-in-out infinite 0.4s;
 }
 
+/* Responsive rules for seasonal badge and compact Fold devices */
+@media (max-width: 339px) {
+  .hide-on-ultranarrow {
+    display: none !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .seasonal-mobile-short {
+    display: inline !important;
+  }
+  .seasonal-desktop-full {
+    display: none !important;
+  }
+}
+
+@media (min-width: 640px) {
+  .seasonal-mobile-short {
+    display: none !important;
+  }
+  .seasonal-desktop-full {
+    display: inline !important;
+  }
+}
+
