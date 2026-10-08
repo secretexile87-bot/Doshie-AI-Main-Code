@@ -15,6 +15,7 @@ import {
   Wrench,
   Shield,
   Eye,
+  Mic,
 } from 'lucide-react'
 import type { ChatSession, AntigravitySummary, Profile } from '../types'
 
@@ -107,19 +108,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
   availableProfiles = [],
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
+  const [sessionFilter, setSessionFilter] = useState<'all' | 'chats' | 'voice'>('all')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
 
+  // Counts for chats vs voice calls
+  const chatCount = useMemo(() => sessions.filter(s => !s.is_voice).length, [sessions])
+  const voiceCount = useMemo(() => sessions.filter(s => Boolean(s.is_voice)).length, [sessions])
+
   // Filter and group Doshie sessions
   const filteredSessions = useMemo(() => {
-    if (!searchQuery.trim()) return sessions
+    let list = sessions
+    if (sessionFilter === 'chats') {
+      list = list.filter(s => !s.is_voice)
+    } else if (sessionFilter === 'voice') {
+      list = list.filter(s => Boolean(s.is_voice))
+    }
+
+    if (!searchQuery.trim()) return list
     const q = searchQuery.toLowerCase()
-    return sessions.filter(
+    return list.filter(
       s =>
         s.title.toLowerCase().includes(q) ||
         s.messages.some(m => m.content.toLowerCase().includes(q))
     )
-  }, [sessions, searchQuery])
+  }, [sessions, searchQuery, sessionFilter])
 
   const groupedSessions = useMemo(() => {
     const groups: Record<string, ChatSession[]> = {
@@ -320,6 +333,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
+        {/* Filter Pills for Doshie Tab: All / Chats / Voice */}
+        {activeTab === 'doshie' && (
+          <div className="px-3 pb-2">
+            <div className="grid grid-cols-3 gap-1 p-0.5 rounded-xl bg-[var(--card-dark)] border border-[var(--border-dark)] text-[10.5px]">
+              <button
+                onClick={() => setSessionFilter('all')}
+                className={`py-1 px-1 rounded-lg font-medium transition-all text-center truncate cursor-pointer ${
+                  sessionFilter === 'all'
+                    ? 'bg-white/15 text-white shadow-xs font-semibold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                All ({sessions.length})
+              </button>
+              <button
+                onClick={() => setSessionFilter('chats')}
+                className={`py-1 px-1 rounded-lg font-medium transition-all text-center truncate flex items-center justify-center gap-1 cursor-pointer ${
+                  sessionFilter === 'chats'
+                    ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 shadow-xs font-semibold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <span>Chats</span>
+                <span>({chatCount})</span>
+              </button>
+              <button
+                onClick={() => setSessionFilter('voice')}
+                className={`py-1 px-1 rounded-lg font-medium transition-all text-center truncate flex items-center justify-center gap-1 cursor-pointer ${
+                  sessionFilter === 'voice'
+                    ? 'bg-rose-500/25 text-rose-300 border border-rose-500/40 shadow-xs font-semibold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Mic className="w-2.5 h-2.5 flex-none" />
+                <span>Voice</span>
+                <span>({voiceCount})</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Sessions / Transcripts List Scroll Area */}
         <div className="flex-1 overflow-y-auto px-2 space-y-4 py-1 text-xs">
           {activeTab === 'doshie' ? (
@@ -343,9 +397,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* Doshie Chats List */}
               {filteredSessions.length === 0 ? (
                 <div className="text-center py-8 px-4 text-neutral-400">
-                  <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  <p>{searchQuery ? 'No chats match your search.' : `No conversations saved for ${oversightProfile || activeProfile}.`}</p>
-                  <p className="text-[10px] mt-1 text-[var(--accent-light)]/80">Start a new chat to begin!</p>
+                  {sessionFilter === 'voice' ? (
+                    <>
+                      <Mic className="w-8 h-8 mx-auto mb-2 text-rose-400 opacity-60" />
+                      <p>{searchQuery ? 'No voice calls match your search.' : 'No Live Voice conversations yet.'}</p>
+                      <p className="text-[10px] mt-1 text-rose-300/80">Tap Live Voice above to talk with Doshie!</p>
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                      <p>{searchQuery ? 'No chats match your search.' : `No conversations saved for ${oversightProfile || activeProfile}.`}</p>
+                      <p className="text-[10px] mt-1 text-[var(--accent-light)]/80">Start a new chat to begin!</p>
+                    </>
+                  )}
                 </div>
               ) : (
               Object.entries(groupedSessions).map(([category, items]) => {
@@ -358,6 +422,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {items.map(s => {
                       const isActive = activeSessionId === s.id
                       const isEditing = editingId === s.id
+                      const isVoice = Boolean(s.is_voice)
 
                       return (
                         <div
@@ -368,16 +433,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           }}
                           className={`group relative flex items-center justify-between px-2.5 py-2 rounded-xl transition-all cursor-pointer ${
                             isActive
-                              ? 'bg-[var(--card-hover)] border border-[var(--accent)]/50 text-white shadow-sm'
+                              ? isVoice
+                                ? 'bg-rose-950/40 border border-rose-500/50 text-white shadow-sm'
+                                : 'bg-[var(--card-hover)] border border-[var(--accent)]/50 text-white shadow-sm'
                               : 'text-neutral-300 hover:text-white hover:bg-[var(--card-dark)] border border-transparent'
                           }`}
                         >
                           <div className="flex items-center gap-2 overflow-hidden flex-1 mr-1">
-                            <MessageSquare
-                              className={`w-3.5 h-3.5 flex-none ${
-                                isActive ? 'text-[var(--accent-light)]' : 'text-neutral-500'
-                              }`}
-                            />
+                            {isVoice ? (
+                              <div className={`p-1 rounded-lg ${isActive ? 'bg-rose-500/30 text-rose-300' : 'bg-rose-950/30 text-rose-400/80'}`}>
+                                <Mic className="w-3.5 h-3.5 flex-none" />
+                              </div>
+                            ) : (
+                              <MessageSquare
+                                className={`w-3.5 h-3.5 flex-none ${
+                                  isActive ? 'text-[var(--accent-light)]' : 'text-neutral-500'
+                                }`}
+                              />
+                            )}
                             {isEditing ? (
                               <form
                                 onSubmit={e => handleSaveRename(s.id, e)}
@@ -398,10 +471,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               </form>
                             ) : (
                               <div className="truncate flex-1">
-                                <span className="block truncate font-medium text-[12.5px]">{s.title}</span>
+                                <div className="flex items-center gap-1.5 truncate">
+                                  <span className="truncate font-medium text-[12.5px]">{s.title}</span>
+                                  {isVoice && (
+                                    <span className="text-[9px] px-1 py-0.2 rounded font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex-none">
+                                      Voice
+                                    </span>
+                                  )}
+                                </div>
                                 <span className="text-[10px] text-neutral-400 flex items-center gap-1 mt-0.5">
                                   <Clock className="w-2.5 h-2.5" />
-                                  {formatRelativeTime(s.updated_at || s.created_at)} · {s.messages.length} msgs
+                                  {formatRelativeTime(s.updated_at || s.created_at)} · {s.messages.length} {isVoice ? 'turns' : 'msgs'}
                                 </span>
                               </div>
                             )}

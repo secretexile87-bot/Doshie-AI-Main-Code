@@ -174,6 +174,7 @@ export interface ChatSession {
   messages: Message[]
   created_at: number
   updated_at: number
+  is_voice?: boolean
 }
 
 export interface AntigravitySummary {

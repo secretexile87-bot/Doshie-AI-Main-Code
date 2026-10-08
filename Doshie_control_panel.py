@@ -1007,13 +1007,16 @@ def api_save_chat_session():
     # Find existing session or append new
     idx = next((i for i, s in enumerate(profile_sessions) if s.get("id") == session_id), None)
     now_ts = int(time.time() * 1000)
+    existing_session = profile_sessions[idx] if idx is not None else {}
+    is_voice = bool(data.get("is_voice", existing_session.get("is_voice", False)))
 
     session_obj = {
         "id": session_id,
         "title": title,
         "messages": messages,
-        "created_at": profile_sessions[idx].get("created_at", now_ts) if idx is not None else now_ts,
+        "created_at": existing_session.get("created_at", now_ts),
         "updated_at": now_ts,
+        "is_voice": is_voice,
     }
 
     if idx is not None:

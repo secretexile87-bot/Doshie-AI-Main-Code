@@ -286,6 +286,7 @@ export function App() {
   }, [])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const voiceSessionIdRef = useRef<string | null>(null)
   const [, startTransition] = useTransition()
 
   // Revert UI to clean Home state
@@ -299,6 +300,7 @@ export function App() {
     setIsVoiceStudioOpen(false)
     setIsAgentHubOpen(false)
     setSelectedAgent(null)
+    voiceSessionIdRef.current = null
     stopSpeech()
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -466,7 +468,7 @@ export function App() {
   }, [activeProfile])
 
   // Sync active session messages into session list and persistent storage
-  const syncSessionMessages = (newMessages: Message[], targetSessionId?: string) => {
+  const syncSessionMessages = (newMessages: Message[], targetSessionId?: string, isVoiceSession?: boolean) => {
     const sId = targetSessionId || activeSessionId
     if (!sId) return
 
@@ -474,25 +476,45 @@ export function App() {
     const persistableMessages = sanitizeMessages(newMessages)
 
     setSessions(prev => {
-      const updated = prev.map(s => {
-        if (s.id === sId) {
-          // If title was default or short, auto-name from first user prompt
-          let autoTitle = s.title
-          if ((!s.title || s.title === 'New Chat') && persistableMessages.length > 0) {
-            const firstUser = persistableMessages.find(m => m.role === 'user')
-            if (firstUser && firstUser.content) {
-              autoTitle = firstUser.content.slice(0, 45).trim() + (firstUser.content.length > 45 ? '...' : '')
+      const exists = prev.some(s => s.id === sId)
+      let updated: ChatSession[]
+
+      if (!exists) {
+        const firstUser = persistableMessages.find(m => m.role === 'user')
+        const title = isVoiceSession
+          ? `🎙️ Voice: ${firstUser?.content?.slice(0, 36).trim() || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          : (firstUser?.content?.slice(0, 45).trim() || 'New Chat')
+        const newSession: ChatSession = {
+          id: sId,
+          title,
+          messages: persistableMessages,
+          created_at: Date.now(),
+          updated_at: Date.now(),
+          is_voice: Boolean(isVoiceSession),
+        }
+        updated = [newSession, ...prev]
+      } else {
+        updated = prev.map(s => {
+          if (s.id === sId) {
+            // If title was default or short, auto-name from first user prompt
+            let autoTitle = s.title
+            if ((!s.title || s.title === 'New Chat') && persistableMessages.length > 0) {
+              const firstUser = persistableMessages.find(m => m.role === 'user')
+              if (firstUser && firstUser.content) {
+                autoTitle = firstUser.content.slice(0, 45).trim() + (firstUser.content.length > 45 ? '...' : '')
+              }
+            }
+            return {
+              ...s,
+              title: autoTitle,
+              messages: persistableMessages,
+              updated_at: Date.now(),
+              is_voice: s.is_voice || isVoiceSession,
             }
           }
-          return {
-            ...s,
-            title: autoTitle,
-            messages: persistableMessages,
-            updated_at: Date.now(),
-          }
-        }
-        return s
-      })
+          return s
+        })
+      }
 
       try {
         localStorage.setItem(getSessionsStorageKey(activeProfile), JSON.stringify(updated))
@@ -511,6 +533,7 @@ export function App() {
             id: target.id,
             title: target.title,
             messages: persistableMessages,
+            is_voice: Boolean(target.is_voice),
           }),
         }).catch(() => {})
       }
@@ -954,21 +977,12 @@ export function App() {
     scrollToBottom('smooth')
   }
 
-  // Handle messages created during Live Voice Talk
+  // Handle messages created during Live Voice Talk - completely separated from active text chat!
   const handleVoiceMessageCreated = (userText: string, assistantReply: string) => {
-    let targetSessionId = activeSessionId
+    let targetSessionId = voiceSessionIdRef.current
     if (!targetSessionId) {
-      const newId = Date.now().toString()
-      const newSession: ChatSession = {
-        id: newId,
-        title: userText.slice(0, 40) || 'Voice Conversation',
-        messages: [],
-        created_at: Date.now(),
-        updated_at: Date.now(),
-      }
-      targetSessionId = newId
-      setActiveSessionId(newId)
-      setSessions(prev => [newSession, ...prev])
+      targetSessionId = `voice_${Date.now()}`
+      voiceSessionIdRef.current = targetSessionId
     }
 
     const userMessage: Message = {
@@ -983,9 +997,58 @@ export function App() {
       content: assistantReply,
       timestamp: Date.now(),
     }
-    const newMsgs = [...messages, userMessage, botMessage]
-    setMessages(newMsgs)
-    syncSessionMessages(newMsgs, targetSessionId)
+
+    setSessions(prev => {
+      const existing = prev.find(s => s.id === targetSessionId)
+      let updated: ChatSession[]
+      let allTurnMsgs: Message[]
+
+      if (existing) {
+        allTurnMsgs = [...existing.messages, userMessage, botMessage]
+        updated = prev.map(s =>
+          s.id === targetSessionId
+            ? { ...s, messages: allTurnMsgs, updated_at: Date.now() }
+            : s
+        )
+      } else {
+        allTurnMsgs = [userMessage, botMessage]
+        const displayTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        const snippet = userText.slice(0, 36).trim()
+        const newVoiceSession: ChatSession = {
+          id: targetSessionId!,
+          title: snippet ? `🎙️ Voice: ${snippet}` : `🎙️ Voice Call (${displayTime})`,
+          messages: allTurnMsgs,
+          created_at: Date.now(),
+          updated_at: Date.now(),
+          is_voice: true,
+        }
+        updated = [newVoiceSession, ...prev]
+      }
+
+      try {
+        localStorage.setItem(getSessionsStorageKey(activeProfile), JSON.stringify(updated))
+      } catch {}
+
+      // Background persist to backend
+      const target = updated.find(s => s.id === targetSessionId)
+      if (target) {
+        const currentTargetProfile = oversightProfile || activeProfile
+        fetch('/api/chat/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profile: currentTargetProfile,
+            requester: activeProfile,
+            id: target.id,
+            title: target.title,
+            messages: sanitizeMessages(allTurnMsgs),
+            is_voice: true,
+          }),
+        }).catch(() => {})
+      }
+
+      return updated
+    })
   }
 
   // Stop Generation
@@ -1308,7 +1371,10 @@ export function App() {
       {/* Live Voice Continuous Mode Modal */}
       <LiveVoiceModal
         isOpen={isLiveVoiceOpen}
-        onClose={() => setIsLiveVoiceOpen(false)}
+        onClose={() => {
+          setIsLiveVoiceOpen(false)
+          voiceSessionIdRef.current = null
+        }}
         activeProfile={activeProfile}
         onMessageCreated={handleVoiceMessageCreated}
       />
