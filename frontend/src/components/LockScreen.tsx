@@ -37,6 +37,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({
   availableProfiles,
   customization,
 }) => {
+  const seasonal = useMemo(() => getSeasonalInfo(), [])
   const [timeStr, setTimeStr] = useState('')
   const [dateStr, setDateStr] = useState('')
   const [selectedProfile, setSelectedProfile] = useState(activeProfile || 'Hermes')
@@ -280,8 +281,6 @@ export const LockScreen: React.FC<LockScreenProps> = ({
     }
   }, [selectedProfile, availableProfiles])
 
-  if (!isLocked) return null
-
   const handleBiometricUnlock = async (mfaTokenOverride?: string) => {
     const targetProfile = selectedProfile.trim() || 'Hermes'
     const tokenToUse = mfaTokenOverride || pendingMfaToken || undefined
@@ -351,8 +350,6 @@ export const LockScreen: React.FC<LockScreenProps> = ({
     }
   }
 
-  const seasonal = useMemo(() => getSeasonalInfo(), [])
-
   // Determine wallpaper style class / styles
   const isSeasonal = customization.lockScreenWallpaper === 'seasonal' || customization.theme === 'seasonal' || customization.seasonalThemeEnabled
   const wallpaper = customization.lockScreenWallpaper || (isSeasonal ? 'seasonal' : 'matrix')
@@ -372,6 +369,8 @@ export const LockScreen: React.FC<LockScreenProps> = ({
   } else if (wallpaper === 'stars') {
     bgClass = 'bg-[#05070f]'
   }
+
+  if (!isLocked) return null
 
   return (
     <div

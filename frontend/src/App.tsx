@@ -79,15 +79,6 @@ export function App() {
     if (hasLock === 'true' && sessionUnlocked !== 'true') return true
     return false
   })
-  const [isAuthReady, setIsAuthReady] = useState<boolean>(() => {
-    const profile = (localStorage.getItem('Doshie_active_profile') || 'Hermes').toLowerCase()
-    const sessionUnlocked = sessionStorage.getItem(`Doshie_unlocked_${profile}`)
-    const hasLock = localStorage.getItem(`Doshie_has_lock_${profile}`)
-    if (hasLock === 'true' && sessionUnlocked !== 'true') return true
-    if (localStorage.getItem('Doshie_is_locked') === 'true') return true
-    if (hasLock === 'false' || sessionUnlocked === 'true') return true
-    return false
-  })
   const [isVoiceStudioOpen, setIsVoiceStudioOpen] = useState(false)
   const [isAgentHubOpen, setIsAgentHubOpen] = useState(false)
   const [isAgentConsoleOpen, setIsAgentConsoleOpen] = useState(false)
@@ -397,9 +388,7 @@ export function App() {
           }
         }
       }
-    } catch {} finally {
-      setIsAuthReady(true)
-    }
+    } catch {}
   }
 
   useEffect(() => {
@@ -1225,25 +1214,6 @@ export function App() {
     ? `Antigravity: ${antigravityList.find(a => a.id === activeAntigravityId)?.title || activeAntigravityId.slice(0, 8)}`
     : currentSession?.title || `${customization.assistantName || 'Doshie'} Chat`
 
-  if (!isAuthReady && !isLocked) {
-    return (
-      <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#070c12] text-white select-none">
-        <div className="relative flex flex-col items-center gap-4">
-          <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[var(--accent)] to-[var(--accent-light)] flex items-center justify-center text-3xl shadow-2xl border border-white/20 animate-pulse">
-            {customization.assistantEmoji || '🦖'}
-          </div>
-          <div className="flex flex-col items-center gap-1.5">
-            <h2 className="text-base font-bold tracking-wide text-white font-mono">{customization.assistantName || 'Doshie'}</h2>
-            <div className="flex items-center gap-2 text-xs text-[var(--accent-light)]/80">
-              <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-ping" />
-              <span>Verifying workstation security...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div
       style={{
@@ -1530,7 +1500,6 @@ export function App() {
           localStorage.setItem('Doshie_is_locked', 'false')
           localStorage.setItem(`Doshie_locked_${norm}`, 'false')
           sessionStorage.setItem(`Doshie_unlocked_${norm}`, 'true')
-          setIsAuthReady(true)
           revertToHome()
           fetchProfiles()
           if (profileName.toLowerCase() !== activeProfile.toLowerCase()) {
