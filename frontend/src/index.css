@@ -552,3 +552,36 @@ pre[class*="language-"] {
   }
 }
 
+/* Seasonal Lighting Loop Animations for Action Buttons */
+@keyframes seasonalLightingPulse {
+  0%, 100% {
+    box-shadow: 0 0 5px 0px var(--accent, #f97316), inset 0 0 3px rgba(249, 115, 22, 0.2);
+    border-color: var(--accent, #f97316);
+  }
+  50% {
+    box-shadow: 0 0 13px 2px var(--accent-light, #fdba74), inset 0 0 6px rgba(253, 186, 116, 0.35);
+    border-color: var(--accent-light, #fdba74);
+  }
+}
+
+@keyframes seasonalGlowText {
+  0%, 100% {
+    filter: drop-shadow(0 0 1.5px var(--accent, #f97316));
+  }
+  50% {
+    filter: drop-shadow(0 0 6px var(--accent-light, #fdba74));
+  }
+}
+
+.seasonal-action-pill {
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--accent, #f97316);
+  background: rgba(18, 12, 7, 0.75);
+  animation: seasonalLightingPulse 2.8s ease-in-out infinite;
+}
+
+.seasonal-glow-icon {
+  animation: seasonalGlowText 2.8s ease-in-out infinite;
+}
+

@@ -11,6 +11,7 @@ import {
   X,
   Clock,
   Check,
+  Copy,
   PanelLeftClose,
   Wrench,
   Shield,
@@ -186,6 +187,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       onRenameSession(id, editTitle.trim())
     }
     setEditingId(null)
+  }
+
+  const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null)
+
+  const handleCopySession = (s: ChatSession, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const lines = [`# ${s.title}`, '']
+    s.messages.forEach(m => {
+      lines.push(`### ${m.role === 'user' ? '👤 User' : '🦖 Doshie'}`)
+      lines.push(m.content)
+      lines.push('')
+    })
+    navigator.clipboard.writeText(lines.join('\n'))
+    setCopiedSessionId(s.id)
+    setTimeout(() => setCopiedSessionId(null), 2000)
   }
 
   return (
@@ -487,35 +503,64 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             )}
                           </div>
 
-                          {/* Action Hover Buttons */}
+                          {/* Action Buttons: Edit, Copy, Export, Delete with Seasonal Lighting Loop */}
                           {!isEditing && (
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex-none">
+                            <div
+                              onClick={e => e.stopPropagation()}
+                              className={`flex items-center gap-0.5 px-1 py-0.5 rounded-lg border transition-all flex-none z-10 ${
+                                isActive
+                                  ? 'seasonal-action-pill opacity-100 shadow-md'
+                                  : 'opacity-90 sm:opacity-0 sm:group-hover:opacity-100 bg-black/45 border-white/10 hover:border-[var(--accent)] hover:shadow-xs focus-within:opacity-100'
+                              }`}
+                            >
+                              {/* 1. Edit (Rename) Button */}
                               <button
+                                type="button"
                                 onClick={e => handleStartRename(s, e)}
-                                title="Rename chat"
-                                className="p-1 rounded text-neutral-400 hover:text-white hover:bg-[var(--card-hover)]"
+                                title="Edit & rename chat"
+                                className="p-1 sm:p-1.5 rounded-md hover:bg-white/15 text-neutral-300 hover:text-white transition-colors cursor-pointer active:scale-90"
                               >
-                                <Edit2 className="w-3 h-3" />
+                                <Edit2 className={`w-3.5 h-3.5 ${isActive ? 'seasonal-glow-icon' : ''}`} />
                               </button>
+
+                              {/* 2. Copy Conversation Button */}
                               <button
+                                type="button"
+                                onClick={e => handleCopySession(s, e)}
+                                title={copiedSessionId === s.id ? 'Copied to clipboard!' : 'Copy conversation to clipboard'}
+                                className="p-1 sm:p-1.5 rounded-md hover:bg-white/15 text-neutral-300 hover:text-white transition-colors cursor-pointer active:scale-90"
+                              >
+                                {copiedSessionId === s.id ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                ) : (
+                                  <Copy className={`w-3.5 h-3.5 ${isActive ? 'seasonal-glow-icon' : ''}`} />
+                                )}
+                              </button>
+
+                              {/* 3. Export Markdown Button */}
+                              <button
+                                type="button"
                                 onClick={e => {
                                   e.stopPropagation()
                                   onExportSession(s)
                                 }}
-                                title="Export Markdown"
-                                className="p-1 rounded text-neutral-400 hover:text-white hover:bg-[var(--card-hover)]"
+                                title="Export chat Markdown"
+                                className="p-1 sm:p-1.5 rounded-md hover:bg-white/15 text-neutral-300 hover:text-white transition-colors cursor-pointer active:scale-90"
                               >
-                                <Download className="w-3 h-3" />
+                                <Download className="w-3.5 h-3.5" />
                               </button>
+
+                              {/* 4. Delete Chat Button */}
                               <button
+                                type="button"
                                 onClick={e => {
                                   e.stopPropagation()
                                   onDeleteSession(s.id)
                                 }}
                                 title="Delete chat"
-                                className="p-1 rounded text-rose-400 hover:text-rose-200 hover:bg-rose-950/60"
+                                className="p-1 sm:p-1.5 rounded-md hover:bg-rose-950/60 text-rose-400 hover:text-rose-200 transition-colors cursor-pointer active:scale-90"
                               >
-                                <Trash2 className="w-3 h-3" />
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           )}

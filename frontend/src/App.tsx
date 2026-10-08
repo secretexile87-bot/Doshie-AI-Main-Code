@@ -1015,6 +1015,20 @@ export function App() {
     scrollToBottom('smooth')
   }
 
+  // Delete individual message from active conversation
+  const handleDeleteMessage = (messageId: string) => {
+    setMessages(prev => prev.filter(m => m.id !== messageId))
+    setSessions(prev =>
+      prev.map(s => {
+        if (s.id === activeSessionId) {
+          const updatedMessages = (s.messages || []).filter(m => m.id !== messageId)
+          return { ...s, messages: updatedMessages }
+        }
+        return s
+      })
+    )
+  }
+
   // Handle messages created during Live Voice Talk - completely separated from active text chat!
   const handleVoiceMessageCreated = (userText: string, assistantReply: string) => {
     let targetSessionId = voiceSessionIdRef.current
@@ -1348,6 +1362,7 @@ export function App() {
                       onRetry={handleRetry}
                       onResend={handleResend}
                       onEditPrompt={handleEditPrompt}
+                      onDeleteMessage={handleDeleteMessage}
                       isGenerating={isGenerating}
                     />
                   ))}
