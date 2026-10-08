@@ -41,7 +41,7 @@ import {
   Fingerprint,
   Key
 } from 'lucide-react'
-import { playNeuralSpeech, stopSpeech } from '../utils/audio'
+import { playNeuralSpeech, stopSpeech, playWakeChime } from '../utils/audio'
 import { isBiometricsSupported, enrollBiometricPasskey, authenticateWithBiometrics } from '../utils/webauthn'
 import { getSeasonalInfo } from '../utils/seasonal'
 import type { GuiCustomization, AdminProfileOversight, AdminGuestMemory } from '../types'
@@ -1629,33 +1629,180 @@ body {
                     </label>
                   </div>
 
-                  {/* Custom Wake Word Name & Spoken Action Feedback */}
+                  {/* Custom Wake Word, Wake Sound & Quick Wake Widget */}
                   {(customization.wakeWordEnabled ?? true) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#163625]/60 bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-500/10">
-                      <div>
-                        <label className="block text-xs font-medium text-emerald-300 mb-1">Wake Word Name</label>
-                        <input
-                          type="text"
-                          value={customization.wakeWordName ?? 'Doshie'}
-                          onChange={e => onUpdateCustomization({ wakeWordName: e.target.value })}
-                          placeholder="Doshie"
-                          className="w-full bg-[#0a1f14] border border-[#163625] rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-                        />
-                        <span className="text-[10px] text-emerald-400/60 mt-0.5 block">Responds to "Hey {customization.wakeWordName || 'Doshie'}", "OK {customization.wakeWordName || 'Doshie'}"</span>
-                      </div>
-                      <div className="flex flex-col justify-center">
-                        <label className="flex items-center justify-between cursor-pointer">
-                          <div>
-                            <span className="text-xs font-medium text-white block">Action Voice Feedback</span>
-                            <span className="text-[10px] text-emerald-400/70 block">Speak confirmations for open/lock/send actions</span>
-                          </div>
+                    <div className="space-y-3 pt-2 border-t border-[#163625]/60 bg-emerald-950/20 p-3 rounded-xl border border-emerald-500/10">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-emerald-300 mb-1">Wake Word Name</label>
                           <input
-                            type="checkbox"
-                            checked={customization.voiceFeedbackEnabled ?? true}
-                            onChange={e => onUpdateCustomization({ voiceFeedbackEnabled: e.target.checked })}
-                            className="w-4 h-4 rounded accent-emerald-500 ml-2"
+                            type="text"
+                            value={customization.wakeWordName ?? 'Doshie'}
+                            onChange={e => onUpdateCustomization({ wakeWordName: e.target.value })}
+                            placeholder="Doshie"
+                            className="w-full bg-[#0a1f14] border border-[#163625] rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                           />
-                        </label>
+                          <span className="text-[10px] text-emerald-400/60 mt-0.5 block">Responds to "Hey {customization.wakeWordName || 'Doshie'}"</span>
+                        </div>
+                        <div className="flex flex-col justify-center">
+                          <label className="flex items-center justify-between cursor-pointer">
+                            <div>
+                              <span className="text-xs font-medium text-white block">Action Voice Feedback</span>
+                              <span className="text-[10px] text-emerald-400/70 block">Speak confirmation for actions</span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={customization.voiceFeedbackEnabled ?? true}
+                              onChange={e => onUpdateCustomization({ voiceFeedbackEnabled: e.target.checked })}
+                              className="w-4 h-4 rounded accent-emerald-500 ml-2"
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Wake Sound Chime Customizer */}
+                      <div className="pt-2.5 border-t border-emerald-900/40">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1.5">
+                            <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span className="text-xs font-semibold text-white">Wake-Up Sound Chime</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              playWakeChime(
+                                customization.wakeSoundType || 'gemini',
+                                customization.wakeSoundVolume ?? 0.8,
+                                customization.wakeSoundCustomUrl
+                              )
+                            }
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[11px] font-medium transition-all active:scale-95 cursor-pointer"
+                          >
+                            <span>▶ Test Sound</span>
+                          </button>
+                        </div>
+
+                        {/* Sound Presets Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2.5">
+                          {[
+                            { id: 'gemini', label: '💎 Gemini Chime' },
+                            { id: 'marimba', label: '🔔 Marimba Bells' },
+                            { id: 'scifi', label: '🛸 Sci-Fi Chirp' },
+                            { id: 'arcade', label: '👾 8-Bit Arcade' },
+                            { id: 'zen', label: '🧘 Zen Bowl' },
+                            { id: 'subtle', label: '🫧 Soft Pop' },
+                            { id: 'custom', label: '📁 Custom Audio' },
+                            { id: 'silent', label: '🔇 Silent' },
+                          ].map(s => {
+                            const isSelected = (customization.wakeSoundType || 'gemini') === s.id
+                            return (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => {
+                                  onUpdateCustomization({ wakeSoundType: s.id as any })
+                                  playWakeChime(s.id, customization.wakeSoundVolume ?? 0.8, customization.wakeSoundCustomUrl)
+                                }}
+                                className={`px-2 py-1.5 rounded-lg border text-left text-xs transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-emerald-500/20 border-emerald-400 text-white font-medium shadow-xs'
+                                    : 'bg-[#0a1f14] border-[#163625] text-neutral-300 hover:border-emerald-500/50'
+                                }`}
+                              >
+                                {s.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+
+                        {/* Chime Volume Slider */}
+                        {customization.wakeSoundType !== 'silent' && (
+                          <div className="flex items-center justify-between gap-3 bg-[#0a1f14] p-2 rounded-lg border border-[#163625] mb-2">
+                            <span className="text-[11px] text-emerald-300">
+                              Chime Volume: {Math.round((customization.wakeSoundVolume ?? 0.8) * 100)}%
+                            </span>
+                            <input
+                              type="range"
+                              min="0.1"
+                              max="1.0"
+                              step="0.05"
+                              value={customization.wakeSoundVolume ?? 0.8}
+                              onChange={e => onUpdateCustomization({ wakeSoundVolume: parseFloat(e.target.value) })}
+                              className="w-32 accent-emerald-500 h-1.5 bg-[#163625] rounded-lg cursor-pointer"
+                            />
+                          </div>
+                        )}
+
+                        {/* Custom Audio File Upload / URL */}
+                        {customization.wakeSoundType === 'custom' && (
+                          <div className="bg-[#0a1f14] p-2.5 rounded-lg border border-emerald-500/20 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-medium text-emerald-300">Custom Audio File (MP3 / WAV / OGG)</span>
+                              <label className="px-2 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 text-[10px] cursor-pointer">
+                                <span>Browse Audio</span>
+                                <input
+                                  type="file"
+                                  accept="audio/*"
+                                  className="hidden"
+                                  onChange={e => {
+                                    const file = e.target.files?.[0]
+                                    if (!file) return
+                                    const reader = new FileReader()
+                                    reader.onload = () => {
+                                      const dataUrl = reader.result as string
+                                      onUpdateCustomization({ wakeSoundCustomUrl: dataUrl })
+                                      playWakeChime('custom', customization.wakeSoundVolume ?? 0.8, dataUrl)
+                                    }
+                                    reader.readAsDataURL(file)
+                                  }}
+                                />
+                              </label>
+                            </div>
+                            <input
+                              type="text"
+                              value={customization.wakeSoundCustomUrl || ''}
+                              onChange={e => onUpdateCustomization({ wakeSoundCustomUrl: e.target.value })}
+                              placeholder="Or paste audio URL..."
+                              className="w-full bg-[#05110b] border border-[#163625] rounded px-2 py-1 text-xs text-white"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Quick Wake Widget Feature */}
+                      <div className="pt-2.5 border-t border-emerald-900/40 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-medium text-white flex items-center gap-1.5">
+                              <span>🔘 Quick Wake Floating Widget</span>
+                              <span className="px-1.5 py-0.2 text-[9px] bg-emerald-500/20 text-emerald-300 rounded font-mono">Quick Click</span>
+                            </span>
+                            <span className="text-[11px] text-emerald-400/70 block">
+                              Display a draggable on-screen button to wake Doshie with a single tap
+                            </span>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={customization.quickWakeWidgetEnabled ?? true}
+                              onChange={e => onUpdateCustomization({ quickWakeWidgetEnabled: e.target.checked })}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-[#163625] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                          </label>
+                        </div>
+
+                        {(customization.quickWakeWidgetEnabled ?? true) && (
+                          <div className="flex items-center justify-between pl-1 text-[11px]">
+                            <span className="text-neutral-300">Show on Lock Screen</span>
+                            <input
+                              type="checkbox"
+                              checked={customization.quickWakeWidgetShowOnLock ?? true}
+                              onChange={e => onUpdateCustomization({ quickWakeWidgetShowOnLock: e.target.checked })}
+                              className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -2084,6 +2231,88 @@ body {
                     )
                   })}
                 </div>
+              </div>
+
+              {/* LED Action Bar Glow Lighting */}
+              <div className="pt-2 border-t border-[var(--border-dark)]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--accent-light)]">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>LED Action Glow Lighting</span>
+                  </label>
+                  <span className="text-[10px] text-gray-400">Buttons & Action Bars</span>
+                </div>
+                <p className="text-[11px] text-gray-400 mb-3">
+                  Customize the luminous LED halo around chat action buttons (Retry, Copy, Edit, Delete, Voice) for both user & assistant messages.
+                </p>
+
+                {/* LED Mode Selector */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                  {[
+                    { id: 'dynamic', label: 'Theme Dynamic', color: 'var(--accent, #f97316)', desc: 'Matches seasonal/theme accent' },
+                    { id: 'neon_amber', label: 'Amber / Sunset', color: '#f59e0b', desc: 'Warm golden sunset' },
+                    { id: 'neon_emerald', label: 'Cyber Emerald', color: '#10b981', desc: 'Matrix green aura' },
+                    { id: 'neon_cyan', label: 'Ice Cyan', color: '#06b6d4', desc: 'Electric blue glow' },
+                    { id: 'neon_purple', label: 'Neon Purple', color: '#a855f7', desc: 'Violet neon pulse' },
+                    { id: 'neon_crimson', label: 'Crimson Red', color: '#f43f5e', desc: 'Vibrant scarlet ruby' },
+                    { id: 'neon_rainbow', label: 'Rainbow RGB', color: 'linear-gradient(90deg, #ff3366, #33ff66, #3399ff)', desc: 'Multi-color rainbow wave' },
+                    { id: 'subtle', label: 'Subtle Glow', color: '#94a3b8', desc: 'Soft low-light halo' },
+                    { id: 'off', label: 'Disabled / Off', color: '#475569', desc: 'No LED lighting' },
+                  ].map(m => {
+                    const isSelected = (customization.ledGlowMode || 'dynamic') === m.id
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => onUpdateCustomization({ ledGlowMode: m.id as any })}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                          isSelected
+                            ? 'border-[var(--accent)] bg-[var(--card-hover)] ring-2 ring-[var(--accent)]/40 shadow-md'
+                            : 'border-[var(--border-dark)] bg-[var(--card-dark)] hover:bg-[var(--card-hover)]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border border-white/30 flex-none shadow-xs"
+                            style={{ background: m.color }}
+                          />
+                          <span className="text-xs font-semibold text-white truncate">{m.label}</span>
+                        </div>
+                        <span className="text-[10px] text-gray-400 line-clamp-1">{m.desc}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* LED Intensity Selector */}
+                {customization.ledGlowMode !== 'off' && (
+                  <div className="flex items-center justify-between gap-3 bg-[var(--card-dark)] p-2.5 rounded-xl border border-[var(--border-dark)]">
+                    <span className="text-xs text-white font-medium">LED Glow Intensity</span>
+                    <div className="flex items-center gap-1.5">
+                      {[
+                        { id: 'soft', label: 'Soft' },
+                        { id: 'vivid', label: 'Vivid' },
+                        { id: 'neon', label: 'Ultra Neon' },
+                      ].map(intens => {
+                        const isSelected = (customization.ledGlowIntensity || 'vivid') === intens.id
+                        return (
+                          <button
+                            key={intens.id}
+                            type="button"
+                            onClick={() => onUpdateCustomization({ ledGlowIntensity: intens.id as any })}
+                            className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-[var(--accent)] text-black font-bold shadow-xs'
+                                : 'bg-white/5 hover:bg-white/10 text-gray-300'
+                            }`}
+                          >
+                            {intens.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Custom Welcome Message */}

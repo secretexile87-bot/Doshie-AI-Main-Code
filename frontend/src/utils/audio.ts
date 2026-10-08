@@ -389,9 +389,41 @@ export async function playNeuralSpeech(
 }
 
 /**
- * Synthesizes a clean two-tone wake chime using Web Audio API (like Gemini / Google Assistant).
+ * Synthesizes or plays the configured wake chime with selectable presets and volume.
+ * Presets:
+ * - 'gemini': Ascending dual sine chime (D5 -> A5 -> D6)
+ * - 'marimba': Warm bell chord (C5 -> E5 -> G5 -> C6)
+ * - 'scifi': Futuristic high-tech chirp
+ * - 'arcade': 8-bit retro coin/level-up tone
+ * - 'zen': Resonant Tibetan singing bowl (432Hz harmonic)
+ * - 'subtle': Gentle soft single chime
+ * - 'custom': User-provided custom audio URL or uploaded audio file
+ * - 'silent': Muted
  */
-export function playWakeChime() {
+export function playWakeChime(
+  soundType: string = 'gemini',
+  volume: number = 0.8,
+  customUrl?: string
+) {
+  if (soundType === 'silent') return
+
+  const effectiveVol = Math.max(0.01, Math.min(1.0, typeof volume === 'number' ? volume : 0.8))
+
+  // Custom audio playback (uploaded MP3/WAV/Data URI or remote URL)
+  if (soundType === 'custom' && customUrl && customUrl.trim()) {
+    try {
+      const audio = new Audio(customUrl.trim())
+      audio.volume = effectiveVol
+      audio.play().catch(err => {
+        console.debug('Custom wake sound playback error, falling back to gemini:', err)
+        playWakeChime('gemini', volume)
+      })
+      return
+    } catch (err) {
+      console.debug('Custom wake sound failed:', err)
+    }
+  }
+
   try {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
     if (!AudioCtx) return
@@ -399,6 +431,103 @@ export function playWakeChime() {
     if (ctx.state === 'suspended') ctx.resume().catch(() => {})
     const now = ctx.currentTime
 
+    const baseGain = 0.18 * effectiveVol
+
+    if (soundType === 'marimba') {
+      // Warm marimba / vibraphone chord: C5 (523Hz), E5 (659Hz), G5 (784Hz), C6 (1046Hz)
+      const notes = [523.25, 659.25, 783.99, 1046.50]
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'triangle'
+        osc.frequency.setValueAtTime(freq, now + idx * 0.05)
+        gain.gain.setValueAtTime(baseGain * 0.7, now + idx * 0.05)
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.38)
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start(now + idx * 0.05)
+        osc.stop(now + idx * 0.05 + 0.4)
+      })
+      setTimeout(() => { try { ctx.close() } catch {} }, 600)
+      return
+    }
+
+    if (soundType === 'scifi') {
+      // Futuristic sci-fi frequency sweep
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(440, now)
+      osc.frequency.exponentialRampToValueAtTime(1760, now + 0.12)
+      osc.frequency.exponentialRampToValueAtTime(2200, now + 0.22)
+      gain.gain.setValueAtTime(baseGain * 0.45, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now)
+      osc.stop(now + 0.28)
+      setTimeout(() => { try { ctx.close() } catch {} }, 450)
+      return
+    }
+
+    if (soundType === 'arcade') {
+      // 8-bit retro arcade chime: Square wave rapid arpeggio (B4 -> E5 -> G#5 -> B5)
+      const freqs = [493.88, 659.25, 830.61, 987.77]
+      freqs.forEach((freq, idx) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'square'
+        osc.frequency.setValueAtTime(freq, now + idx * 0.045)
+        gain.gain.setValueAtTime(baseGain * 0.4, now + idx * 0.045)
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.045 + 0.12)
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start(now + idx * 0.045)
+        osc.stop(now + idx * 0.045 + 0.13)
+      })
+      setTimeout(() => { try { ctx.close() } catch {} }, 500)
+      return
+    }
+
+    if (soundType === 'zen') {
+      // Resonant Tibetan Singing Bowl chime (432Hz harmonic + gentle sub-tone)
+      const osc1 = ctx.createOscillator()
+      const osc2 = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc1.type = 'sine'
+      osc2.type = 'sine'
+      osc1.frequency.setValueAtTime(432, now)
+      osc2.frequency.setValueAtTime(864, now)
+      gain.gain.setValueAtTime(baseGain * 0.8, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85)
+      osc1.connect(gain)
+      osc2.connect(gain)
+      gain.connect(ctx.destination)
+      osc1.start(now)
+      osc2.start(now)
+      osc1.stop(now + 0.88)
+      osc2.stop(now + 0.88)
+      setTimeout(() => { try { ctx.close() } catch {} }, 1000)
+      return
+    }
+
+    if (soundType === 'subtle') {
+      // Soft single gentle chime
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(783.99, now) // G5
+      gain.gain.setValueAtTime(baseGain * 0.5, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now)
+      osc.stop(now + 0.24)
+      setTimeout(() => { try { ctx.close() } catch {} }, 350)
+      return
+    }
+
+    // Default: 'gemini' dual sine rise (D5 -> A5 -> D6)
     const osc1 = ctx.createOscillator()
     const osc2 = ctx.createOscillator()
     const gain = ctx.createGain()
@@ -411,7 +540,7 @@ export function playWakeChime() {
     osc2.frequency.setValueAtTime(880, now + 0.1)
     osc2.frequency.exponentialRampToValueAtTime(1174.66, now + 0.22) // D6
 
-    gain.gain.setValueAtTime(0.15, now)
+    gain.gain.setValueAtTime(baseGain, now)
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32)
 
     osc1.connect(gain)

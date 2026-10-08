@@ -769,7 +769,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             >
               {isUser ? (
                 <>
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-mono text-[10px] text-white/60">{formatTime(message.timestamp)}</span>
+
+                  <div className="flex items-center gap-1.5 seasonal-action-pill px-1.5 py-0.5 rounded-lg ml-auto">
                     {onRetry && (
                       <button
                         type="button"
@@ -778,11 +780,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                           onRetry(message)
                         }}
                         disabled={isGenerating}
-                        title="Retry (regenerate response)"
-                        className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-white/90 hover:text-white transition-all cursor-pointer disabled:opacity-40 border border-white/10 active:scale-95 shadow-xs"
+                        title="Retry / Regenerate response"
+                        className="p-1 rounded-md text-neutral-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer active:scale-90"
                       >
-                        <RotateCw className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[var(--accent-light)]" />
-                        <span className="font-semibold text-[10px]">Retry</span>
+                        <RotateCw className="w-3.5 h-3.5 seasonal-glow-icon" />
                       </button>
                     )}
 
@@ -795,10 +796,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                         }}
                         disabled={isGenerating}
                         title="Resend prompt as new message"
-                        className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-white/90 hover:text-white transition-all cursor-pointer disabled:opacity-40 border border-white/10 active:scale-95 shadow-xs"
+                        className="p-1 rounded-md text-neutral-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer active:scale-90"
                       >
-                        <Repeat className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[var(--accent-light)]" />
-                        <span className="font-semibold text-[10px]">Resend</span>
+                        <Repeat className="w-3.5 h-3.5 seasonal-glow-icon" />
                       </button>
                     )}
 
@@ -810,9 +810,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                           onEditPrompt(message.content)
                         }}
                         title="Edit prompt in input composer"
-                        className="p-1 rounded-md hover:bg-white/15 text-white/70 hover:text-white transition-colors cursor-pointer active:scale-90"
+                        className="p-1 rounded-md text-neutral-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer active:scale-90"
                       >
-                        <Edit3 className="w-3 h-3 seasonal-glow-icon" />
+                        <Edit3 className="w-3.5 h-3.5 seasonal-glow-icon" />
                       </button>
                     )}
 
@@ -823,9 +823,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                         handleCopy()
                       }}
                       title="Copy message"
-                      className="p-1 rounded-md hover:bg-white/15 text-white/70 hover:text-white transition-colors cursor-pointer active:scale-90"
+                      className="p-1 rounded-md text-neutral-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer active:scale-90"
                     >
-                      {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 seasonal-glow-icon" />}
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 seasonal-glow-icon" />}
                     </button>
 
                     {onDeleteMessage && (
@@ -836,14 +836,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                           onDeleteMessage(message.id)
                         }}
                         title="Delete message"
-                        className="p-1 rounded-md hover:bg-rose-950/60 text-rose-400 hover:text-rose-200 transition-colors cursor-pointer active:scale-90"
+                        className="p-1 rounded-md text-rose-400 hover:text-rose-200 hover:bg-rose-950/60 transition-colors cursor-pointer active:scale-90"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
-
-                  <span className="font-mono text-[10px] text-white/60 ml-auto">{formatTime(message.timestamp)}</span>
                 </>
               ) : (
                 <>

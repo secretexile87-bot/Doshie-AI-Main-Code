@@ -112,10 +112,20 @@ export interface GuiCustomization {
   soundVolume: number
   smoothScroll: boolean
 
-  // Voice Wake-Up & Hands-Free Commands
+  // Voice Wake-Up, Sounds & Hands-Free Commands
   wakeWordEnabled?: boolean
   wakeWordName?: string
   voiceFeedbackEnabled?: boolean
+  wakeSoundType?: 'gemini' | 'marimba' | 'scifi' | 'arcade' | 'zen' | 'subtle' | 'custom' | 'silent'
+  wakeSoundVolume?: number
+  wakeSoundCustomUrl?: string
+  quickWakeWidgetEnabled?: boolean
+  quickWakeWidgetStyle?: 'floating' | 'corner'
+  quickWakeWidgetShowOnLock?: boolean
+
+  // LED Glow Lighting Customization (for buttons and action bars)
+  ledGlowMode?: 'dynamic' | 'neon_amber' | 'neon_emerald' | 'neon_cyan' | 'neon_purple' | 'neon_crimson' | 'neon_rainbow' | 'subtle' | 'off'
+  ledGlowIntensity?: 'soft' | 'vivid' | 'neon'
 
   // Lock Screen Customization
   lockScreenTitle?: string

@@ -13,6 +13,7 @@ import { VoiceStudioModal } from './components/VoiceStudioModal'
 import { AgentHubModal } from './components/AgentHubModal'
 import { AgentConsoleModal } from './components/AgentConsoleModal'
 import { MobileNavBar } from './components/MobileNavBar'
+import { QuickWakeWidget } from './components/QuickWakeWidget'
 import { stopSpeech, subscribeSpeechState, playNeuralSpeech, playWakeChime } from './utils/audio'
 import { parseAndExecuteCommand, detectWakeWord, type CommandContext } from './utils/commands'
 import { getSeasonalInfo } from './utils/seasonal'
@@ -44,6 +45,14 @@ const DEFAULT_CUSTOMIZATION: GuiCustomization = {
   wakeWordEnabled: true,
   wakeWordName: 'Doshie',
   voiceFeedbackEnabled: true,
+  wakeSoundType: 'gemini',
+  wakeSoundVolume: 0.8,
+  wakeSoundCustomUrl: '',
+  quickWakeWidgetEnabled: true,
+  quickWakeWidgetStyle: 'floating',
+  quickWakeWidgetShowOnLock: true,
+  ledGlowMode: 'dynamic',
+  ledGlowIntensity: 'vivid',
   lockScreenWallpaper: 'glow',
   lockScreenClockFormat: '12h',
   lockScreenAutoLockMinutes: 5,
@@ -1342,7 +1351,11 @@ export function App() {
 
           const { hasWakeWord, remainder } = detectWakeWord(trimmed, customization.wakeWordName)
           if (hasWakeWord) {
-            playWakeChime()
+            playWakeChime(
+              customization.wakeSoundType,
+              customization.wakeSoundVolume,
+              customization.wakeSoundCustomUrl
+            )
             if (remainder) {
               triggerCommandBanner(`Heard: "${trimmed}"`, '🎙️')
               const cmdResult = await parseAndExecuteCommand(remainder, getCommandContext())
@@ -1395,6 +1408,9 @@ export function App() {
     customization.wakeWordEnabled,
     customization.wakeWordName,
     customization.voiceFeedbackEnabled,
+    customization.wakeSoundType,
+    customization.wakeSoundVolume,
+    customization.wakeSoundCustomUrl,
     isLocked,
     isLiveVoiceOpen,
     activeProfile,
@@ -1418,6 +1434,8 @@ export function App() {
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
       }}
+      data-led-glow={customization.ledGlowMode || 'dynamic'}
+      data-led-intensity={customization.ledGlowIntensity || 'vivid'}
       className="fixed left-0 right-0 w-full bg-[var(--bg-dark)] text-neutral-100 overflow-hidden font-sans select-text flex transition-colors"
     >
       {/* Gemini-Style Command & Wake-Up Floating Banner */}
@@ -1726,6 +1744,20 @@ export function App() {
         activeProfile={activeProfile}
         availableProfiles={profiles}
         customization={customization}
+      />
+
+      {/* Floating / Docked Quick Wake Widget */}
+      <QuickWakeWidget
+        customization={customization}
+        onQuickWake={() => {
+          triggerCommandBanner("Doshie: I'm listening...", '🦖')
+          setIsLiveVoiceOpen(true)
+        }}
+        onOpenMusicPlayer={() => setIsMusicPlayerOpen(true)}
+        onOpenAgentConsole={() => setIsAgentConsoleOpen(true)}
+        onNewChat={() => handleNewChat()}
+        onLockAccount={() => handleLockAccount(activeProfile)}
+        isLocked={isLocked}
       />
     </div>
   )

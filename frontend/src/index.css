@@ -552,33 +552,127 @@ pre[class*="language-"] {
   }
 }
 
-/* Seasonal Lighting Loop Animations for Action Buttons */
+/* Customizable LED Glow Lighting for Message Action Buttons */
 @keyframes seasonalLightingPulse {
   0%, 100% {
-    box-shadow: 0 0 5px 0px var(--accent, #f97316), inset 0 0 3px rgba(249, 115, 22, 0.2);
-    border-color: var(--accent, #f97316);
+    box-shadow: 0 0 var(--led-glow-min, 5px) 0px var(--led-glow-color, var(--accent, #f97316)), inset 0 0 3px rgba(249, 115, 22, 0.2);
+    border-color: var(--led-glow-color, var(--accent, #f97316));
   }
   50% {
-    box-shadow: 0 0 13px 2px var(--accent-light, #fdba74), inset 0 0 6px rgba(253, 186, 116, 0.35);
-    border-color: var(--accent-light, #fdba74);
+    box-shadow: 0 0 var(--led-glow-max, 13px) var(--led-glow-spread, 2px) var(--led-glow-light, var(--accent-light, #fdba74)), inset 0 0 6px rgba(253, 186, 116, 0.35);
+    border-color: var(--led-glow-light, var(--accent-light, #fdba74));
+  }
+}
+
+@keyframes rainbowLedPulse {
+  0% {
+    border-color: #ff3366;
+    box-shadow: 0 0 var(--led-glow-max, 13px) var(--led-glow-spread, 2px) #ff3366;
+  }
+  20% {
+    border-color: #ff9933;
+    box-shadow: 0 0 var(--led-glow-max, 13px) var(--led-glow-spread, 2px) #ff9933;
+  }
+  40% {
+    border-color: #ffff33;
+    box-shadow: 0 0 var(--led-glow-max, 13px) var(--led-glow-spread, 2px) #ffff33;
+  }
+  60% {
+    border-color: #33ff66;
+    box-shadow: 0 0 var(--led-glow-max, 13px) var(--led-glow-spread, 2px) #33ff66;
+  }
+  80% {
+    border-color: #3399ff;
+    box-shadow: 0 0 var(--led-glow-max, 13px) var(--led-glow-spread, 2px) #3399ff;
+  }
+  100% {
+    border-color: #cc33ff;
+    box-shadow: 0 0 var(--led-glow-max, 13px) var(--led-glow-spread, 2px) #cc33ff;
   }
 }
 
 @keyframes seasonalGlowText {
   0%, 100% {
-    filter: drop-shadow(0 0 1.5px var(--accent, #f97316));
+    filter: drop-shadow(0 0 1.5px var(--led-glow-color, var(--accent, #f97316)));
   }
   50% {
-    filter: drop-shadow(0 0 6px var(--accent-light, #fdba74));
+    filter: drop-shadow(0 0 6px var(--led-glow-light, var(--accent-light, #fdba74)));
   }
 }
 
 .seasonal-action-pill {
   border-width: 1px;
   border-style: solid;
-  border-color: var(--accent, #f97316);
+  border-color: var(--led-glow-color, var(--accent, #f97316));
   background: rgba(18, 12, 7, 0.75);
   animation: seasonalLightingPulse 2.8s ease-in-out infinite;
+}
+
+/* LED Glow Setting Overrides */
+[data-led-glow="off"] .seasonal-action-pill {
+  animation: none !important;
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  background: rgba(20, 20, 20, 0.6) !important;
+}
+
+[data-led-glow="off"] .seasonal-glow-icon {
+  animation: none !important;
+  filter: none !important;
+}
+
+[data-led-glow="subtle"] {
+  --led-glow-min: 2px;
+  --led-glow-max: 6px;
+  --led-glow-spread: 0px;
+}
+
+[data-led-glow="neon_rainbow"] .seasonal-action-pill {
+  animation: rainbowLedPulse 4s linear infinite !important;
+}
+
+[data-led-glow="neon_amber"] {
+  --led-glow-color: #f59e0b;
+  --led-glow-light: #fde047;
+}
+
+[data-led-glow="neon_emerald"] {
+  --led-glow-color: #10b981;
+  --led-glow-light: #6ee7b7;
+}
+
+[data-led-glow="neon_cyan"] {
+  --led-glow-color: #06b6d4;
+  --led-glow-light: #67e8f9;
+}
+
+[data-led-glow="neon_purple"] {
+  --led-glow-color: #a855f7;
+  --led-glow-light: #d8b4fe;
+}
+
+[data-led-glow="neon_crimson"] {
+  --led-glow-color: #f43f5e;
+  --led-glow-light: #fda4af;
+}
+
+/* LED Intensity */
+[data-led-intensity="soft"] {
+  --led-glow-min: 2px;
+  --led-glow-max: 6px;
+  --led-glow-spread: 0px;
+}
+
+[data-led-intensity="vivid"] {
+  --led-glow-min: 5px;
+  --led-glow-max: 13px;
+  --led-glow-spread: 2px;
+}
+
+[data-led-intensity="neon"] {
+  --led-glow-min: 9px;
+  --led-glow-max: 22px;
+  --led-glow-spread: 4px;
 }
 
 .seasonal-glow-icon {
