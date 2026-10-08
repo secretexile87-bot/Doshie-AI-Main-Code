@@ -178,22 +178,10 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   const startBargeInListener = (onUserSpoke: (initialSpokenText?: string) => void) => {
     let cleanedUp = false
     let rec: any = null
-    let stream: MediaStream | null = null
-    let audioCtx: AudioContext | null = null
-    let animId: number | null = null
 
     const cleanup = () => {
       if (cleanedUp) return
       cleanedUp = true
-      if (animId) cancelAnimationFrame(animId)
-      if (audioCtx) {
-        audioCtx.close().catch(() => {})
-        audioCtx = null
-      }
-      if (stream) {
-        stream.getTracks().forEach((t) => t.stop())
-        stream = null
-      }
       if (rec) {
         try {
           rec.abort()
@@ -202,7 +190,8 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       }
     }
 
-    // Method 1: Web Speech API interim transcript detection
+    // Web Speech API transcript detection: Only triggers when user actually speaks words (e.g. "stop", "hold on")
+    // Acoustic Echo Cancellation in Web Speech filters out speaker output so Doshie does not self-interrupt
     const isElectron = !!(window as any).process?.versions?.electron || navigator.userAgent.includes('Electron')
     const SpeechRec = (webSpeechSupportedRef.current !== false) && !isElectron &&
       ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
@@ -220,7 +209,8 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           for (let i = 0; i < e.results.length; i++) {
             heard += (heard ? ' ' : '') + (e.results[i][0]?.transcript || '')
           }
-          if (heard.trim().length > 1) {
+          const cleanHeard = heard.trim().toLowerCase()
+          if (cleanHeard.length > 2) {
             console.log('Voice Barge-In triggered via speech recognition:', heard)
             cleanup()
             onUserSpoke(heard.trim())
@@ -231,65 +221,6 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       } catch (e) {
         rec = null
       }
-    }
-
-    // Method 2: Microphone energy VAD with browser echo-cancellation
-    if (navigator.mediaDevices?.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        }
-      }).then((s) => {
-        if (cleanedUp) {
-          s.getTracks().forEach(t => t.stop())
-          return
-        }
-        stream = s
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
-        if (AudioCtx) {
-          try {
-            audioCtx = new AudioCtx()
-            const source = audioCtx.createMediaStreamSource(stream)
-            const analyser = audioCtx.createAnalyser()
-            analyser.fftSize = 512
-            analyser.smoothingTimeConstant = 0.2
-            source.connect(analyser)
-
-            const dataArray = new Uint8Array(analyser.frequencyBinCount)
-            let speechFrames = 0
-            let noiseFloor = 14
-            let frames = 0
-
-            const monitorAudio = () => {
-              if (cleanedUp || isCancelledRef.current || isMutedRef.current) return
-              analyser.getByteFrequencyData(dataArray)
-              let sum = 0
-              for (let i = 0; i < dataArray.length; i++) sum += dataArray[i]
-              const avg = sum / dataArray.length
-              frames++
-              if (frames < 15) {
-                noiseFloor = Math.max(6, Math.min(noiseFloor, avg))
-              }
-              const threshold = Math.max(22, noiseFloor + 14)
-              if (avg > threshold) {
-                speechFrames++
-                if (speechFrames >= 3) {
-                  console.log('Voice Barge-In triggered via audio energy!')
-                  cleanup()
-                  onUserSpoke()
-                  return
-                }
-              } else {
-                speechFrames = Math.max(0, speechFrames - 1)
-              }
-              animId = requestAnimationFrame(monitorAudio)
-            }
-            animId = requestAnimationFrame(monitorAudio)
-          } catch {}
-        }
-      }).catch(() => {})
     }
 
     return cleanup
@@ -428,8 +359,9 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     })
   }
 
-  // Audio recorder & server transcription fallback (for Electron and browsers without Google Speech)
+  // Audio recorder & server transcription fallback (for Electron, Firefox, and devices without Google Speech)
   const recordAndTranscribe = async (): Promise<string> => {
+    if (isCancelledRef.current || isMutedRef.current) return ''
     if (!navigator.mediaDevices?.getUserMedia) return ''
 
     let stream: MediaStream | null = null
@@ -448,22 +380,33 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     }
 
     return new Promise<string>((resolve) => {
-      let cleanupDone = false
+      let isResolved = false
       let mediaRecorder: MediaRecorder | null = null
       let audioCtx: AudioContext | null = null
       let analyser: AnalyserNode | null = null
       let animFrameId: number | null = null
+      const chunks: Blob[] = []
+      let hasSpoken = false
 
-      const cleanup = () => {
-        if (cleanupDone) return
-        cleanupDone = true
-        if (animFrameId) cancelAnimationFrame(animFrameId)
+      const safeResolve = (val: string) => {
+        if (isResolved) return
+        isResolved = true
+        resolve(val)
+      }
+
+      const releaseResources = () => {
+        if (animFrameId) {
+          cancelAnimationFrame(animFrameId)
+          animFrameId = null
+        }
         if (audioCtx) {
-          audioCtx.close().catch(() => {})
+          try { audioCtx.close().catch(() => {}) } catch {}
           audioCtx = null
         }
         if (stream) {
-          stream.getTracks().forEach((track) => track.stop())
+          try {
+            stream.getTracks().forEach((track) => track.stop())
+          } catch {}
           stream = null
           mediaStreamRef.current = null
         }
@@ -482,9 +425,6 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         const activeStream = stream!
         mediaRecorder = mimeType ? new MediaRecorder(activeStream, { mimeType }) : new MediaRecorder(activeStream)
         activeRecorderRef.current = mediaRecorder
-        const chunks: Blob[] = []
-        let finished = false
-        let hasSpoken = false
 
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
         if (AudioCtx) {
@@ -498,20 +438,6 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           } catch {}
         }
 
-        const finishRecording = (sendToServer: boolean) => {
-          if (finished) return
-          finished = true
-          cleanup()
-          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            try {
-              mediaRecorder.stop()
-            } catch {}
-          }
-          if (!sendToServer) {
-            resolve('')
-          }
-        }
-
         mediaRecorder.ondataavailable = (e) => {
           if (e.data && e.data.size > 0) {
             chunks.push(e.data)
@@ -519,14 +445,16 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         }
 
         mediaRecorder.onstop = async () => {
-          cleanup()
-          if (!hasSpoken || chunks.length === 0) {
-            resolve('')
+          releaseResources()
+
+          if (!hasSpoken || chunks.length === 0 || isCancelledRef.current) {
+            safeResolve('')
             return
           }
+
           const audioBlob = new Blob(chunks, { type: mediaRecorder?.mimeType || 'audio/webm' })
-          if (audioBlob.size < 2000) {
-            resolve('')
+          if (audioBlob.size < 2500) {
+            safeResolve('')
             return
           }
 
@@ -541,17 +469,41 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             })
             if (res.ok) {
               const data = await res.json()
-              resolve(String(data.text || '').trim())
+              safeResolve(String(data.text || '').trim())
             } else {
-              resolve('')
+              safeResolve('')
             }
           } catch (err) {
             console.warn('Transcription fetch failed:', err)
-            resolve('')
+            safeResolve('')
           }
         }
 
+        mediaRecorder.onerror = () => {
+          releaseResources()
+          safeResolve('')
+        }
+
         mediaRecorder.start(200)
+
+        const stopRecordingNow = (speechDetected: boolean) => {
+          hasSpoken = speechDetected
+          if (animFrameId) {
+            cancelAnimationFrame(animFrameId)
+            animFrameId = null
+          }
+          if (mediaRecorder && mediaRecorder.state === 'recording') {
+            try {
+              mediaRecorder.stop()
+            } catch {
+              releaseResources()
+              safeResolve('')
+            }
+          } else {
+            releaseResources()
+            safeResolve('')
+          }
+        }
 
         if (analyser) {
           const dataArray = new Uint8Array(analyser.frequencyBinCount)
@@ -562,7 +514,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           const recordStart = Date.now()
 
           const checkAudio = () => {
-            if (finished || isCancelledRef.current) return
+            if (isResolved || isCancelledRef.current) return
             analyser!.getByteFrequencyData(dataArray)
             let sum = 0
             for (let i = 0; i < dataArray.length; i++) {
@@ -589,17 +541,17 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                 silenceStart = Date.now()
               } else if (Date.now() - silenceStart > 1300) {
                 // Natural 1.3s pause after speech
-                finishRecording(true)
+                stopRecordingNow(true)
                 return
               }
-            } else if (elapsed > 8000) {
-              // 8s ambient silence without speech - recycle loop seamlessly without server call
-              finishRecording(false)
+            } else if (elapsed > 7000) {
+              // 7s ambient silence without speech - finish turn cleanly
+              stopRecordingNow(false)
               return
             }
 
             if (elapsed > 18000) {
-              finishRecording(hasSpoken)
+              stopRecordingNow(hasSpoken)
               return
             }
 
@@ -607,11 +559,11 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           }
           animFrameId = requestAnimationFrame(checkAudio)
         } else {
-          setTimeout(() => finishRecording(true), 6000)
+          setTimeout(() => stopRecordingNow(true), 6000)
         }
       } catch (err) {
-        cleanup()
-        resolve('')
+        releaseResources()
+        safeResolve('')
       }
     })
   }
@@ -641,8 +593,8 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         webSpeechSupportedRef.current = false
       }
 
-      // If Web Speech is unavailable (Android WebView, Capacitor, Firefox) or heard nothing, record directly and transcribe with RTX 5070 Whisper
-      if (!userSpoken && !isCancelledRef.current) {
+      // If Web Speech is unavailable (Electron, Firefox, Android without Google Speech) or failed with error, use server Whisper
+      if (!userSpoken && webSpeechSupportedRef.current === false && !isCancelledRef.current) {
         try {
           userSpoken = await recordAndTranscribe()
         } catch (err) {
@@ -654,20 +606,13 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       if (isCancelledRef.current) return
 
       if (!userSpoken) {
-        emptyTurnCountRef.current++
-        if (emptyTurnCountRef.current > 5) {
-          setVoiceState('idle')
-          setAssistantText('Listening paused. Tap the orb anytime to speak.')
-          return
-        }
-
-        // Ambient silence - wait 400ms before next listen cycle
+        // Ambient silence - seamlessly continue listening without pausing
         if (isContinuousRef.current && !isCancelledRef.current) {
           setTimeout(() => {
             if (isContinuousRef.current && !isCancelledRef.current) {
               runVoiceTurn()
             }
-          }, 400)
+          }, 150)
         }
         return
       }

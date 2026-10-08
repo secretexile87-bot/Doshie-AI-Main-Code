@@ -486,7 +486,7 @@ def _init_chatterbox() -> None:
 def _init_background_models() -> None:
     _init_kokoro()
     _init_piper()
-    _init_chatterbox()
+    # Chatterbox (~4.5 GB) is lazy-loaded on-demand only when clone synthesis is requested
 
 
 # --- Synthesis Handlers ---
@@ -550,6 +550,11 @@ def _synthesize_piper(text: str) -> bytes:
 def _synthesize_clone(text: str, reference_path: Path) -> bytes:
     with STATE_LOCK:
         model = CHATTERBOX_MODEL
+    if model is None:
+        LOGGER.info("Lazy-loading Chatterbox clone engine on first clone request...")
+        _init_chatterbox()
+        with STATE_LOCK:
+            model = CHATTERBOX_MODEL
     if model is None:
         raise RuntimeError("Chatterbox clone engine is not loaded")
 

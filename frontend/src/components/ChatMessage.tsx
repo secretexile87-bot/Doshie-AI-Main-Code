@@ -39,6 +39,8 @@ import {
   Terminal,
   CheckCircle2,
   AlertTriangle,
+  RotateCw,
+  Repeat,
 } from 'lucide-react'
 import type { Message, ChatAttachment } from '../types'
 import { playNeuralSpeech, stopSpeech } from '../utils/audio'
@@ -49,6 +51,10 @@ interface ChatMessageProps {
   message: Message
   assistantEmoji?: string
   activeProfile?: string
+  onRetry?: (message: Message) => void
+  onResend?: (message: Message) => void
+  onEditPrompt?: (content: string) => void
+  isGenerating?: boolean
 }
 
 // Standalone Syntax-Highlighted Code Block with Terminal Controls
@@ -266,6 +272,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
   assistantEmoji = '🦖',
   activeProfile = 'Hermes',
+  onRetry,
+  onResend,
+  onEditPrompt,
+  isGenerating,
 }) => {
   const isAssistant = message.role === 'assistant'
   const isUser = message.role === 'user'
@@ -375,6 +385,64 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             }`}
           >
             {message.agent?.name ? message.agent.name.charAt(0) : assistantEmoji}
+          </div>
+        )}
+
+        {/* Quick action buttons next to user bubble (visible on desktop hover) */}
+        {isUser && !message.pending && (
+          <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 self-center mr-1 mb-1.5 flex-none select-none">
+            {onRetry && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRetry(message)
+                }}
+                disabled={isGenerating}
+                title="Retry / Regenerate response"
+                className="p-1.5 rounded-lg bg-black/60 hover:bg-black/90 text-neutral-300 hover:text-white border border-white/10 hover:border-white/25 transition-all cursor-pointer disabled:opacity-40 active:scale-90 shadow-sm"
+              >
+                <RotateCw className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {onResend && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onResend(message)
+                }}
+                disabled={isGenerating}
+                title="Resend prompt as new message"
+                className="p-1.5 rounded-lg bg-black/60 hover:bg-black/90 text-neutral-300 hover:text-white border border-white/10 hover:border-white/25 transition-all cursor-pointer disabled:opacity-40 active:scale-90 shadow-sm"
+              >
+                <Repeat className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {onEditPrompt && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEditPrompt(message.content)
+                }}
+                title="Edit prompt in input composer"
+                className="p-1.5 rounded-lg bg-black/60 hover:bg-black/90 text-neutral-300 hover:text-white border border-white/10 hover:border-white/25 transition-all cursor-pointer active:scale-90 shadow-sm"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleCopy()
+              }}
+              title="Copy text"
+              className="p-1.5 rounded-lg bg-black/60 hover:bg-black/90 text-neutral-300 hover:text-white border border-white/10 hover:border-white/25 transition-all cursor-pointer active:scale-90 shadow-sm"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-[var(--accent-light)]" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
           </div>
         )}
 
@@ -676,54 +744,122 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           </>
         )}
 
-          {/* Footer info: Listen, Copy, Timestamp */}
+          {/* Footer info: Actions, Listen, Copy, Timestamp */}
           {!message.pending && (
             <div
-              className={`mt-2.5 pt-1.5 border-t border-white/5 flex items-center gap-2 text-[10px] ${
-                isUser ? 'text-white/70 justify-end' : 'text-neutral-400 justify-between'
+              className={`mt-2.5 pt-1.5 border-t border-white/10 flex items-center gap-2 text-[10px] ${
+                isUser ? 'text-white/80 justify-between' : 'text-neutral-400 justify-between'
               }`}
             >
-              <span className="font-mono">{formatTime(message.timestamp)}</span>
-
-              {isAssistant && message.content && (
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={handleToggleSpeak}
-                    title={
-                      isSynthesizing
-                        ? 'Generating neural voice...'
-                        : isPlayingAudio
-                        ? 'Stop reading'
-                        : 'Read aloud with neural voice'
-                    }
-                    className={`px-2 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 border ${
-                      isSynthesizing
-                        ? 'text-[var(--accent-light)] bg-white/10 border-[var(--accent)]/50'
-                        : isPlayingAudio
-                        ? 'text-[var(--accent-light)] bg-[var(--accent)]/20 border-[var(--accent)] animate-pulse'
-                        : 'text-neutral-400 hover:text-white hover:bg-white/10 border-transparent hover:border-white/10'
-                    }`}
-                  >
-                    {isSynthesizing ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent)]" />
-                    ) : isPlayingAudio ? (
-                      <>
-                        <VolumeX className="w-3.5 h-3.5" />
-                        <span className="text-[10px] font-semibold text-[var(--accent-light)]">Playing</span>
-                      </>
-                    ) : (
-                      <Volume2 className="w-3.5 h-3.5" />
+              {isUser ? (
+                <>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {onRetry && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRetry(message)
+                        }}
+                        disabled={isGenerating}
+                        title="Retry (regenerate response)"
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-white/90 hover:text-white transition-all cursor-pointer disabled:opacity-40 border border-white/10 active:scale-95 shadow-xs"
+                      >
+                        <RotateCw className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[var(--accent-light)]" />
+                        <span className="font-semibold text-[10px]">Retry</span>
+                      </button>
                     )}
-                  </button>
 
-                  <button
-                    onClick={handleCopy}
-                    title="Copy full response"
-                    className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10 transition-colors cursor-pointer"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5 text-[var(--accent-light)]" /> : <Copy className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
+                    {onResend && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onResend(message)
+                        }}
+                        disabled={isGenerating}
+                        title="Resend prompt as new message"
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-white/90 hover:text-white transition-all cursor-pointer disabled:opacity-40 border border-white/10 active:scale-95 shadow-xs"
+                      >
+                        <Repeat className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[var(--accent-light)]" />
+                        <span className="font-semibold text-[10px]">Resend</span>
+                      </button>
+                    )}
+
+                    {onEditPrompt && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onEditPrompt(message.content)
+                        }}
+                        title="Edit prompt in input composer"
+                        className="p-1 rounded-md hover:bg-white/15 text-white/70 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleCopy()
+                      }}
+                      title="Copy message"
+                      className="p-1 rounded-md hover:bg-white/15 text-white/70 hover:text-white transition-colors cursor-pointer"
+                    >
+                      {copied ? <Check className="w-3 h-3 text-[var(--accent-light)]" /> : <Copy className="w-3 h-3" />}
+                    </button>
+                  </div>
+
+                  <span className="font-mono text-[10px] text-white/60 ml-auto">{formatTime(message.timestamp)}</span>
+                </>
+              ) : (
+                <>
+                  <span className="font-mono">{formatTime(message.timestamp)}</span>
+
+                  {isAssistant && message.content && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={handleToggleSpeak}
+                        title={
+                          isSynthesizing
+                            ? 'Generating neural voice...'
+                            : isPlayingAudio
+                            ? 'Stop reading'
+                            : 'Read aloud with neural voice'
+                        }
+                        className={`px-2 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 border ${
+                          isSynthesizing
+                            ? 'text-[var(--accent-light)] bg-white/10 border-[var(--accent)]/50'
+                            : isPlayingAudio
+                            ? 'text-[var(--accent-light)] bg-[var(--accent)]/20 border-[var(--accent)] animate-pulse'
+                            : 'text-neutral-400 hover:text-white hover:bg-white/10 border-transparent hover:border-white/10'
+                        }`}
+                      >
+                        {isSynthesizing ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent)]" />
+                        ) : isPlayingAudio ? (
+                          <>
+                            <VolumeX className="w-3.5 h-3.5" />
+                            <span className="text-[10px] font-semibold text-[var(--accent-light)]">Playing</span>
+                          </>
+                        ) : (
+                          <Volume2 className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+
+                      <button
+                        onClick={handleCopy}
+                        title="Copy full response"
+                        className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10 transition-colors cursor-pointer"
+                      >
+                        {copied ? <Check className="w-3.5 h-3.5 text-[var(--accent-light)]" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

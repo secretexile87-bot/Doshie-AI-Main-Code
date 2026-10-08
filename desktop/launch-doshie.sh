@@ -26,5 +26,13 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Run Electron app with sandbox flag compatible with Ubuntu user namespaces
-./node_modules/.bin/electron --no-sandbox . "$@"
+# Detect XAUTHORITY if in Wayland session
+if [ -z "$XAUTHORITY" ]; then
+    AUTH_FILE=$(ls -t /run/user/$(id -u)/.mutter-Xwaylandauth.* 2>/dev/null | head -n 1 || true)
+    if [ -n "$AUTH_FILE" ]; then
+        export XAUTHORITY="$AUTH_FILE"
+    fi
+fi
+
+# Run Electron app with Wayland ozone platform support and sandbox flag
+./node_modules/.bin/electron --no-sandbox --ozone-platform-hint=auto --enable-features=WaylandWindowDecorations . "$@"

@@ -1,11 +1,11 @@
 {
   "version": "0.9.9",
-  "updated": "2026-10-07 23:04:38 UTC",
+  "updated": "2026-10-08 00:04:48 UTC",
   "android": {
     "file": "Doshie-latest.apk",
     "name": "Doshie Assistant for Android",
     "version": "0.9.9",
-    "size": "5.4M",
+    "size": "6.4M",
     "url": "/static/downloads/Doshie-latest.apk"
   }
 }

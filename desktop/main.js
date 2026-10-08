@@ -89,16 +89,21 @@ function createMainWindow() {
     }
   });
 
-  // Grant media permissions automatically for local server
+  // Grant media, audioCapture, wake lock, and mic permissions automatically for local server
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
     const origin = webContents.getURL();
     if (origin.startsWith('http://127.0.0.1') || origin.startsWith('http://localhost')) {
-      if (['media', 'microphone', 'camera', 'notifications', 'audioCapture'].includes(permission)) {
-        return callback(true);
-      }
+      return callback(true);
     }
     callback(false);
   });
+
+  if (session.defaultSession.setPermissionCheckHandler) {
+    session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+      const origin = requestingOrigin || webContents.getURL();
+      return origin.startsWith('http://127.0.0.1') || origin.startsWith('http://localhost');
+    });
+  }
 
   // Handle external links opening in default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

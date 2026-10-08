@@ -14,6 +14,8 @@ interface ChatComposerProps {
   onOpenAgentHub?: () => void
   isKeyboardOpen?: boolean
   onKeyboardStateChange?: (open: boolean) => void
+  draftText?: string
+  onClearDraftText?: () => void
 }
 
 interface UploadingFile {
@@ -35,8 +37,21 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   onOpenAgentHub,
   isKeyboardOpen = false,
   onKeyboardStateChange,
+  draftText,
+  onClearDraftText,
 }) => {
   const [input, setInput] = useState('')
+
+  useEffect(() => {
+    if (draftText !== undefined && draftText !== '') {
+      setInput(draftText)
+      if (textareaRef.current) {
+        textareaRef.current.focus()
+        textareaRef.current.setSelectionRange(draftText.length, draftText.length)
+      }
+      onClearDraftText?.()
+    }
+  }, [draftText, onClearDraftText])
   const [isListening, setIsListening] = useState(false)
   const [attachments, setAttachments] = useState<ChatAttachment[]>([])
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([])

@@ -565,6 +565,7 @@ export function App() {
   const [viewportHeight, setViewportHeight] = useState<number | null>(null)
   const [viewportTop, setViewportTop] = useState<number>(0)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
+  const [draftText, setDraftText] = useState<string>('')
 
   // Scroll to bottom smoothly
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
@@ -738,6 +739,115 @@ export function App() {
     return () => clearInterval(interval)
   }, [])
 
+  // Core chat execution logic (shared across new sends and retry requests)
+  const executeChatRequest = async (
+    promptText: string,
+    attachments: ChatAttachment[] | undefined,
+    pendingAssistantId: string,
+    targetSessionId: string,
+    brainMode?: string,
+    agentId?: string
+  ) => {
+    setIsGenerating(true)
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
+    const hasAttachments = Boolean(attachments && attachments.length > 0)
+    const trimmed = promptText.trim()
+
+    try {
+      const targetAgentId = agentId || selectedAgent?.id
+      const effectiveBrain = brainMode || localStorage.getItem('Doshie_brain_mode') || 'auto'
+      const response = await fetch('/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: trimmed || (hasAttachments ? 'Analyze the attached file(s) or image(s).' : ''),
+          profile: activeProfile,
+          attachments: hasAttachments ? attachments!.map(a => a.id) : [],
+          brain_mode: effectiveBrain,
+          agent_id: targetAgentId,
+        }),
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        let errDetail = ''
+        try {
+          const errData = await response.json()
+          errDetail = errData.error || errData.message || ''
+        } catch (_) {}
+
+        if (response.status === 423) {
+          setMessages(prev => prev.filter(msg => msg.id !== pendingAssistantId))
+          handleLockAccount(activeProfile)
+          return
+        }
+        throw new Error(errDetail || `Server returned HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      const replyText = data.reply || 'No response received from Doshie.'
+      const agentInfo = data.agent || (selectedAgent ? { id: selectedAgent.id, name: selectedAgent.name, accent: selectedAgent.accent } : undefined)
+
+      startTransition(() => {
+        setMessages(prev => {
+          const finished = prev.map(msg =>
+            msg.id === pendingAssistantId
+              ? {
+                  ...msg,
+                  content: replyText,
+                  thinking: data.thinking,
+                  steps: data.steps,
+                  pending: false,
+                  agent: agentInfo,
+                }
+              : msg
+          )
+          syncSessionMessages(finished, targetSessionId)
+          return finished
+        })
+      })
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        setMessages(prev => {
+          const finished = prev.map(msg =>
+            msg.id === pendingAssistantId
+              ? {
+                  ...msg,
+                  content: '_Generation stopped by user._',
+                  pending: false,
+                }
+              : msg
+          )
+          syncSessionMessages(finished, targetSessionId)
+          return finished
+        })
+      } else {
+        const errorMsg = error?.message || '⚠️ Failed to get response from Doshie. Please ensure Ollama is active.'
+        setMessages(prev => {
+          const finished = prev.map(msg =>
+            msg.id === pendingAssistantId
+              ? {
+                  ...msg,
+                  content: errorMsg.startsWith('🔒') || errorMsg.startsWith('⚠️') ? errorMsg : `⚠️ ${errorMsg}`,
+                  pending: false,
+                  error: true,
+                }
+              : msg
+          )
+          syncSessionMessages(finished, targetSessionId)
+          return finished
+        })
+      }
+    } finally {
+      setIsGenerating(false)
+      abortControllerRef.current = null
+    }
+  }
+
   // Send message handler
   const handleSend = async (
     content: string,
@@ -800,100 +910,48 @@ export function App() {
     setMessages(updatedWithUser)
     syncSessionMessages(updatedWithUser, targetSessionId)
 
-    setIsGenerating(true)
-    const controller = new AbortController()
-    abortControllerRef.current = controller
+    await executeChatRequest(trimmed, attachments, pendingAssistantMessage.id, targetSessionId, brainMode, agentId)
+  }
 
-    try {
-      const targetAgentId = agentId || selectedAgent?.id
-      const response = await fetch('/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: trimmed || (hasAttachments ? 'Analyze the attached file(s) or image(s).' : ''),
-          profile: activeProfile,
-          attachments: hasAttachments ? attachments!.map(a => a.id) : [],
-          brain_mode: brainMode,
-          agent_id: targetAgentId,
-        }),
-        signal: controller.signal,
-      })
+  // Resend prompt as a fresh new message at the end of chat
+  const handleResend = (msg: Message) => {
+    if (isGenerating) return
+    handleSend(msg.content, msg.attachments)
+  }
 
-      if (!response.ok) {
-        let errDetail = ''
-        try {
-          const errData = await response.json()
-          errDetail = errData.error || errData.message || ''
-        } catch (_) {}
+  // Retry / regenerate response for this specific prompt
+  const handleRetry = async (targetMsg: Message) => {
+    if (isGenerating) return
+    const idx = messages.findIndex(m => m.id === targetMsg.id)
+    if (idx === -1) return
 
-        if (response.status === 423) {
-          setMessages(prev => prev.filter(msg => msg.id !== pendingAssistantMessage.id))
-          handleLockAccount(activeProfile)
-          return
-        }
-        throw new Error(errDetail || `Server returned HTTP ${response.status}`)
-      }
-
-      const data = await response.json()
-      const replyText = data.reply || 'No response received from Doshie.'
-      const agentInfo = data.agent || (selectedAgent ? { id: selectedAgent.id, name: selectedAgent.name, accent: selectedAgent.accent } : undefined)
-
-      startTransition(() => {
-        setMessages(prev => {
-          const finished = prev.map(msg =>
-            msg.id === pendingAssistantMessage.id
-              ? {
-                  ...msg,
-                  content: replyText,
-                  thinking: data.thinking,
-                  steps: data.steps,
-                  pending: false,
-                  agent: agentInfo,
-                }
-              : msg
-          )
-          syncSessionMessages(finished, targetSessionId!)
-          return finished
-        })
-      })
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        setMessages(prev => {
-          const finished = prev.map(msg =>
-            msg.id === pendingAssistantMessage.id
-              ? {
-                  ...msg,
-                  content: '_Generation stopped by user._',
-                  pending: false,
-                }
-              : msg
-          )
-          syncSessionMessages(finished, targetSessionId!)
-          return finished
-        })
-      } else {
-        const errorMsg = error?.message || '⚠️ Failed to get response from Doshie. Please ensure Ollama is active.'
-        setMessages(prev => {
-          const finished = prev.map(msg =>
-            msg.id === pendingAssistantMessage.id
-              ? {
-                  ...msg,
-                  content: errorMsg.startsWith('🔒') || errorMsg.startsWith('⚠️') ? errorMsg : `⚠️ ${errorMsg}`,
-                  pending: false,
-                  error: true,
-                }
-              : msg
-          )
-          syncSessionMessages(finished, targetSessionId!)
-          return finished
-        })
-      }
-    } finally {
-      setIsGenerating(false)
-      abortControllerRef.current = null
+    let targetSessionId = activeSessionId
+    if (!targetSessionId) {
+      targetSessionId = Date.now().toString()
+      setActiveSessionId(targetSessionId)
     }
+
+    const historyUpToUser = messages.slice(0, idx + 1)
+    const pendingAssistantMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now(),
+      pending: true,
+      agent: selectedAgent ? { id: selectedAgent.id, name: selectedAgent.name, accent: selectedAgent.accent } : undefined,
+    }
+
+    const updatedMessages = [...historyUpToUser, pendingAssistantMessage]
+    setMessages(updatedMessages)
+    syncSessionMessages(updatedMessages, targetSessionId)
+
+    await executeChatRequest(targetMsg.content, targetMsg.attachments, pendingAssistantMessage.id, targetSessionId)
+  }
+
+  // Populate prompt into composer for user editing
+  const handleEditPrompt = (content: string) => {
+    setDraftText(content)
+    scrollToBottom('smooth')
   }
 
   // Handle messages created during Live Voice Talk
@@ -1185,6 +1243,10 @@ export function App() {
                       message={msg}
                       assistantEmoji={customization.assistantEmoji}
                       activeProfile={activeProfile}
+                      onRetry={handleRetry}
+                      onResend={handleResend}
+                      onEditPrompt={handleEditPrompt}
+                      isGenerating={isGenerating}
                     />
                   ))}
                   <div ref={messagesEndRef} className="h-2 flex-none" />
@@ -1203,6 +1265,8 @@ export function App() {
               onOpenAgentHub={() => setIsAgentHubOpen(true)}
               isKeyboardOpen={isKeyboardOpen}
               onKeyboardStateChange={setIsKeyboardOpen}
+              draftText={draftText}
+              onClearDraftText={() => setDraftText('')}
             />
 
             {/* Mobile Bottom Navigation Bar (Android & Mobile Web) - Hidden when typing so keyboard doesn't push composer offscreen */}
