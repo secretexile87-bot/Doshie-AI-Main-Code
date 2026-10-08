@@ -18,6 +18,7 @@ interface LiveVoiceModalProps {
   onClose: () => void
   activeProfile: string
   onMessageCreated: (userText: string, assistantReply: string) => void
+  onExecuteCommand?: (command: string) => Promise<{ handled: boolean; feedback?: string } | void>
 }
 
 type VoiceState = 'idle' | 'listening' | 'thinking' | 'speaking'
@@ -27,6 +28,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   onClose,
   activeProfile,
   onMessageCreated,
+  onExecuteCommand,
 }) => {
   const [voiceState, setVoiceState] = useState<VoiceState>('idle')
   const [transcript, setTranscript] = useState('')
@@ -693,6 +695,29 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       setTranscript(userSpoken)
       setVoiceState('thinking')
       setAssistantText('Doshie is thinking...')
+
+      // Check for Gemini-style direct action commands
+      if (onExecuteCommand) {
+        try {
+          const cmdResult = await onExecuteCommand(userSpoken)
+          if (cmdResult && cmdResult.handled) {
+            const feedback = cmdResult.feedback || 'Command executed'
+            setAssistantText(feedback)
+            onMessageCreated(userSpoken, feedback)
+            await playSpeech(feedback)
+            if (isContinuousRef.current && !isCancelledRef.current) {
+              setTimeout(() => {
+                if (isContinuousRef.current && !isCancelledRef.current) {
+                  runVoiceTurn()
+                }
+              }, 300)
+            }
+            return
+          }
+        } catch (cmdErr) {
+          console.warn('Voice command execution failed:', cmdErr)
+        }
+      }
 
       try {
         const chatRes = await fetch('/chat', {

@@ -1607,6 +1607,59 @@ body {
                     </label>
                   </div>
 
+                  {/* Wake Word Hands-Free Detection Toggle */}
+                  <div className="flex items-center justify-between pt-2 border-t border-[#163625]">
+                    <div>
+                      <div className="text-xs sm:text-sm font-medium text-white flex items-center gap-1.5">
+                        <span>🎙️ Wake Word Detection ("Hey Doshie")</span>
+                        <span className="px-1.5 py-0.2 text-[9px] bg-emerald-500/20 text-emerald-300 rounded font-mono">Gemini Mode</span>
+                      </div>
+                      <div className="text-[11px] text-emerald-400/70">
+                        Listen for hands-free wake phrases like "Hey Doshie" and voice commands like "open music", "lock screen"
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={customization.wakeWordEnabled ?? true}
+                        onChange={e => onUpdateCustomization({ wakeWordEnabled: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-[#163625] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Custom Wake Word Name & Spoken Action Feedback */}
+                  {(customization.wakeWordEnabled ?? true) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#163625]/60 bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-500/10">
+                      <div>
+                        <label className="block text-xs font-medium text-emerald-300 mb-1">Wake Word Name</label>
+                        <input
+                          type="text"
+                          value={customization.wakeWordName ?? 'Doshie'}
+                          onChange={e => onUpdateCustomization({ wakeWordName: e.target.value })}
+                          placeholder="Doshie"
+                          className="w-full bg-[#0a1f14] border border-[#163625] rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        />
+                        <span className="text-[10px] text-emerald-400/60 mt-0.5 block">Responds to "Hey {customization.wakeWordName || 'Doshie'}", "OK {customization.wakeWordName || 'Doshie'}"</span>
+                      </div>
+                      <div className="flex flex-col justify-center">
+                        <label className="flex items-center justify-between cursor-pointer">
+                          <div>
+                            <span className="text-xs font-medium text-white block">Action Voice Feedback</span>
+                            <span className="text-[10px] text-emerald-400/70 block">Speak confirmations for open/lock/send actions</span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={customization.voiceFeedbackEnabled ?? true}
+                            onChange={e => onUpdateCustomization({ voiceFeedbackEnabled: e.target.checked })}
+                            className="w-4 h-4 rounded accent-emerald-500 ml-2"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Speech Rate & Pitch Sliders */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#163625]">
                     <div>

@@ -112,6 +112,11 @@ export interface GuiCustomization {
   soundVolume: number
   smoothScroll: boolean
 
+  // Voice Wake-Up & Hands-Free Commands
+  wakeWordEnabled?: boolean
+  wakeWordName?: string
+  voiceFeedbackEnabled?: boolean
+
   // Lock Screen Customization
   lockScreenTitle?: string
   lockScreenSubtitle?: string

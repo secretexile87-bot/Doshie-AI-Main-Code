@@ -13,7 +13,8 @@ import { VoiceStudioModal } from './components/VoiceStudioModal'
 import { AgentHubModal } from './components/AgentHubModal'
 import { AgentConsoleModal } from './components/AgentConsoleModal'
 import { MobileNavBar } from './components/MobileNavBar'
-import { stopSpeech, subscribeSpeechState } from './utils/audio'
+import { stopSpeech, subscribeSpeechState, playNeuralSpeech, playWakeChime } from './utils/audio'
+import { parseAndExecuteCommand, detectWakeWord, type CommandContext } from './utils/commands'
 import { getSeasonalInfo } from './utils/seasonal'
 import type { Message, ChatSession, AntigravitySummary, GuiCustomization, Profile, ChatAttachment, SpecialistAgent } from './types'
 
@@ -40,6 +41,9 @@ const DEFAULT_CUSTOMIZATION: GuiCustomization = {
   soundEffects: false,
   soundVolume: 0.8,
   smoothScroll: true,
+  wakeWordEnabled: true,
+  wakeWordName: 'Doshie',
+  voiceFeedbackEnabled: true,
   lockScreenWallpaper: 'glow',
   lockScreenClockFormat: '12h',
   lockScreenAutoLockMinutes: 5,
@@ -298,6 +302,18 @@ export function App() {
   const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState(false)
   const [isMusicPlayerOpen, setIsMusicPlayerOpen] = useState(false)
   const [isGlobalSpeaking, setIsGlobalSpeaking] = useState(false)
+
+  // Floating Action Command & Wake-Up Banner State
+  const [commandBanner, setCommandBanner] = useState<{ text: string; icon?: string } | null>(null)
+  const bannerTimeoutRef = useRef<any>(null)
+
+  const triggerCommandBanner = (text: string, icon: string = '⚡') => {
+    if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current)
+    setCommandBanner({ text, icon })
+    bannerTimeoutRef.current = setTimeout(() => {
+      setCommandBanner(null)
+    }, 3800)
+  }
 
   useEffect(() => {
     return subscribeSpeechState(setIsGlobalSpeaking)
@@ -909,6 +925,37 @@ export function App() {
     }
   }
 
+  const handleNewChatRef = useRef<() => void>(() => {})
+  const handleStopRef = useRef<() => void>(() => {})
+
+  const getCommandContext = (): CommandContext => ({
+    activeProfile,
+    onOpenMusicPlayer: () => setIsMusicPlayerOpen(true),
+    onOpenLiveVoice: () => setIsLiveVoiceOpen(true),
+    onOpenSettings: (tab) => {
+      if (tab) setSettingsTab(tab)
+      setIsSettingsOpen(true)
+    },
+    onOpenVoiceStudio: () => setIsVoiceStudioOpen(true),
+    onOpenAgentHub: () => setIsAgentHubOpen(true),
+    onOpenAgentConsole: () => setIsAgentConsoleOpen(true),
+    onOpenSidebar: () => setIsSidebarOpen(true),
+    onNewChat: () => handleNewChatRef.current?.(),
+    onSendMessage: (txt) => handleSend(txt),
+    onLockAccount: () => handleLockAccount(activeProfile),
+    onStopSpeech: () => {
+      stopSpeech()
+      handleStopRef.current?.()
+    },
+    onSwitchProfile: (name) => handleSelectProfile(name),
+    speakFeedback: (txt) => {
+      if (customization.voiceFeedbackEnabled !== false) {
+        playNeuralSpeech(txt, { profile: activeProfile })
+      }
+    },
+    showBanner: (msg, icon) => triggerCommandBanner(msg, icon),
+  })
+
   // Send message handler
   const handleSend = async (
     content: string,
@@ -925,6 +972,47 @@ export function App() {
 
     const hasAttachments = Boolean(attachments && attachments.length > 0)
     if ((!trimmed && !hasAttachments) || isGenerating) return
+
+    // Intercept Gemini-style action commands or wake phrases typed in chat
+    if (!hasAttachments && trimmed) {
+      const { hasWakeWord, remainder } = detectWakeWord(trimmed, customization.wakeWordName)
+      const commandToRun = hasWakeWord && remainder ? remainder : trimmed
+
+      const cmdResult = await parseAndExecuteCommand(commandToRun, getCommandContext())
+      if (cmdResult && cmdResult.handled) {
+        let targetSessionId = activeSessionId
+        if (!targetSessionId) {
+          const newId = Date.now().toString()
+          const newSession: ChatSession = {
+            id: newId,
+            title: trimmed.slice(0, 45).trim() || 'Action Command',
+            messages: [],
+            created_at: Date.now(),
+            updated_at: Date.now(),
+          }
+          targetSessionId = newId
+          setActiveSessionId(newId)
+          setSessions(prev => [newSession, ...prev])
+        }
+
+        const userMsg: Message = {
+          id: Date.now().toString(),
+          role: 'user',
+          content: trimmed,
+          timestamp: Date.now(),
+        }
+        const assistantMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `⚡ **Action Executed:** ${cmdResult.feedback || 'Done.'}`,
+          timestamp: Date.now(),
+        }
+        const updated = [...messages, userMsg, assistantMsg]
+        setMessages(updated)
+        syncSessionMessages(updated, targetSessionId)
+        return
+      }
+    }
 
     // If currently inspecting a transcript, clear it to return to chat
     if (activeAntigravityId) {
@@ -1109,6 +1197,7 @@ export function App() {
       abortControllerRef.current.abort()
     }
   }
+  handleStopRef.current = handleStop
 
   // New Chat Handler: Creates a clean new session without deleting old ones!
   const handleNewChat = () => {
@@ -1141,6 +1230,7 @@ export function App() {
       body: JSON.stringify({ profile: activeProfile }),
     }).catch(() => {})
   }
+  handleNewChatRef.current = handleNewChat
 
   // Delete Session
   const handleDeleteSession = (id: string) => {
@@ -1222,6 +1312,94 @@ export function App() {
     setIsSettingsOpen(true)
   }
 
+  // Hands-free continuous wake word listener ("Hey Doshie", "Doshie", etc.)
+  useEffect(() => {
+    if (customization.wakeWordEnabled === false || isLocked || isLiveVoiceOpen) {
+      return
+    }
+
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRec) return
+
+    let recognition: any = null
+    let isStopped = false
+    let restartTimer: any = null
+
+    const startRecognition = () => {
+      if (isStopped) return
+      try {
+        recognition = new SpeechRec()
+        recognition.continuous = true
+        recognition.interimResults = false
+        recognition.lang = 'en-US'
+
+        recognition.onresult = async (event: any) => {
+          if (!event.results || event.results.length === 0) return
+          const lastIndex = event.results.length - 1
+          const transcript = event.results[lastIndex][0]?.transcript || ''
+          const trimmed = transcript.trim()
+          if (!trimmed) return
+
+          const { hasWakeWord, remainder } = detectWakeWord(trimmed, customization.wakeWordName)
+          if (hasWakeWord) {
+            playWakeChime()
+            if (remainder) {
+              triggerCommandBanner(`Heard: "${trimmed}"`, '🎙️')
+              const cmdResult = await parseAndExecuteCommand(remainder, getCommandContext())
+              if (!cmdResult.handled) {
+                // If it was wake word + general prompt (e.g. "Hey Doshie, what is the meaning of life?")
+                handleSend(remainder)
+              }
+            } else {
+              // Wake word only: "Hey Doshie!" -> Open Live Voice for immediate interactive talking
+              triggerCommandBanner('Doshie: I\'m listening...', '🦖')
+              setIsLiveVoiceOpen(true)
+            }
+          }
+        }
+
+        recognition.onerror = (e: any) => {
+          if (e.error !== 'no-speech' && e.error !== 'aborted') {
+            console.debug('Wake word speech listener error:', e.error)
+          }
+        }
+
+        recognition.onend = () => {
+          if (!isStopped && !isLocked && !isLiveVoiceOpen && customization.wakeWordEnabled !== false) {
+            restartTimer = setTimeout(() => {
+              if (!isStopped && !isLocked && !isLiveVoiceOpen) {
+                startRecognition()
+              }
+            }, 400)
+          }
+        }
+
+        recognition.start()
+      } catch (err) {
+        console.debug('Wake word recognition start failed:', err)
+      }
+    }
+
+    startRecognition()
+
+    return () => {
+      isStopped = true
+      if (restartTimer) clearTimeout(restartTimer)
+      if (recognition) {
+        try {
+          recognition.abort()
+        } catch {}
+      }
+    }
+  }, [
+    customization.wakeWordEnabled,
+    customization.wakeWordName,
+    customization.voiceFeedbackEnabled,
+    isLocked,
+    isLiveVoiceOpen,
+    activeProfile,
+  ])
+
   // Determine active view title for header
   const currentSession = sessions.find(s => s.id === activeSessionId)
   const activeViewTitle = activeAntigravityId
@@ -1242,6 +1420,23 @@ export function App() {
       }}
       className="fixed left-0 right-0 w-full bg-[var(--bg-dark)] text-neutral-100 overflow-hidden font-sans select-text flex transition-colors"
     >
+      {/* Gemini-Style Command & Wake-Up Floating Banner */}
+      {commandBanner && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto transition-all duration-300">
+          <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-[#07170e]/95 backdrop-blur-md border border-emerald-500/50 shadow-2xl shadow-emerald-950/80 text-emerald-100 text-xs sm:text-sm font-medium">
+            <span className="text-base animate-pulse">{commandBanner.icon || '⚡'}</span>
+            <span className="truncate max-w-[280px] sm:max-w-[450px]">{commandBanner.text}</span>
+            <button
+              onClick={() => setCommandBanner(null)}
+              className="ml-2 text-emerald-400/60 hover:text-white transition-colors text-xs px-1"
+              title="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar (Chat Explorer / Transcripts) */}
       <Sidebar
         isOpen={isSidebarOpen}
@@ -1431,6 +1626,11 @@ export function App() {
         }}
         activeProfile={activeProfile}
         onMessageCreated={handleVoiceMessageCreated}
+        onExecuteCommand={async (spoken) => {
+          const { remainder } = detectWakeWord(spoken, customization.wakeWordName)
+          const cmdText = remainder || spoken
+          return parseAndExecuteCommand(cmdText, getCommandContext())
+        }}
       />
 
       {/* Universal Music Player Modal */}
