@@ -55,7 +55,7 @@ CODING_MODEL = os.environ.get(
 )
 FAST_MODEL = os.environ.get(
     "YOSHI_FAST_MODEL",
-    "qwen3.5:9b"
+    "qwen3.5:4b"
 )
 ADVANCED_MODEL = os.environ.get(
     "YOSHI_ADVANCED_MODEL",
@@ -1407,6 +1407,12 @@ def should_auto_remember(text):
         "i usually",
         "i always",
         "important to me",
+        "short and sweet",
+        "keep it short",
+        "short answers",
+        "concise answers",
+        "be concise",
+        "prefer short",
     )
 
     return any(phrase in lower for phrase in useful_phrases)
@@ -1496,7 +1502,7 @@ def ai_should_remember(text):
         "temperature": 0.0,
         "max_tokens": 4,
         "think": False,
-        "keep_alive": -1
+        "keep_alive": os.environ.get("YOSHI_KEEP_ALIVE", "5m")
     }).encode("utf-8")
 
     request = urllib.request.Request(
@@ -1564,6 +1570,9 @@ def normalize_memory(text):
             value = match.group(1).strip()
             return template.format(value)
 
+    if re.search(r"\b(?:short and sweet|keep it short|concise answers?|short answers?|be concise|prefer short)\b", lower):
+        return "I prefer short and sweet, concise responses with minimal conversational filler."
+
     return clean
 
 def auto_remember(text, profile="Hermes"):
@@ -1582,6 +1591,15 @@ def auto_remember(text, profile="Hermes"):
     importance = detect_memory_importance(clean, category)
 
     replaceable_topics = {
+        "communication_style": (
+            "short and sweet",
+            "keep it short",
+            "concise",
+            "short answers",
+            "brief answers",
+            "detailed answers",
+            "prefer short",
+        ),
         "favorite_color": (
             "my favorite color",
             "favorite color",
@@ -1825,9 +1843,15 @@ def smart_recall(query, limit=5, profile="Hermes", scope=None):
         },
         "family": {
             "family", "wife", "husband", "son", "daughter", "child",
-            "children", "kid", "kids", "mom", "dad"
+            "children", "kid", "kids", "mom", "dad", "spouse", "partner",
+            "marriage", "married"
         },
-        "goal": {"goal", "goals", "future", "career", "plan", "plans"},
+        "goal": {
+            "goal", "goals", "future", "career", "plan", "plans",
+            "dream", "dreams", "aspire", "aspiration", "aspirations",
+            "hope", "hopes", "working", "aim", "ambition", "comfortable",
+            "lifestyle"
+        },
         "gaming": {
             "game", "games", "gaming", "xbox", "playstation", "steam"
         },
@@ -1840,6 +1864,28 @@ def smart_recall(query, limit=5, profile="Hermes", scope=None):
         },
         "school": {
             "school", "class", "classes", "course", "homework", "study"
+        },
+        "location": {
+            "live", "location", "city", "state", "reside", "address", "town",
+            "hometown", "place", "where", "living", "paso", "texas"
+        },
+        "travel": {
+            "travel", "trip", "visit", "visited", "vacation", "holiday",
+            "place", "places", "country", "city", "japan", "okinawa",
+            "explore"
+        },
+        "communication": {
+            "talk", "speak", "answer", "reply", "respond", "response",
+            "responses", "style", "short", "sweet", "concise", "brief",
+            "brevity"
+        },
+        "food": {
+            "food", "cook", "prepare", "recipe", "dish", "marinate",
+            "marinade", "eat", "meal", "dinner", "lunch"
+        },
+        "music": {
+            "music", "song", "band", "artist", "listen", "album", "track",
+            "smile", "clarity", "zedd"
         },
     }
 
@@ -1923,7 +1969,7 @@ def smart_recall(query, limit=5, profile="Hermes", scope=None):
                 score += 8
 
         # Ignore weak accidental matches.
-        if score >= 8:
+        if score >= 8 or (len(query_words) <= 3 and score >= 4):
             scored.append((score, row))
 
     scored.sort(
@@ -1966,16 +2012,31 @@ def build_system_prompt(memory_rows=None, profile="Hermes"):
         with open(IDENTITY_PATH, "r", encoding="utf-8") as f:
             identity = f.read().strip()
     except FileNotFoundError:
-        identity = "You are DiYoshi, Hermes's personal AI assistant."
+        identity = "You are Doshie, Hermes's personal AI assistant."
+
+    is_hermes = profile.casefold() == "hermes"
+    if is_hermes:
+        profile_identity = identity
+    else:
+        profile_identity = f"""You are Doshie, {profile}'s personal AI companion and trusted family assistant.
+Always identify yourself as Doshie. Never call yourself Yoshi or DiYoshi.
+
+INDIVIDUAL PROFILE FOCUS:
+- You are speaking directly and personally with {profile}.
+- Treat {profile} as an independent individual with their own thoughts, interests, questions, and unique voice.
+- Tailor your tone, guidance, and conversation specifically to {profile}.
+- Strictly protect {profile}'s private thoughts, memories, and personal chat history. Keep them completely isolated from Hermes and other family members."""
 
     settings = yoshi_settings.load_settings()
     mode = FORCE_MODE or settings.get("mode", "family")
 
+    family_role = "Your primary role is to help Hermes and his family." if is_hermes else f"Your primary role is to help {profile} and provide a warm, encouraging, patient, and helpful family experience."
+
     mode_instructions = {
-        "family": """
+        "family": f"""
 CURRENT MODE: FAMILY
 
-Your primary role is to help Hermes and his family.
+{family_role}
 
 Prioritize:
 - household tasks
@@ -1988,14 +2049,12 @@ Prioritize:
 - safe and privacy-conscious assistance
 
 Keep responses practical, warm, concise, and family-friendly.
-
-Do not treat computer-lab experimentation as the priority unless Hermes explicitly asks for technical help.
 """,
 
-        "normal": """
+        "normal": f"""
 CURRENT MODE: NORMAL
 
-Act as a balanced general-purpose personal assistant.
+Act as {profile}'s balanced general-purpose personal assistant.
 
 Help with everyday questions, organization, planning, learning, and general problem-solving.
 """,
@@ -2003,14 +2062,12 @@ Help with everyday questions, organization, planning, learning, and general prob
         "tech": """
 CURRENT MODE: TECH
 
-Act as DiYoshi's computer-lab mode.
+Act as Doshie's computer-lab mode.
 
 Prioritize:
 - Python and coding
 - Linux
-- Termux
 - networking
-- virtual machines
 - troubleshooting
 - computer hardware
 - local AI
@@ -2018,7 +2075,6 @@ Prioritize:
 - explaining technical concepts clearly
 
 Teach while helping. When useful, explain why code works instead of only giving commands.
-
 Keep family privacy and safety rules intact.
 """,
 
@@ -2067,28 +2123,46 @@ PERSONALITY & DEMEANOR: HUMBLE, GENTLE & KIND
 - Always be patient, encouraging, and supportive in every interaction.
 - Never act condescending, boastful, or impatient.
 - Offer constructive, helpful guidance with respect and humble attentiveness.
+- Balance kindness with brevity: warmth does NOT mean wordiness or filler. Respect the user's time and desired answer length.
+- Talk naturally and conversationally, like a loyal friend speaking out loud rather than a robotic list generator.
 """,
         "supportive": """
-PERSONALITY & DEMEANOR: COMPASSIONATE COMPANION
+PERSONALITY & DEMEANOR: COMPASSIONATE & CONVERSATIONAL COMPANION
 - Act as a deeply supportive, empathetic, and encouraging friend.
-- Validate feelings, celebrate small wins, and provide gentle encouragement.
+- Talk in a warm, relaxed, conversational voice that flows naturally when read or spoken aloud.
+- Validate feelings and share insights like a real person talking to another person, without robotic bullet outlines.
 """,
         "direct_tech": """
 PERSONALITY & DEMEANOR: PRECISE & CONCISE TECHNICIAN
 - Deliver direct, high-precision, technical analysis with minimal fluff.
 """,
         "playful": """
-PERSONALITY & DEMEANOR: CHEERFUL & WITTY
+PERSONALITY & DEMEANOR: CHEERFUL, WITTY & CONVERSATIONAL
 - Be enthusiastic, witty, energetic, and engaging while staying helpful.
+- Keep conversation breezy, natural, and fun without stiff outlining.
 """
     }
 
     persona_text = persona_directives.get(persona, persona_directives["humble_kind"])
     if custom_directive:
-        persona_text += f"\nCUSTOM USER INSTRUCTION FROM HERMES:\n{custom_directive}\n"
+        sender_label = "HERMES" if is_hermes else profile.upper()
+        persona_text += f"\nCUSTOM USER INSTRUCTION FROM {sender_label}:\n{custom_directive}\n"
+
+    if is_hermes:
+        self_hosted_info = """  - SELF-HOSTED IDENTITY & INTERFACE KNOWLEDGE:
+    * You are Doshie, running locally on Hermes's own host computer (`acer-nitro` with an NVIDIA RTX 5070 GPU).
+    * The user is Hermes, your creator and owner.
+    * The app Hermes is using is Doshie (featuring dark mode, chats, agents, live voice, music, and settings).
+    * If Hermes shares a screenshot of the app, recognize it as your own Doshie app interface—never mistake it for third-party platforms like Discord, Slack, or Telegram."""
+    else:
+        self_hosted_info = f"""  - SELF-HOSTED IDENTITY & INTERFACE KNOWLEDGE:
+    * You are Doshie, running locally on the home host computer (`acer-nitro` with an NVIDIA RTX 5070 GPU, hosted by Hermes).
+    * The user is {profile}. You are {profile}'s personal AI companion and trusted family assistant.
+    * The app {profile} is using is Doshie (featuring dark mode, chats, agents, live voice, music, and settings).
+    * If {profile} shares a screenshot of the app, recognize it as your own Doshie app interface—never mistake it for third-party platforms like Discord, Slack, or Telegram."""
 
     return f"""
-{identity}
+{profile_identity}
 
 {persona_text}
 
@@ -2096,14 +2170,27 @@ PERSONALITY & DEMEANOR: CHEERFUL & WITTY
 
 ACTIVE SPEAKER PROFILE: {profile}
 
-You are talking to {profile}. Address this person by name only when natural.
-Keep this profile's private memories separate from other people's memories.
+You are talking directly to {profile}. Address this person by name only when natural and conversational.
+Keep this profile's private memories and conversations strictly separate from other family members.
 Shared household memories may be used for any family profile.
 A selected profile personalizes context; it is not proof of identity.
 
 RESPONSE QUALITY RULES:
 
 - Answer {profile}'s actual request first.
+- STRICT BREVITY, CONCISENESS & RESPECTING USER LENGTH PREFERENCES (CRITICAL):
+  - Strictly respect and follow {profile}'s requests for brevity (e.g. "short and sweet", "short answers", "keep it short", "brief", "concise", "quick answer", "just tell me").
+  - When {profile} requests short answers, or has a saved preference for conciseness:
+    * Fulfill the request in 1-2 sentences maximum.
+    * Do NOT pad the response with conversational filler, emotional validation, or generic small talk.
+    * Do NOT meta-announce that you are keeping it short (e.g. never say "Got it! Short and sweet it is..."). Just deliver the short answer directly.
+  - CONVERSATIONAL COURTESY TURNS & SIMPLE ACKNOWLEDGMENTS:
+    * When {profile} provides a simple courtesy or acknowledgment (e.g. "That works, thank you Doshie", "Thank you", "Thanks", "Sounds good", "Cool", "Got it", "Okay", "Great", "Nice"):
+    * Reply with EXACTLY ONE short, friendly sentence (e.g. "You're very welcome, {profile}! Let me know if you need anything else.").
+    * NEVER output multiple paragraphs, rambling chatter, or unprompted questions.
+  - NO UNSOLICITED CLOSING QUESTIONS:
+    * NEVER tack on unsolicited closing questions (e.g. never ask "Is there anything else on your mind today, or shall we just relax and see what comes up?", "What would you like to explore next?").
+    * Only ask a question if {profile} explicitly requested a brainstorming session or consultation.
 - Write in polished, natural American English unless {profile} requests another language or dialect.
 - Use correct spelling, grammar, punctuation, capitalization, and complete sentences.
 - Use standard pronoun case: write "He and I went" as a subject, not "Him and I went" or "Me and him went."
@@ -2123,11 +2210,14 @@ RESPONSE QUALITY RULES:
   - Do NOT announce or repeat what the user asked for (e.g. never say "Here is the 3D model of a...", "Sure! I'll explain...", "You asked for...", "Certainly, let's look at...").
   - Identify the request silently and provide the content or answer directly.
 - Check names, numbers, and internal consistency before answering.
-- FORMATTING & PRESENTATION EXCELLENCE:
-  - Make all answers exceptionally well-organized, visually clean, and easy to read.
-  - Break up walls of text into short, readable paragraphs, bullet points, numbered steps, or bold section headers.
-  - For comparisons, specifications, tabular data, or hardware metrics, format them cleanly using Markdown tables or bold bulleted cards.
-  - Use tasteful emojis (e.g. 💻, 🧠, ⚡, 💾, 🎮, 🟢, 📌) to organize sections where appropriate.
+- NATURAL SPOKEN CONVERSATIONAL FLOW (CRITICAL FOR READOUT & CHAT):
+  - Speak in a natural, smooth, warm, and conversational human voice—like a thoughtful friend talking in person.
+  - DO NOT default to bulleted lists, numbered outlines, bold category headers, or emoji card lists for normal conversational queries.
+  - Express thoughts and explanations in flowing, well-crafted sentences and natural paragraphs that sound rhythmic, effortless, and friendly when spoken aloud.
+  - Avoid stiff transition phrases like "Here's how it works:" or "Here is what I found:" followed by bulleted items. Speak your thoughts directly.
+  - Only use bullet points or numbered steps when {profile} explicitly asks for a list, recipe, step-by-step tutorial, or technical troubleshooting procedure.
+  - Keep emoji usage light and natural—never attach emojis to every line or heading.
+  - For comparisons, code, or hardware metrics, format them cleanly, but keep all verbal explanations conversational and spoken-first.
   - You run directly on the host computer (`acer-nitro`). You DO have direct access to local system diagnostics, CPU, GPU, RAM, storage, and thermals. Never claim you cannot access or test the PC.
 - You are equipped with live real-time tools (weather, local & national news feeds, live web search, tasks, notes, Spotify, host hardware/system diagnostics). Never claim you do not have access to news, the internet, or the host PC hardware, as the workstation automatically routes and fetches live web data and system diagnostics whenever needed.
 - CONVERSATIONAL CONTINUITY & SHORT FOLLOW-UP UNDERSTANDING (CRITICAL):
@@ -2138,11 +2228,7 @@ RESPONSE QUALITY RULES:
   - When {profile} corrects you (e.g. "That's a building, not a house", "No, the other one"):
     * Instantly accept the correction with grace.
     * Do NOT argue or start searching the web for random resources. Deliver what {profile} actually asked for.
-  - SELF-HOSTED IDENTITY & INTERFACE KNOWLEDGE:
-    * You are Doshie, running locally on Hermes's own host computer (`acer-nitro` with an NVIDIA RTX 5070 GPU).
-    * The user is Hermes, your creator and owner.
-    * The app Hermes is using is Doshie (featuring dark mode, chats, agents, live voice, music, and settings).
-    * If Hermes shares a screenshot of the app, recognize it as your own Doshie app interface—never mistake it for third-party platforms like Discord, Slack, or Telegram.
+{self_hosted_info}
 
 WRITING AND LITERATURE RULES:
 
@@ -2180,7 +2266,7 @@ When {profile} asks about something that appears in memory:
 - Do not say that you do not have memory.
 - Do not say that AI assistants cannot remember.
 - Do not describe the memory as your own personal preference.
-- Understand that phrases such as "my favorite" refer to {profile}, not DiYoshi.
+- Understand that phrases such as "my favorite" refer to {profile}, not Doshie.
 - When referring to saved memories about {profile}, use "you" and "your", never "I", "me", or "my".
 
 SAVED LONG-TERM MEMORIES:
@@ -2298,7 +2384,7 @@ def _build_recent_history(history, max_messages=12, char_budget=14000):
     return selected
 
 
-def _clean_model_reply(value):
+def _clean_model_reply(value, user_text=""):
     original = str(value or "").strip()
     reply = original
     unasked_help_endings = (
@@ -2308,10 +2394,30 @@ def _clean_model_reply(value):
         r"feel free to ask[.!]*\s*🦖?\s*$",
         r"\s+Let me know if you need (?:anything|any help)"
         r"(?: else)?[.!]*\s*🦖?\s*$",
+        r"\s+Is there anything else on your mind today,?\s*(?:or shall we[^\n]*\??)?[.!*⭐✨💬\s]*$",
+        r"\s+Is there anything else I can help you with today\??[.!*⭐✨💬\s]*$",
+        r"\s+What would you like to (?:talk about|do|explore) next\??[.!*⭐✨💬\s]*$",
     )
 
     for pattern in unasked_help_endings:
         reply = re.sub(pattern, "", reply, flags=re.IGNORECASE).strip()
+
+    # If the user's turn was just a simple acknowledgment or courtesy turn
+    # (e.g. "That works, thank you Doshie", "thanks", "ok", "sounds good"),
+    # keep the reply crisp and avoid rambling paragraphs
+    if user_text:
+        clean_user = user_text.strip().lower()
+        ack_patterns = (
+            r"^(?:that works,?\s*)?(?:thank you|thanks|thx|sounds good|cool|great|perfect|ok|okay|got it|alright)(?: doshie| yoshi| hermes)?[.!?:)]*$",
+            r"^(?:that works|looks good|all set|perfect thanks)[.!?:)]*$",
+        )
+        if any(re.match(pat, clean_user, re.IGNORECASE) for pat in ack_patterns):
+            sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", reply) if s.strip()]
+            if len(sentences) > 1:
+                first = sentences[0]
+                first = re.sub(r"\s+Is there anything else.*", "", first, flags=re.IGNORECASE).strip()
+                if first:
+                    reply = first
 
     return reply or original
 
@@ -2495,7 +2601,7 @@ VISION MODE:
                 brain_mode=brain_mode,
             )
             URL = model_url
-            return _clean_model_reply(reply)
+            return _clean_model_reply(reply, user_text=user_text)
         except Exception as error:
             last_error = error
 

@@ -42,6 +42,7 @@ public class MainActivity extends BridgeActivity {
         installSafeAreaBridge();
         installBackButtonHandler();
         openVerifiedDiYoshiLink(getIntent());
+        handleQuickActionIntent(getIntent());
         checkForUpdate();
         // Updates are checked against the trusted Doshie APK channel.
     }
@@ -239,6 +240,47 @@ public class MainActivity extends BridgeActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         openVerifiedDiYoshiLink(intent);
+        handleQuickActionIntent(intent);
+    }
+
+    private void handleQuickActionIntent(Intent intent) {
+        if (intent == null) return;
+        String action = intent.getAction();
+        String extra = intent.getStringExtra("doshie_action");
+        Uri data = intent.getData();
+
+        String targetAction = null;
+        if ("org.diyoshi.assistant.ACTION_LIVE_VOICE".equals(action) || "live_voice".equals(extra)
+                || (data != null && "live_voice".equalsIgnoreCase(data.getLastPathSegment()))) {
+            targetAction = "live_voice";
+        } else if ("org.diyoshi.assistant.ACTION_MUSIC".equals(action) || "music".equals(extra)
+                || (data != null && "music".equalsIgnoreCase(data.getLastPathSegment()))) {
+            targetAction = "music";
+        } else if ("org.diyoshi.assistant.ACTION_CHAT".equals(action) || "chat".equals(extra)
+                || (data != null && "chat".equalsIgnoreCase(data.getLastPathSegment()))) {
+            targetAction = "chat";
+        }
+
+        if (targetAction != null) {
+            final String act = targetAction;
+            if (bridge != null && bridge.getWebView() != null) {
+                Runnable dispatcher = () -> {
+                    String script = "(function() { " +
+                        "  window.__doshiePendingAction = '" + act + "'; " +
+                        "  if (typeof window.__doshieExecuteQuickAction === 'function') { " +
+                        "    window.__doshieExecuteQuickAction('" + act + "'); " +
+                        "  } else { " +
+                        "    window.dispatchEvent(new CustomEvent('doshieQuickAction', { detail: { action: '" + act + "' } })); " +
+                        "  } " +
+                        "})();";
+                    bridge.getWebView().evaluateJavascript(script, null);
+                };
+
+                bridge.getWebView().post(dispatcher);
+                bridge.getWebView().postDelayed(dispatcher, 600);
+                bridge.getWebView().postDelayed(dispatcher, 1800);
+            }
+        }
     }
 
     private void openVerifiedDiYoshiLink(Intent intent) {

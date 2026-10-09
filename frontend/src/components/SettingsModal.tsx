@@ -1769,40 +1769,20 @@ body {
                         )}
                       </div>
 
-                      {/* Quick Wake Widget Feature */}
-                      <div className="pt-2.5 border-t border-emerald-900/40 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="text-xs font-medium text-white flex items-center gap-1.5">
-                              <span>🔘 Quick Wake Floating Widget</span>
-                              <span className="px-1.5 py-0.2 text-[9px] bg-emerald-500/20 text-emerald-300 rounded font-mono">Quick Click</span>
-                            </span>
-                            <span className="text-[11px] text-emerald-400/70 block">
-                              Display a draggable on-screen button to wake Doshie with a single tap
-                            </span>
+                      {/* Mobile Home Screen Widget & Shortcuts Info */}
+                      <div className="pt-2.5 border-t border-emerald-900/40">
+                        <div className="p-2.5 rounded-lg bg-[#06190f] border border-emerald-700/40 space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-300">
+                            <span>📱 Home Screen Widget &amp; Quick Actions</span>
+                            <span className="px-1.5 py-0.2 text-[9px] bg-emerald-500/20 text-emerald-300 rounded font-mono">Android &amp; iOS</span>
                           </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={customization.quickWakeWidgetEnabled ?? true}
-                              onChange={e => onUpdateCustomization({ quickWakeWidgetEnabled: e.target.checked })}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-[#163625] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                          </label>
+                          <p className="text-[11px] text-neutral-300 leading-relaxed">
+                            <span className="text-emerald-400 font-medium">Android Widget:</span> Long press your Android Home Screen or Lock Screen &rarr; tap <strong className="text-white">Widgets</strong> &rarr; select <strong className="text-white">Doshie</strong> to place the Gemini-style Search Bar or 1x1 Quick Wake button.
+                          </p>
+                          <p className="text-[11px] text-neutral-400 leading-relaxed">
+                            <span className="text-emerald-400 font-medium">App Shortcuts:</span> Long press the Doshie app icon on your home screen for instant shortcuts to <span className="text-emerald-300">Live Voice</span>, <span className="text-emerald-300">New Chat</span>, and <span className="text-emerald-300">Music Player</span>.
+                          </p>
                         </div>
-
-                        {(customization.quickWakeWidgetEnabled ?? true) && (
-                          <div className="flex items-center justify-between pl-1 text-[11px]">
-                            <span className="text-neutral-300">Show on Lock Screen</span>
-                            <input
-                              type="checkbox"
-                              checked={customization.quickWakeWidgetShowOnLock ?? true}
-                              onChange={e => onUpdateCustomization({ quickWakeWidgetShowOnLock: e.target.checked })}
-                              className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
-                            />
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}

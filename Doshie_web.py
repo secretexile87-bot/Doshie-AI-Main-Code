@@ -1042,6 +1042,9 @@ a:hover {
         <button class="side-action" onclick="toggleSettings(); closeSidebar()">
             <span class="side-icon">⚙️</span><span class="side-text">Settings</span>
         </button>
+        <button class="side-action" onclick="window.open('/su#tab-rdp', '_blank'); closeSidebar()">
+            <span class="side-icon">🖥️</span><span class="side-text">Remote &amp; RDP</span>
+        </button>
         <button class="side-action" onclick="quick('Weather'); closeSidebar()">
             <span class="side-icon">🌦️</span><span class="side-text">Weather</span>
         </button>

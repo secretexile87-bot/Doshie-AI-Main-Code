@@ -53,6 +53,55 @@ TOOLS_REGISTRY = [
             },
             "required": ["request_text"]
         }
+    },
+    {
+        "name": "inspect_hardware",
+        "description": "Inspect any computer hardware subsystem (CPU, GPU, RAM, storage, thermals, motherboard, network, pci, usb, or all)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "component": {
+                    "type": "string",
+                    "description": "Subsystem to inspect: all, summary, cpu, gpu, ram, disk, thermals, motherboard, network, pci, usb",
+                    "enum": ["all", "summary", "cpu", "gpu", "ram", "disk", "thermals", "motherboard", "network", "pci", "usb"]
+                }
+            }
+        }
+    },
+    {
+        "name": "propose_hardware_change",
+        "description": "Safely stage a hardware modification (CPU governor, GPU power limit, profile) with thermal validation. In supervised mode, does not execute until user confirms.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target": {"type": "string", "description": "Hardware target: cpu_governor, gpu_power_limit, gpu_persistence_mode, profile"},
+                "value": {"type": "string", "description": "New target value or profile"},
+                "reason": {"type": "string", "description": "Reason for proposed change"}
+            },
+            "required": ["target", "value"]
+        }
+    },
+    {
+        "name": "execute_hardware_change",
+        "description": "Execute a hardware modification with user command confirmation",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target": {"type": "string", "description": "Hardware target"},
+                "value": {"type": "string", "description": "Target value"},
+                "confirmed": {"type": "boolean", "description": "Explicit confirmation by user command"},
+                "reason": {"type": "string", "description": "Reason for change"}
+            },
+            "required": ["target", "value", "confirmed"]
+        }
+    },
+    {
+        "name": "get_hardware_governance",
+        "description": "Check current supervisory mode, safety bounds, and self-reasoning readiness",
+        "inputSchema": {
+            "type": "object",
+            "properties": {}
+        }
     }
 ]
 

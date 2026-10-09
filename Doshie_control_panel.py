@@ -19,7 +19,7 @@ import subprocess
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, Response
 
 try:
     import psutil
@@ -37,13 +37,18 @@ control_panel_bp = Blueprint("control_panel", __name__)
 
 
 def _ollama_keepalive_worker():
-    """Background daemon to keep Doshie's primary model warm in GPU VRAM for instant responses."""
+    """Background daemon to keep Doshie's primary model warm in GPU VRAM only if explicitly enabled."""
+    sentinel_enabled = os.environ.get("YOSHI_VRAM_SENTINEL_ENABLED", "0").strip() in ("1", "true", "yes")
+    if not sentinel_enabled:
+        return
     while True:
         try:
-            target_model = getattr(Doshie_memory, "MODEL", "qwen3.5:9b")
+            import Doshie_memory
+            target_model = getattr(Doshie_memory, "MODEL", os.environ.get("YOSHI_MODEL", "qwen3.5:4b"))
+            keep_alive = os.environ.get("YOSHI_KEEP_ALIVE", "5m")
             ping_req = urllib.request.Request(
                 "http://127.0.0.1:11434/api/generate",
-                data=json.dumps({"model": target_model, "prompt": "", "keep_alive": "30m"}).encode("utf-8"),
+                data=json.dumps({"model": target_model, "prompt": "", "keep_alive": keep_alive}).encode("utf-8"),
                 headers={"Content-Type": "application/json"}
             )
             urllib.request.urlopen(ping_req, timeout=10.0)
@@ -238,6 +243,8 @@ def get_services_status():
     doshie_active = (_run_cmd(["systemctl", "--user", "is-active", "doshie-web.service"]) == "active") or (_run_cmd(["pgrep", "-f", "Doshie_web.py"]) != "")
     ollama_active = _run_cmd(["systemctl", "is-active", "ollama"]) == "active"
     tailscale_active = _run_cmd(["systemctl", "is-active", "tailscaled"]) == "active"
+    rdp_active = (_run_cmd(["systemctl", "--user", "is-active", "gnome-remote-desktop.service"]) == "active")
+    rustdesk_active = (_run_cmd(["pgrep", "-f", "rustdesk"]) != "")
 
     # Check voice server process
     voice_proc = _run_cmd(["pgrep", "-f", "yoshi_voice_server.py"]) != ""
@@ -258,10 +265,52 @@ def get_services_status():
             "active": ollama_active,
             "port": 11434
         },
+        "rdp_service": {
+            "name": "GNOME Remote Desktop (RDP)",
+            "active": rdp_active,
+            "port": 3389
+        },
+        "rustdesk_service": {
+            "name": "RustDesk Remote Access",
+            "active": rustdesk_active
+        },
         "tailscale": {
             "name": "Tailscale Mesh VPN",
             "active": tailscale_active
         }
+    }
+
+
+def get_rdp_telemetry():
+    """Query GNOME RDP and remote desktop status."""
+    lan_ip = "192.168.1.167"
+    tailscale_ip = "100.109.79.35"
+    try:
+        ts = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True, timeout=2)
+        if ts.returncode == 0 and ts.stdout.strip():
+            tailscale_ip = ts.stdout.strip()
+    except Exception:
+        pass
+
+    rdp_active = (_run_cmd(["systemctl", "--user", "is-active", "gnome-remote-desktop.service"]) == "active")
+    rustdesk_id = _run_cmd(["rustdesk", "--get-id"]) or "256594765"
+    rustdesk_active = (_run_cmd(["pgrep", "-f", "rustdesk"]) != "")
+
+    return {
+        "rdp_service_active": rdp_active,
+        "rdp_port": 3389,
+        "default_username": "doshie",
+        "lan_ip": lan_ip,
+        "tailscale_ip": tailscale_ip,
+        "rdp_tailscale_address": f"{tailscale_ip}:3389",
+        "rdp_lan_address": f"{lan_ip}:3389",
+        "web_tailscale_url": f"http://{tailscale_ip}:5000",
+        "web_lan_url": f"http://{lan_ip}:5000",
+        "rustdesk_id": rustdesk_id,
+        "rustdesk_active": rustdesk_active,
+        "ssh_address": f"{tailscale_ip}:22",
+        "apk_download_url": "/download/rdp",
+        "rdp_file_download_url": "/download/doshie.rdp"
     }
 
 
@@ -354,7 +403,7 @@ def api_ping_brain():
         "model": model,
         "prompt": "Say pong",
         "stream": False,
-        "keep_alive": -1,
+        "keep_alive": os.environ.get("YOSHI_KEEP_ALIVE", "5m"),
         "options": {
             "num_predict": 2,
             "temperature": 0.0
@@ -543,6 +592,50 @@ def api_action():
         except Exception as exc:
             return jsonify({"ok": False, "error": str(exc)}), 500
 
+    elif action == "restart_rdp":
+        try:
+            res = subprocess.run(["systemctl", "--user", "restart", "gnome-remote-desktop.service"], capture_output=True, text=True, timeout=8)
+            if res.returncode == 0:
+                return jsonify({
+                    "ok": True,
+                    "action": "restart_rdp",
+                    "message": "GNOME Remote Desktop (RDP) service successfully restarted."
+                })
+            return jsonify({
+                "ok": False,
+                "action": "restart_rdp",
+                "message": f"RDP restart failed: {res.stderr.strip()}"
+            }), 500
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
+    elif action == "enable_rdp":
+        try:
+            subprocess.run(["grdctl", "rdp", "enable"], capture_output=True, text=True, timeout=5)
+            subprocess.run(["systemctl", "--user", "restart", "gnome-remote-desktop.service"], capture_output=True, text=True, timeout=8)
+            return jsonify({
+                "ok": True,
+                "action": "enable_rdp",
+                "message": "RDP backend enabled and listening on port 3389."
+            })
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
+    elif action == "set_rdp_password":
+        pwd = (data.get("password") or "").strip()
+        user = (data.get("username") or "doshie").strip()
+        if not pwd:
+            return jsonify({"ok": False, "error": "Password cannot be empty."}), 400
+        try:
+            res = subprocess.run(["grdctl", "rdp", "set-credentials", user, pwd], capture_output=True, text=True, timeout=5)
+            return jsonify({
+                "ok": res.returncode == 0,
+                "action": "set_rdp_password",
+                "message": "RDP credentials successfully updated." if res.returncode == 0 else "Failed to update RDP credentials."
+            })
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
     elif action == "restart_doshie":
         # Graceful restart helper matching /system/restart
         def _terminate():
@@ -562,7 +655,8 @@ def api_action():
         if not model_name:
             return jsonify({"ok": False, "error": "Model name required"}), 400
         try:
-            req_data = json.dumps({"model": model_name, "prompt": "", "keep_alive": -1}).encode("utf-8")
+            keep_alive = os.environ.get("YOSHI_KEEP_ALIVE", "5m")
+            req_data = json.dumps({"model": model_name, "prompt": "", "keep_alive": keep_alive}).encode("utf-8")
             req = urllib.request.Request("http://127.0.0.1:11434/api/generate", data=req_data, headers={"Content-Type": "application/json"})
             # 90s timeout ensures large models (7B, 9B, 14B) can finish initializing in VRAM
             with urllib.request.urlopen(req, timeout=90) as resp:
@@ -1585,6 +1679,112 @@ def api_antigravity_skills():
         "count": len(skills),
         "skills": skills,
     })
+
+
+@control_panel_bp.route("/api/hardware/inspect", methods=["GET"])
+def api_hardware_inspect():
+    """Inspect any hardware component (all, cpu, gpu, memory, storage, thermals, motherboard, network, pci, usb)."""
+    import doshie_hardware
+    component = request.args.get("component", "summary").lower()
+    if component in ("all", "full"):
+        data = doshie_hardware.inspect_all()
+    elif component == "cpu":
+        data = doshie_hardware.inspect_cpu()
+    elif component == "gpu":
+        data = doshie_hardware.inspect_gpu()
+    elif component in ("ram", "memory"):
+        data = doshie_hardware.inspect_memory()
+    elif component in ("disk", "storage"):
+        data = doshie_hardware.inspect_storage()
+    elif component in ("thermals", "temp", "thermal"):
+        data = doshie_hardware.inspect_thermals()
+    elif component in ("motherboard", "board", "dmi"):
+        data = doshie_hardware.inspect_motherboard()
+    elif component in ("net", "network"):
+        data = doshie_hardware.inspect_network()
+    elif component == "pci":
+        data = doshie_hardware.inspect_pci()
+    elif component == "usb":
+        data = doshie_hardware.inspect_usb()
+    else:
+        data = doshie_hardware.inspect_all()
+    return jsonify({"ok": True, "component": component, "data": data})
+
+
+@control_panel_bp.route("/api/hardware/change", methods=["POST"])
+def api_hardware_change():
+    """
+    Apply or stage a hardware change.
+    In supervised mode, requires explicit confirmation or returns a staged proposal.
+    """
+    import doshie_hardware
+    body = request.get_json(silent=True) or {}
+    target = str(body.get("target") or "").strip()
+    value = str(body.get("value") or "").strip()
+    confirmed = bool(body.get("confirmed", False))
+    reason = str(body.get("reason") or "Control panel API request").strip()
+
+    if not target or not value:
+        return jsonify({"ok": False, "error": "'target' and 'value' parameters are required."}), 400
+
+    result = doshie_hardware.execute_change(target, value, confirmed=confirmed, actor="control_panel", reason=reason)
+    return jsonify({"ok": result.get("success", False), "result": result})
+
+
+@control_panel_bp.route("/api/hardware/governance", methods=["GET", "POST"])
+def api_hardware_governance():
+    """Get or update hardware governance mode and self-reasoning readiness."""
+    import doshie_hardware
+    if request.method == "POST":
+        body = request.get_json(silent=True) or {}
+        mode = body.get("mode")
+        self_reasoning = body.get("self_reasoning_capable")
+        gov = doshie_hardware.set_governance_mode(mode=mode, self_reasoning_capable=self_reasoning)
+        return jsonify({"ok": True, "governance": gov})
+    gov = doshie_hardware.load_governance()
+    return jsonify({"ok": True, "governance": gov})
+
+
+@control_panel_bp.route("/api/control-panel/rdp-status", methods=["GET"])
+def api_rdp_status():
+    """Retrieve full RDP, RustDesk, and remote connection endpoints."""
+    return jsonify({"ok": True, "data": get_rdp_telemetry()})
+
+
+@control_panel_bp.route("/download/doshie.rdp", methods=["GET"])
+@control_panel_bp.route("/api/control-panel/download-rdp", methods=["GET"])
+def api_download_rdp():
+    """Generate and serve a standard .rdp connection file targeting this PC."""
+    target_net = request.args.get("net", "tailscale").lower()
+    ts_ip = "100.109.79.35"
+    lan_ip = "192.168.1.167"
+    addr = lan_ip if target_net == "lan" else ts_ip
+
+    rdp_content = f"""full address:s:{addr}:3389
+username:s:doshie
+prompt for credentials:i:1
+administrative session:i:1
+screen mode id:i:2
+use multimon:i:0
+desktopwidth:i:1920
+desktopheight:i:1080
+session bpp:i:32
+compression:i:1
+keyboardhook:i:2
+audiomode:i:0
+redirectclipboard:i:1
+redirectprinters:i:0
+displayconnectionbar:i:1
+autoreconnection enabled:i:1
+authentication level:i:2
+negotiate security layer:i:1
+enableworkspacereconnect:i:1
+"""
+    return Response(
+        rdp_content,
+        mimetype="application/x-rdp",
+        headers={"Content-Disposition": f"attachment; filename=doshie-acer-nitro-{target_net}.rdp"}
+    )
 
 
 def register_control_panel(app):

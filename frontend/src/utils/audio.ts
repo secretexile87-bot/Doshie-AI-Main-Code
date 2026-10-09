@@ -96,21 +96,51 @@ export function cleanSpeakableText(rawText: string): string {
   text = text
     .replace(/^[ \t]*[#>*•\-+][ \t]+/gm, '')
     .replace(/^[ \t]*\d+\.[ \t]+/gm, '')
-    .replace(/[#*_~>|\\^`]/g, ' ')
 
-  // 12. Normalize punctuation artifacts (multiple dashes, arrows, stray slashes)
+  // 12. Convert bold and italic markers to plain spoken text
+  text = text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+
+  // 13. Turn header colons into natural spoken pauses
+  text = text
+    .replace(/(?<=[a-zA-Z0-9]):(?=\s+[A-Z])/g, '. ')
+    .replace(/(?<=[a-zA-Z0-9]):(?=\s+[a-z])/g, ', ')
+
+  // 14. Expand common abbreviations and symbols for conversational speech
+  text = text
+    .replace(/\be\.g\.,?\b/gi, 'for example')
+    .replace(/\bi\.e\.,?\b/gi, 'that is')
+    .replace(/\betc\.\b/gi, 'and so on')
+    .replace(/\bvs\.?\b/gi, 'versus')
+    .replace(/\bw\/\b/gi, 'with')
+    .replace(/\bw\/o\b/gi, 'without')
+    .replace(/\b&\b/g, 'and')
+    .replace(/%/g, ' percent')
+
+  // 15. Normalize punctuation artifacts (multiple dashes, arrows, stray slashes)
   text = text
     .replace(/-{2,}|—+|–+/g, ', ')
     .replace(/->|=>|<-|<=/g, ' ')
     .replace(/[/\\~@#$%^&*+=]/g, ' ')
+    .replace(/[#*_~>|\\^`]/g, ' ')
     .replace(/!{2,}/g, '!')
     .replace(/\?{2,}/g, '?')
 
-  // 13. Collapse multiple spaces and trim to speakable length
-  return text
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 1000)
+  // 16. Remove self-parentheticals like (Doshie!)
+  text = text.replace(/\((Doshie!|Doshie)\)/g, '$1')
+
+  // 17. Collapse multiple spaces and trim
+  let cleaned = text.replace(/\s+/g, ' ').trim()
+
+  // 18. Safe sentence boundary truncation up to 2500 chars (never cuts mid-word)
+  if (cleaned.length > 2500) {
+    const cut = cleaned.slice(0, 2500)
+    const lastPunct = Math.max(cut.lastIndexOf('.'), cut.lastIndexOf('!'), cut.lastIndexOf('?'))
+    cleaned = lastPunct > 100 ? cut.slice(0, lastPunct + 1) : cut.slice(0, cut.lastIndexOf(' ')) + '.'
+  }
+
+  return cleaned
 }
 
 /**
@@ -133,8 +163,8 @@ export function splitSentences(text: string): string[] {
   for (const chunk of rawChunks) {
     if (!buffer) {
       buffer = chunk
-    } else if (buffer.length + chunk.length < 50) {
-      // Merge very short fragments so sentences are natural
+    } else if (buffer.length + chunk.length < 180) {
+      // Merge clauses and sentences up to ~180 chars so Kokoro has continuous conversational prosody
       buffer = `${buffer} ${chunk}`
     } else {
       merged.push(buffer)

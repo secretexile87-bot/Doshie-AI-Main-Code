@@ -1,0 +1,39 @@
+{
+  "name": "Doshie AI Assistant",
+  "short_name": "Doshie",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08120d",
+  "theme_color": "#08120d",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Live Voice",
+      "short_name": "Live Voice",
+      "description": "Start real-time voice conversation with Doshie",
+      "url": "/?action=live_voice",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "New Chat",
+      "short_name": "New Chat",
+      "description": "Start a fresh chat session with Doshie",
+      "url": "/?action=chat",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Music Player",
+      "short_name": "Music",
+      "description": "Open Doshie Ambient & Music Studio",
+      "url": "/?action=music",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ]
+}

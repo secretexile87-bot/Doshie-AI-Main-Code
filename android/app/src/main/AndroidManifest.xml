@@ -50,7 +50,51 @@
                       android:pathPrefix="/login" />
             </intent-filter>
 
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="doshie" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="org.diyoshi.assistant.ACTION_LIVE_VOICE" />
+                <action android:name="org.diyoshi.assistant.ACTION_CHAT" />
+                <action android:name="org.diyoshi.assistant.ACTION_MUSIC" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
         </activity>
+
+        <!-- Doshie Search Bar Widget -->
+        <receiver
+            android:name=".DoshieSearchBarWidgetProvider"
+            android:label="Doshie Search Bar"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/doshie_widget_search_bar_info" />
+        </receiver>
+
+        <!-- Doshie 1x1 Quick Wake Widget -->
+        <receiver
+            android:name=".DoshieQuickWakeWidgetProvider"
+            android:label="Doshie Quick Wake"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/doshie_widget_quick_wake_info" />
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"

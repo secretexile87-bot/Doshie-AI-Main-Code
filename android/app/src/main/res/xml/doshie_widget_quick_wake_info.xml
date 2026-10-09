@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="48dp"
+    android:minHeight="48dp"
+    android:targetCellWidth="1"
+    android:targetCellHeight="1"
+    android:maxResizeWidth="120dp"
+    android:maxResizeHeight="120dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="86400000"
+    android:initialLayout="@layout/widget_doshie_quick_wake"
+    android:description="@string/widget_quick_wake_description"
+    android:previewImage="@mipmap/ic_launcher"
+    android:widgetCategory="home_screen|keyguard" />

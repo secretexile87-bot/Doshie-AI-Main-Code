@@ -1081,6 +1081,7 @@ input[type="color"]::-webkit-color-swatch {
     <button class="tab-btn" onclick="switchTab('tab-memories')">🧠 Memory Tweaks</button>
     <button class="tab-btn" onclick="switchTab('tab-logs')">📜 Live Logs</button>
     <button class="tab-btn" onclick="switchTab('tab-personality')">🎭 Persona & Prompts</button>
+    <button class="tab-btn" onclick="switchTab('tab-rdp')">🖥️ Remote Access & RDP</button>
   </div>
 
   <!-- Tab 1: AI Brain & Models -->
@@ -1727,6 +1728,189 @@ Type any command and press Enter.</div>
 
   </div>
 
+  <!-- Tab: Remote Access & RDP Settings -->
+  <div id="tab-rdp" class="tab-content">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+      <div>
+        <h2 style="font-size:1.15rem; font-weight:800; display:flex; align-items:center; gap:8px;">
+          🖥️ Remote Desktop (RDP) & Multi-Computer Access
+          <span class="badge badge-ok" id="rdp-badge-online">Active</span>
+        </h2>
+        <div style="font-size:0.8rem; color:var(--text-muted);">
+          Log in from any other computer, laptop, Mac, phone, or tablet to access Doshie and control this Acer Nitro PC.
+        </div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-sm btn-primary" onclick="restartRdpService()">🔄 Restart RDP Service</button>
+        <a href="/download/doshie.rdp?net=tailscale" class="btn btn-sm" style="text-decoration:none; background:rgba(16,185,129,0.15); color:var(--accent); border:1px solid var(--border);">📥 Download .RDP File</a>
+      </div>
+    </div>
+
+    <!-- Live Status Grid -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:16px;">
+      <div class="card" style="padding:14px;">
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">RDP SERVER (PORT 3389)</div>
+        <div style="font-size:1.1rem; font-weight:800; margin-top:4px; display:flex; align-items:center; gap:8px;">
+          <span class="status-dot dot-online" id="rdp-status-dot"></span>
+          <span id="rdp-status-text">Active & Listening</span>
+        </div>
+        <div style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">GNOME Native Remote Desktop</div>
+      </div>
+
+      <div class="card" style="padding:14px;">
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">TAILSCALE REMOTE MESH IP</div>
+        <div style="font-size:1.1rem; font-weight:800; margin-top:4px; font-family:var(--font-mono); color:var(--accent);" id="rdp-ts-ip">
+          100.109.79.35
+        </div>
+        <div style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">Worldwide encrypted tunnel</div>
+      </div>
+
+      <div class="card" style="padding:14px;">
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">LOCAL LAN IP (HOME WI-FI)</div>
+        <div style="font-size:1.1rem; font-weight:800; margin-top:4px; font-family:var(--font-mono);" id="rdp-lan-ip">
+          192.168.1.167
+        </div>
+        <div style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">Gigabit direct connection</div>
+      </div>
+
+      <div class="card" style="padding:14px;">
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">RUSTDESK REMOTE ID</div>
+        <div style="font-size:1.1rem; font-weight:800; margin-top:4px; font-family:var(--font-mono); color:#38bdf8;" id="rdp-rustdesk-id">
+          256594765
+        </div>
+        <div style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">Direct P2P Client Access</div>
+      </div>
+    </div>
+
+    <!-- Quick Connect Methods -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:16px;">
+      
+      <!-- Card: Windows / Mac / Linux Remote Desktop -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <span style="font-size:1rem; font-weight:700;">🪟 Windows / Mac / Linux Remote Desktop</span>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Standard RDP client configuration (mstsc, Remmina, Mac Microsoft Remote Desktop)</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px; font-size:0.85rem;">
+          <div style="background:rgba(0,0,0,0.3); padding:10px 12px; border-radius:8px; border:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span style="color:var(--text-muted);">Computer / Host:</span>
+              <span style="font-family:var(--font-mono); font-weight:700; color:var(--accent);">100.109.79.35</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span style="color:var(--text-muted);">Port:</span>
+              <span style="font-family:var(--font-mono);">3389</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span style="color:var(--text-muted);">Username:</span>
+              <span style="font-family:var(--font-mono); font-weight:700;">doshie</span>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+              <span style="color:var(--text-muted);">Local LAN Fallback:</span>
+              <span style="font-family:var(--font-mono);">192.168.1.167:3389</span>
+            </div>
+          </div>
+
+          <div style="font-weight:700; margin-top:4px;">1-Click Pre-Configured .RDP Download:</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <a href="/download/doshie.rdp?net=tailscale" class="btn btn-sm btn-primary" style="text-decoration:none;">
+              📥 Download .RDP (Tailscale / Anywhere)
+            </a>
+            <a href="/download/doshie.rdp?net=lan" class="btn btn-sm" style="text-decoration:none; background:rgba(255,255,255,0.06); border:1px solid var(--border);">
+              📥 Download .RDP (Home LAN)
+            </a>
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-dim);">
+            Double-click the downloaded file on any other PC to immediately open the Remote Desktop session.
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: Web GUI Remote Access -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <span style="font-size:1rem; font-weight:700;">🌐 Web GUI & Chat from Another PC</span>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Use Doshie directly inside any web browser on your second computer</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px; font-size:0.85rem;">
+          <div>Open any browser on your other computer, laptop, or tablet and navigate to:</div>
+          <div style="display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.3); padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
+            <span style="font-family:var(--font-mono); flex:1; color:var(--accent);">http://100.109.79.35:5000</span>
+            <button class="btn btn-sm" onclick="copyText('http://100.109.79.35:5000', 'Copied Tailscale URL!')">Copy</button>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.3); padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
+            <span style="font-family:var(--font-mono); flex:1;">http://192.168.1.167:5000</span>
+            <button class="btn btn-sm" onclick="copyText('http://192.168.1.167:5000', 'Copied LAN URL!')">Copy</button>
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">
+            💡 When logged in from another computer, Doshie can run your hardware checks, answer coding questions, or manage downloads remotely.
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: Mobile App & RustDesk -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <span style="font-size:1rem; font-weight:700;">📱 Mobile APK & RustDesk Client</span>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Dedicated client apps for Android phones, tablets, or cross-platform desktop</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px; font-size:0.85rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:700;">Doshie Android App (APK)</div>
+              <div style="font-size:0.75rem; color:var(--text-muted);">Direct Android client with touch-optimized remote controls</div>
+            </div>
+            <a href="/download/rdp" class="btn btn-sm btn-primary" style="text-decoration:none;">📥 Download APK</a>
+          </div>
+          <hr style="border-color:var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:700;">RustDesk ID</div>
+              <div style="font-size:0.75rem; color:var(--text-muted);">Enter this ID in any RustDesk client for remote desktop</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <code style="background:rgba(255,255,255,0.08); padding:4px 8px; border-radius:6px; font-family:var(--font-mono); font-weight:700;">256594765</code>
+              <button class="btn btn-sm" onclick="copyText('256594765', 'Copied RustDesk ID!')">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: RDP Credentials & Settings -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <span style="font-size:1rem; font-weight:700;">🔒 RDP Security & Password</span>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Update the credentials required to log in via Remote Desktop</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px; font-size:0.85rem;">
+          <div class="form-group">
+            <label class="form-label">RDP Username</label>
+            <input class="form-input" type="text" value="doshie" readonly style="opacity:0.8; font-family:var(--font-mono);" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Set New RDP Password</label>
+            <div style="display:flex; gap:8px;">
+              <input class="form-input" type="password" id="rdp-new-password" placeholder="Enter new password" style="flex:1;" />
+              <button class="btn btn-primary" onclick="updateRdpPassword()">Save Password</button>
+            </div>
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-dim);">
+            Changes take effect immediately on the GNOME Remote Desktop server.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 </div>
 
 <!-- Theme & Color Switcher Modal -->
@@ -1887,6 +2071,73 @@ function switchTab(tabId) {
 
   if (tabId === 'tab-personality') {
     loadPersonaData();
+  }
+
+  if (tabId === 'tab-rdp') {
+    loadRdpData();
+  }
+}
+
+async function loadRdpData() {
+  try {
+    const res = await fetch('/api/control-panel/rdp-status');
+    if (!res.ok) return;
+    const json = await res.json();
+    const data = json.data || {};
+    const dot = document.getElementById('rdp-status-dot');
+    const badge = document.getElementById('rdp-badge-online');
+    if (dot) dot.className = 'status-dot ' + (data.rdp_service_active ? 'dot-online' : 'dot-offline');
+    if (badge) {
+      badge.textContent = data.rdp_service_active ? 'Active' : 'Offline';
+      badge.className = 'badge ' + (data.rdp_service_active ? 'badge-ok' : 'badge-warn');
+    }
+    const txt = document.getElementById('rdp-status-text');
+    if (txt) txt.textContent = data.rdp_service_active ? 'Active & Listening (3389)' : 'Inactive';
+    const ts = document.getElementById('rdp-ts-ip');
+    if (ts) ts.textContent = data.tailscale_ip || '100.109.79.35';
+    const lan = document.getElementById('rdp-lan-ip');
+    if (lan) lan.textContent = data.lan_ip || '192.168.1.167';
+    const rd = document.getElementById('rdp-rustdesk-id');
+    if (rd) rd.textContent = data.rustdesk_id || '256594765';
+  } catch (err) {
+    console.error('Failed to load RDP status:', err);
+  }
+}
+
+async function restartRdpService() {
+  showToast('Restarting RDP service...');
+  try {
+    const res = await fetch('/api/control-panel/action', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'restart_rdp'})
+    });
+    const data = await res.json();
+    showToast(data.message || (data.ok ? 'RDP restarted!' : 'Failed to restart RDP'));
+    loadRdpData();
+  } catch (err) {
+    showToast('Failed to trigger RDP restart');
+  }
+}
+
+async function updateRdpPassword() {
+  const pwd = document.getElementById('rdp-new-password').value.trim();
+  if (!pwd) {
+    showToast('Please enter a password');
+    return;
+  }
+  showToast('Updating RDP password...');
+  try {
+    const res = await fetch('/api/control-panel/action', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'set_rdp_password', username: 'doshie', password: pwd})
+    });
+    const data = await res.json();
+    showToast(data.message || 'RDP password updated!');
+    document.getElementById('rdp-new-password').value = '';
+  } catch (err) {
+    showToast('Failed to update RDP password');
   }
 }
 

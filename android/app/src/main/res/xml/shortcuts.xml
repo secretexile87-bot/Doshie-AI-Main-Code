@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="shortcut_live_voice"
+        android:enabled="true"
+        android:icon="@drawable/ic_widget_mic"
+        android:shortcutShortLabel="@string/shortcut_live_voice_short"
+        android:shortcutLongLabel="@string/shortcut_live_voice_long">
+        <intent
+            android:action="org.diyoshi.assistant.ACTION_LIVE_VOICE"
+            android:targetPackage="org.diyoshi.assistant"
+            android:targetClass="org.diyoshi.assistant.MainActivity"
+            android:data="doshie://action/live_voice">
+            <extra android:name="doshie_action" android:value="live_voice" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="shortcut_new_chat"
+        android:enabled="true"
+        android:icon="@drawable/ic_widget_chat"
+        android:shortcutShortLabel="@string/shortcut_new_chat_short"
+        android:shortcutLongLabel="@string/shortcut_new_chat_long">
+        <intent
+            android:action="org.diyoshi.assistant.ACTION_CHAT"
+            android:targetPackage="org.diyoshi.assistant"
+            android:targetClass="org.diyoshi.assistant.MainActivity"
+            android:data="doshie://action/chat">
+            <extra android:name="doshie_action" android:value="chat" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="shortcut_music"
+        android:enabled="true"
+        android:icon="@drawable/ic_widget_music"
+        android:shortcutShortLabel="@string/shortcut_music_short"
+        android:shortcutLongLabel="@string/shortcut_music_long">
+        <intent
+            android:action="org.diyoshi.assistant.ACTION_MUSIC"
+            android:targetPackage="org.diyoshi.assistant"
+            android:targetClass="org.diyoshi.assistant.MainActivity"
+            android:data="doshie://action/music">
+            <extra android:name="doshie_action" android:value="music" />
+        </intent>
+    </shortcut>
+</shortcuts>

@@ -355,6 +355,99 @@ TOOLS = [
                 "required": ["note"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "inspect_hardware",
+            "description": (
+                "Inspect any computer hardware subsystem (CPU, GPU, RAM, storage, thermals, motherboard, network, PCI, USB, or complete summary). "
+                "Provides deep telemetry including temperatures, clock frequencies, governors, power limits, and device topology."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "component": {
+                        "type": "string",
+                        "description": "Subsystem to inspect: 'all', 'summary', 'cpu', 'gpu', 'ram', 'disk', 'thermals', 'motherboard', 'network', 'pci', or 'usb'.",
+                        "enum": ["all", "summary", "cpu", "gpu", "ram", "disk", "thermals", "motherboard", "network", "pci", "usb"]
+                    }
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "propose_hardware_change",
+            "description": (
+                "Safely stage a hardware setting change (e.g. CPU governor, GPU power limit, hardware profile) with safety and thermal validation. "
+                "In supervised mode, this generates an impact assessment and does NOT execute until confirmed by user command."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "Hardware parameter: 'cpu_governor', 'gpu_power_limit', 'gpu_persistence_mode', or 'profile'.",
+                        "enum": ["cpu_governor", "gpu_power_limit", "gpu_persistence_mode", "profile"]
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "New value or profile (e.g. 'performance', 'powersave', '220', 'gaming')."
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Explanation or goal of the proposed change."
+                    }
+                },
+                "required": ["target", "value"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "execute_hardware_change",
+            "description": (
+                "Execute a hardware setting change with explicit user command confirmation."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "Hardware parameter: 'cpu_governor', 'gpu_power_limit', 'gpu_persistence_mode', or 'profile'."
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "New value or profile to apply."
+                    },
+                    "confirmed": {
+                        "type": "boolean",
+                        "description": "True indicating user explicitly issued command confirmation."
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Reason for applying change."
+                    }
+                },
+                "required": ["target", "value", "confirmed"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_hardware_governance",
+            "description": (
+                "Check Doshie's hardware governance state, including current mode (supervised vs self-reasoning), safety bounds, and confirmation requirement."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        }
     }
 ]
 
@@ -363,6 +456,7 @@ CAPABILITY_TOOL_MAP = {
     "project_read": ["list_code_files", "read_code_file", "search_code"],
     "code_proposals": ["propose_code_edit", "propose_new_file", "request_python_diagnostics"],
     "service_health": ["check_service_health", "request_python_diagnostics"],
+    "hardware_management": ["inspect_hardware", "propose_hardware_change", "execute_hardware_change", "get_hardware_governance"],
     "memory_read": ["search_memories", "get_tasks_and_notes"],
     "memory_write": ["save_memory", "create_task", "add_note"],
 }
@@ -632,6 +726,51 @@ def execute_tool(name, arguments, actor_profile="", can_propose_changes=False):
         result = Doshie_memory.add_note(note_text)
         return {"status": "added", "detail": result}
 
+    if name == "inspect_hardware":
+        import doshie_hardware
+        comp = str(arguments.get("component") or "summary").lower()
+        if comp in ("all", "full"):
+            return doshie_hardware.inspect_all()
+        elif comp == "cpu":
+            return doshie_hardware.inspect_cpu()
+        elif comp == "gpu":
+            return doshie_hardware.inspect_gpu()
+        elif comp in ("ram", "memory"):
+            return doshie_hardware.inspect_memory()
+        elif comp in ("disk", "storage"):
+            return doshie_hardware.inspect_storage()
+        elif comp in ("thermals", "temp", "thermal"):
+            return doshie_hardware.inspect_thermals()
+        elif comp in ("motherboard", "board", "dmi"):
+            return doshie_hardware.inspect_motherboard()
+        elif comp in ("net", "network"):
+            return doshie_hardware.inspect_network()
+        elif comp == "pci":
+            return doshie_hardware.inspect_pci()
+        elif comp == "usb":
+            return doshie_hardware.inspect_usb()
+        else:
+            return doshie_hardware.inspect_all()
+
+    if name == "propose_hardware_change":
+        import doshie_hardware
+        target = str(arguments.get("target") or "").strip()
+        value = str(arguments.get("value") or "").strip()
+        reason = str(arguments.get("reason") or "Agent proposal").strip()
+        return doshie_hardware.propose_change(target, value, reason=reason)
+
+    if name == "execute_hardware_change":
+        import doshie_hardware
+        target = str(arguments.get("target") or "").strip()
+        value = str(arguments.get("value") or "").strip()
+        confirmed = bool(arguments.get("confirmed", False))
+        reason = str(arguments.get("reason") or "Agent request with confirmation").strip()
+        return doshie_hardware.execute_change(target, value, confirmed=confirmed, actor="agent", reason=reason)
+
+    if name == "get_hardware_governance":
+        import doshie_hardware
+        return doshie_hardware.load_governance()
+
     raise ValueError("Unknown or unauthorized tool.")
 
 
@@ -668,7 +807,17 @@ def needs_project_tools(messages):
         "self repair",
         "fix yourself",
         "diagnose your code",
-        "run python diagnostics"
+        "run python diagnostics",
+        "hardware",
+        "inspect hardware",
+        "cpu governor",
+        "gpu power",
+        "thermals",
+        "motherboard",
+        "pcie",
+        "change governor",
+        "hardware setting",
+        "doshie hw"
     )
 
     return any(trigger in latest for trigger in triggers)
@@ -754,7 +903,7 @@ def _vision_chat(
             "messages": req_messages,
             "stream": False,
             "think": False,
-            "keep_alive": "30m",
+            "keep_alive": os.environ.get("YOSHI_KEEP_ALIVE", "5m"),
             "options": {
                 "temperature": 0.2,
                 "num_predict": 1000,
@@ -826,7 +975,7 @@ def _vision_chat(
                 "messages": synth_messages,
                 "stream": False,
                 "think": False,
-                "keep_alive": -1,
+                "keep_alive": os.environ.get("YOSHI_KEEP_ALIVE", "5m"),
                 "options": {
                     "temperature": 0.35,
                     "num_predict": 800,
@@ -876,7 +1025,7 @@ def chat(
             "messages": working_messages,
             "temperature": 0.6 if is_reasoning_model else 0.35,
             "max_tokens": 2048,
-            "keep_alive": "30m"
+            "keep_alive": os.environ.get("YOSHI_KEEP_ALIVE", "5m")
         }
 
         if is_reasoning_model:

@@ -68,7 +68,7 @@ REGISTRY_FILE = VOICES_DIR / "verified_voices.json"
 HERMES_REFERENCE = VOICES_DIR / "hermes-reference.wav"
 HERMES_SHORT_REFERENCE = VOICES_DIR / "hermes-ref-short.wav"
 
-MAX_TEXT_LENGTH = 700
+MAX_TEXT_LENGTH = 2500
 MAX_REQUEST_BYTES = 16 * 1024 * 1024
 
 logging.basicConfig(
@@ -173,16 +173,47 @@ def _clean_text(value: object) -> str:
     # 11. Remove markdown structure markers: headers (#), bullet points (-, *, +), numbered prefixes
     text = re.sub(r"^[ \t]*[#>*•\-+][ \t]+", "", text, flags=re.MULTILINE)
     text = re.sub(r"^[ \t]*\d+\.[ \t]+", "", text, flags=re.MULTILINE)
-    text = re.sub(r"[#*_~>|\\^`]", " ", text)
 
-    # 12. Clean up punctuation artifacts: multiple dashes, arrows, slashes
+    # 12. Unpack bold and italic markers into plain spoken words
+    text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+    text = re.sub(r"\*([^*]+)\*", r"\1", text)
+
+    # 13. Turn bullet list colons and header colons into natural sentence pauses
+    text = re.sub(r"(?<=[a-zA-Z0-9]):(?=\s+[A-Z])", ". ", text)
+    text = re.sub(r"(?<=[a-zA-Z0-9]):(?=\s+[a-z])", ", ", text)
+
+    # 14. Expand abbreviations and symbols so they are pronounced naturally
+    text = re.sub(r"\be\.g\.,?\b", "for example", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bi\.e\.,?\b", "that is", text, flags=re.IGNORECASE)
+    text = re.sub(r"\betc\.\b", "and so on", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bvs\.?\b", "versus", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bw/\b", "with", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bw/o\b", "without", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b&\b", "and", text)
+    text = re.sub(r"%", " percent", text)
+
+    # 15. Clean up punctuation artifacts: multiple dashes, arrows, slashes
     text = re.sub(r"-{2,}|—+|–+", ", ", text)
     text = re.sub(r"->|=>|<-|<=", " ", text)
     text = re.sub(r"[/\\~@#$%^&*+=]", " ", text)
+    text = re.sub(r"[#*_~>|\\^`]", " ", text)
 
-    # 13. Collapse whitespace and trim
+    # 16. Remove self-referential parentheticals that sound weird in TTS (e.g. (Doshie!) -> Doshie)
+    text = re.sub(r"\((Doshie!|Doshie)\)", r"\1", text)
+
+    # 17. Collapse whitespace and trim
     text = re.sub(r"\s+", " ", text).strip()
-    return text[:MAX_TEXT_LENGTH]
+
+    # 18. Safe sentence boundary truncation (never cut off mid-word or mid-sentence)
+    if len(text) > MAX_TEXT_LENGTH:
+        cut = text[:MAX_TEXT_LENGTH]
+        last_punct = max(cut.rfind("."), cut.rfind("!"), cut.rfind("?"))
+        if last_punct > 100:
+            text = cut[:last_punct + 1]
+        else:
+            text = cut.rsplit(" ", 1)[0] + "."
+
+    return text
 
 
 def _normalize_name(name: str | None) -> str:
@@ -484,9 +515,10 @@ def _init_chatterbox() -> None:
 
 
 def _init_background_models() -> None:
-    _init_kokoro()
+    if DEFAULT_ENGINE in ("kokoro", "option1", "fast-neural"):
+        _init_kokoro()
     _init_piper()
-    # Chatterbox (~4.5 GB) is lazy-loaded on-demand only when clone synthesis is requested
+    # Chatterbox (~4.5 GB) and Kokoro are lazy-loaded on-demand when requested
 
 
 # --- Synthesis Handlers ---
@@ -494,6 +526,10 @@ def _init_background_models() -> None:
 def _synthesize_kokoro(text: str, voice_name: str | None = None, speed: float = 1.0) -> bytes:
     with STATE_LOCK:
         instance = KOKORO_INSTANCE
+    if instance is None:
+        _init_kokoro()
+        with STATE_LOCK:
+            instance = KOKORO_INSTANCE
     if instance is None:
         raise RuntimeError("Kokoro engine is not loaded")
 

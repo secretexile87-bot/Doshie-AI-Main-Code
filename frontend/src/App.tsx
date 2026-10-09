@@ -13,7 +13,6 @@ import { VoiceStudioModal } from './components/VoiceStudioModal'
 import { AgentHubModal } from './components/AgentHubModal'
 import { AgentConsoleModal } from './components/AgentConsoleModal'
 import { MobileNavBar } from './components/MobileNavBar'
-import { QuickWakeWidget } from './components/QuickWakeWidget'
 import { stopSpeech, subscribeSpeechState, playNeuralSpeech, playWakeChime } from './utils/audio'
 import { parseAndExecuteCommand, detectWakeWord, type CommandContext } from './utils/commands'
 import { getSeasonalInfo } from './utils/seasonal'
@@ -1241,7 +1240,61 @@ export function App() {
   }
   handleNewChatRef.current = handleNewChat
 
-  // Delete Session
+  // Native Android Widget / App Shortcuts & Apple PWA Action Dispatcher
+  useEffect(() => {
+    const executeQuickAction = (actionName: string) => {
+      const action = actionName.toLowerCase().trim()
+      if (action === 'live_voice' || action === 'wake' || action === 'voice') {
+        playWakeChime(customization.wakeSoundType || 'gemini', customization.wakeSoundVolume ?? 0.75, customization.wakeSoundCustomUrl)
+        triggerCommandBanner("Doshie: I'm listening...", '🦖')
+        setIsLiveVoiceOpen(true)
+      } else if (action === 'music' || action === 'player') {
+        setIsMusicPlayerOpen(true)
+      } else if (action === 'chat' || action === 'new_chat') {
+        handleNewChat()
+      } else if (action === 'console' || action === 'agent_console') {
+        setIsAgentConsoleOpen(true)
+      }
+    }
+
+    const handleQuickActionEvent = (e: any) => {
+      const action = e.detail?.action || e.action
+      if (action) {
+        executeQuickAction(action)
+      }
+    }
+
+    window.addEventListener('doshieQuickAction', handleQuickActionEvent as EventListener)
+
+    // Check URL search parameters (e.g. ?action=live_voice or ?action=music)
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const actionParam = params.get('action') || params.get('doshie_action')
+      if (actionParam) {
+        executeQuickAction(actionParam)
+        const url = new URL(window.location.href)
+        url.searchParams.delete('action')
+        url.searchParams.delete('doshie_action')
+        window.history.replaceState({}, '', url.toString())
+      }
+    } catch {}
+
+    // Check cold launch pending action from MainActivity
+    if ((window as any).__doshiePendingAction) {
+      const pending = (window as any).__doshiePendingAction
+      delete (window as any).__doshiePendingAction
+      executeQuickAction(pending)
+    }
+
+    // Expose executor globally so Android webview can call directly
+    (window as any).__doshieExecuteQuickAction = (act: string) => executeQuickAction(act)
+
+    return () => {
+      window.removeEventListener('doshieQuickAction', handleQuickActionEvent as EventListener)
+      delete (window as any).__doshieExecuteQuickAction
+    }
+  }, [customization.wakeSoundType, customization.wakeSoundVolume, customization.wakeSoundCustomUrl])
+
   const handleDeleteSession = (id: string) => {
     const targetProfile = oversightProfile || activeProfile
     setSessions(prev => {
@@ -1744,20 +1797,6 @@ export function App() {
         activeProfile={activeProfile}
         availableProfiles={profiles}
         customization={customization}
-      />
-
-      {/* Floating / Docked Quick Wake Widget */}
-      <QuickWakeWidget
-        customization={customization}
-        onQuickWake={() => {
-          triggerCommandBanner("Doshie: I'm listening...", '🦖')
-          setIsLiveVoiceOpen(true)
-        }}
-        onOpenMusicPlayer={() => setIsMusicPlayerOpen(true)}
-        onOpenAgentConsole={() => setIsAgentConsoleOpen(true)}
-        onNewChat={() => handleNewChat()}
-        onLockAccount={() => handleLockAccount(activeProfile)}
-        isLocked={isLocked}
       />
     </div>
   )
