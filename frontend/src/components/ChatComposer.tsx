@@ -1,10 +1,42 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { Send, Square, Mic, MicOff, X, FileText, FileCode, Loader2, ChevronUp, Plus, Edit3 } from 'lucide-react'
+import {
+  Send,
+  Square,
+  Mic,
+  MicOff,
+  X,
+  FileText,
+  FileCode,
+  Loader2,
+  ChevronUp,
+  Plus,
+  Edit3,
+  Camera,
+  MapPin,
+  AlertCircle
+} from 'lucide-react'
 import type { ChatAttachment, SpecialistAgent } from '../types'
 import { FileEditorModal } from './FileEditorModal'
+import { CameraCaptureModal } from './CameraCaptureModal'
+import { LocationPickerModal } from './LocationPickerModal'
+
+export interface ClientLocation {
+  latitude: number
+  longitude: number
+  name: string
+  city?: string
+  region?: string
+  country?: string
+}
 
 interface ChatComposerProps {
-  onSend: (text: string, attachments?: ChatAttachment[], brainMode?: string, agentId?: string) => void
+  onSend: (
+    text: string,
+    attachments?: ChatAttachment[],
+    brainMode?: string,
+    agentId?: string,
+    location?: ClientLocation
+  ) => void
   onStop: () => void
   isGenerating: boolean
   placeholder?: string
@@ -62,6 +94,19 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     return localStorage.getItem('Doshie_brain_mode') || 'auto'
   })
 
+  // Camera & Geolocation States
+  const [isCameraOpen, setIsCameraOpen] = useState(false)
+  const [clientLocation, setClientLocation] = useState<ClientLocation | null>(() => {
+    try {
+      const saved = localStorage.getItem('Doshie_client_location')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
+  const [isLocating, setIsLocating] = useState(false)
+  const [locationError, setLocationError] = useState<string | null>(null)
+
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const recognitionRef = useRef<any>(null)
@@ -69,6 +114,123 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const handleBrainChange = (newBrain: string) => {
     setSelectedBrain(newBrain)
     localStorage.setItem('Doshie_brain_mode', newBrain)
+  }
+
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false)
+
+  const fallbackToIpLocation = async () => {
+    try {
+      const res = await fetch('/api/location/ip')
+      const data = await res.json()
+      if (data.ok && data.name) {
+        const locObj: ClientLocation = {
+          latitude: data.latitude || 0,
+          longitude: data.longitude || 0,
+          name: data.name,
+          city: data.city,
+          region: data.region,
+          country: data.country,
+        }
+        setClientLocation(locObj)
+        localStorage.setItem('Doshie_client_location', JSON.stringify(locObj))
+        setLocationError(null)
+        setIsLocating(false)
+        return true
+      }
+    } catch (err) {
+      console.warn('IP location fetch error:', err)
+    }
+    setIsLocating(false)
+    setIsLocationModalOpen(true)
+    return false
+  }
+
+  const handleDetectLocation = async () => {
+    setIsLocating(true)
+    setLocationError(null)
+
+    // 1. Try Native Capacitor Geolocation first (on Android mobile app)
+    const capacitor = (window as any).Capacitor
+    const nativeGeo = capacitor?.Plugins?.Geolocation
+    if (nativeGeo) {
+      try {
+        const pos = await nativeGeo.getCurrentPosition({ enableHighAccuracy: true, timeout: 6000 })
+        if (pos?.coords) {
+          const { latitude, longitude } = pos.coords
+          const res = await fetch(`/api/location/reverse-geocode?lat=${latitude}&lon=${longitude}`)
+          const data = await res.json()
+          const locObj: ClientLocation = {
+            latitude,
+            longitude,
+            name: data.name || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`,
+            city: data.city,
+            region: data.region,
+            country: data.country,
+          }
+          setClientLocation(locObj)
+          localStorage.setItem('Doshie_client_location', JSON.stringify(locObj))
+          setIsLocating(false)
+          return
+        }
+      } catch (capErr) {
+        console.warn('Capacitor native geolocation error:', capErr)
+      }
+    }
+
+    // 2. Try browser navigator.geolocation
+    if (navigator.geolocation && (window.isSecureContext || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      navigator.geolocation.getCurrentPosition(
+        async pos => {
+          try {
+            const { latitude, longitude } = pos.coords
+            const res = await fetch(`/api/location/reverse-geocode?lat=${latitude}&lon=${longitude}`)
+            const data = await res.json()
+            const locObj: ClientLocation = {
+              latitude,
+              longitude,
+              name: data.name || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`,
+              city: data.city,
+              region: data.region,
+              country: data.country,
+            }
+            setClientLocation(locObj)
+            localStorage.setItem('Doshie_client_location', JSON.stringify(locObj))
+          } catch {
+            const fallbackObj: ClientLocation = {
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+              name: `${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`,
+            }
+            setClientLocation(fallbackObj)
+          } finally {
+            setIsLocating(false)
+          }
+        },
+        async _err => {
+          // If browser GPS denied or blocked on insecure origin, seamlessly fallback to IP location!
+          await fallbackToIpLocation()
+        },
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
+      )
+      return
+    }
+
+    // 3. Fallback to IP geolocation immediately if origin is non-HTTPS or navigator unavailable
+    await fallbackToIpLocation()
+  }
+
+  const clearLocation = () => {
+    setClientLocation(null)
+    localStorage.removeItem('Doshie_client_location')
+  }
+
+  const handleCameraCaptured = (files: File[], metadata?: { is4D: boolean; frameCount: number }) => {
+    files.forEach(uploadFile)
+    if (metadata?.is4D) {
+      if (!input.trim()) {
+        setInput('Here is a 4D spatial multi-angle photo capture of this object/scene.')
+      }
+    }
   }
 
   const getNativeSpeech = () => {
@@ -233,7 +395,13 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const handleSend = () => {
     const trimmed = input.trim()
     if ((!trimmed && attachments.length === 0) || isGenerating || uploadingFiles.length > 0) return
-    onSend(trimmed, attachments.length > 0 ? attachments : undefined, selectedBrain, selectedAgent?.id)
+    onSend(
+      trimmed,
+      attachments.length > 0 ? attachments : undefined,
+      selectedBrain,
+      selectedAgent?.id,
+      clientLocation || undefined
+    )
     setInput('')
     setAttachments([])
     if (textareaRef.current) {
@@ -353,6 +521,66 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                 </button>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Active Location Chip */}
+        {clientLocation && (
+          <div className="flex items-center justify-between px-3.5 py-1.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-xs shadow-md animate-fadeIn backdrop-blur-md">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-none" />
+              <span className="text-emerald-300 font-semibold text-[11.5px] truncate flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-emerald-400 flex-none" />
+                <span>{clientLocation.name}</span>
+              </span>
+              <span className="text-neutral-400 text-[10.5px] hidden sm:inline">
+                (Weather & local queries active)
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-none">
+              <button
+                type="button"
+                onClick={() => {
+                  setInput(prev => (prev ? `${prev} (Weather in ${clientLocation.name})` : `What is the weather right now in ${clientLocation.name}?`))
+                  textareaRef.current?.focus()
+                }}
+                className="text-[11px] font-semibold text-emerald-300 hover:text-white hover:underline cursor-pointer flex items-center gap-1"
+              >
+                ⛅ Check Weather
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsLocationModalOpen(true)}
+                className="text-[10.5px] font-medium text-neutral-300 hover:text-white px-1.5 py-0.5 rounded hover:bg-white/10 transition-colors cursor-pointer"
+                title="Change or set city"
+              >
+                Change
+              </button>
+              <button
+                type="button"
+                onClick={clearLocation}
+                className="p-1 text-neutral-400 hover:text-rose-400 rounded-lg hover:bg-white/10 cursor-pointer transition-colors"
+                title="Remove current location"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Location Error Banner */}
+        {locationError && (
+          <div className="px-3.5 py-1.5 rounded-2xl bg-amber-950/80 border border-amber-800 text-amber-200 text-xs flex items-center justify-between animate-fadeIn shadow-lg">
+            <span className="flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-400 flex-none" />
+              <span>{locationError}</span>
+            </span>
+            <button
+              onClick={() => setLocationError(null)}
+              className="text-amber-400 hover:text-white ml-2 p-0.5 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 
@@ -489,10 +717,44 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isGenerating || attachments.length >= 5}
-                title="Attach picture or file"
+                title="Attach file or photo"
                 className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer active:scale-90 flex-none"
               >
                 <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+
+              {/* Camera Button */}
+              <button
+                type="button"
+                onClick={() => setIsCameraOpen(true)}
+                disabled={isGenerating || attachments.length >= 5}
+                title="Camera (Photo or 4D Spatial Burst)"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer active:scale-90 flex-none"
+              >
+                <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+
+              {/* Location Toggle Button */}
+              <button
+                type="button"
+                onClick={handleDetectLocation}
+                disabled={isGenerating || isLocating}
+                title={
+                  clientLocation
+                    ? `Current location: ${clientLocation.name} (Click to refresh)`
+                    : 'Detect current location (for weather & local queries)'
+                }
+                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border flex items-center justify-center transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer active:scale-90 flex-none ${
+                  clientLocation
+                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-sm shadow-emerald-950/50'
+                    : 'bg-white/5 hover:bg-white/15 border-white/10 text-neutral-300 hover:text-white'
+                }`}
+              >
+                {isLocating ? (
+                  <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin text-emerald-400" />
+                ) : (
+                  <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                )}
               </button>
 
               {/* Model Selection Dropdown Pill Button */}
@@ -565,6 +827,22 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         onSave={updated => {
           setAttachments(prev => prev.map(a => (a.id === editingAttachment?.id ? updated : a)))
           setEditingAttachment(null)
+        }}
+      />
+
+      <CameraCaptureModal
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={handleCameraCaptured}
+      />
+
+      <LocationPickerModal
+        isOpen={isLocationModalOpen}
+        currentLocation={clientLocation}
+        onClose={() => setIsLocationModalOpen(false)}
+        onSelectLocation={loc => {
+          setClientLocation(loc)
+          localStorage.setItem('Doshie_client_location', JSON.stringify(loc))
         }}
       />
     </div>

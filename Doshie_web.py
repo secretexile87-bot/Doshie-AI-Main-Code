@@ -9548,6 +9548,143 @@ def health():
     return response, 200 if ready else 503
 
 
+@app.route("/api/location/reverse-geocode", methods=["GET"])
+def api_reverse_geocode():
+    import urllib.request
+    import json
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+    if not lat or not lon:
+        return jsonify({"ok": False, "error": "Missing lat or lon parameters"}), 400
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}"
+        req = urllib.request.Request(url, headers={"User-Agent": "DoshieAssistant/1.0 (contact: hermes@doshie.local)"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        address = data.get("address", {})
+        city = (
+            address.get("city")
+            or address.get("town")
+            or address.get("village")
+            or address.get("suburb")
+            or address.get("county")
+            or ""
+        )
+        state = address.get("state", "")
+        country = address.get("country", "")
+        parts = [p for p in (city, state) if p]
+        name = ", ".join(parts) if parts else (country or f"{lat}, {lon}")
+        return jsonify({
+            "ok": True,
+            "name": name,
+            "city": city,
+            "state": state,
+            "country": country,
+            "raw": data.get("display_name", "")
+        })
+    except Exception as e:
+        app.logger.warning(f"Reverse geocode error: {e}")
+        return jsonify({
+            "ok": True,
+            "name": f"{lat}, {lon}",
+            "error": str(e)
+        })
+
+
+@app.route("/api/location/ip", methods=["GET"])
+def api_ip_location():
+    import urllib.request
+    import json
+    for service_url in ["https://ipapi.co/json/", "http://ip-api.com/json/"]:
+        try:
+            req = urllib.request.Request(service_url, headers={"User-Agent": "DoshieAssistant/1.0"})
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            if service_url.startswith("https://ipapi.co"):
+                city = data.get("city", "")
+                region = data.get("region", "")
+                country = data.get("country_name", "")
+                lat = data.get("latitude")
+                lon = data.get("longitude")
+            else:
+                city = data.get("city", "")
+                region = data.get("regionName", "")
+                country = data.get("country", "")
+                lat = data.get("lat")
+                lon = data.get("lon")
+            if city:
+                name = f"{city}, {region}" if region else city
+                return jsonify({
+                    "ok": True,
+                    "name": name,
+                    "city": city,
+                    "region": region,
+                    "country": country,
+                    "latitude": lat,
+                    "longitude": lon,
+                    "source": "ip"
+                })
+        except Exception as e:
+            app.logger.warning(f"IP location service {service_url} failed: {e}")
+
+    settings = Doshie_settings.load_settings()
+    default_loc = settings.get("default_weather_location", "El Paso")
+    return jsonify({
+        "ok": True,
+        "name": default_loc,
+        "city": default_loc,
+        "source": "default"
+    })
+
+
+@app.route("/api/location/search", methods=["GET"])
+def api_search_location():
+    import urllib.request
+    import urllib.parse
+    import json
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"ok": False, "error": "Missing query parameter"}), 400
+    try:
+        encoded_q = urllib.parse.quote(q)
+        url = f"https://nominatim.openstreetmap.org/search?format=json&q={encoded_q}&limit=5"
+        req = urllib.request.Request(url, headers={"User-Agent": "DoshieAssistant/1.0 (contact: hermes@doshie.local)"})
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        results = []
+        for item in data:
+            results.append({
+                "name": item.get("display_name", ""),
+                "latitude": float(item.get("lat", 0)),
+                "longitude": float(item.get("lon", 0))
+            })
+        return jsonify({"ok": True, "results": results})
+    except Exception as e:
+        return jsonify({"ok": True, "results": [{"name": q, "latitude": 0, "longitude": 0}]})
+
+
+@app.route("/api/weather", methods=["GET"])
+def api_weather():
+    location = request.args.get("location")
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+    if not location:
+        if lat and lon:
+            location = f"{lat},{lon}"
+        else:
+            settings = Doshie_settings.load_settings()
+            location = settings.get("default_weather_location", "El Paso")
+
+    current_weather = Doshie_memory.get_weather(location)
+    forecast = Doshie_memory.get_forecast(location, 1)
+    return jsonify({
+        "ok": True,
+        "location": location,
+        "current": current_weather,
+        "forecast": forecast
+    })
+
+
 @app.route("/doctor")
 def doctor_web():
     return home()
@@ -9617,6 +9754,15 @@ def api_doctor_status():
 
     sdk_path = os.environ.get('ANDROID_HOME', '/home/doshie/Android/Sdk')
 
+    gaming_data = None
+    try:
+        import doshie_gaming_monitor
+        gaming_data = doshie_gaming_monitor.load_status()
+        if not gaming_data:
+            gaming_data = doshie_gaming_monitor.inspect_gaming_status()
+    except Exception:
+        pass
+
     return jsonify({
         "status": "attention" if stopped else "healthy",
         "system": {
@@ -9639,7 +9785,8 @@ def api_doctor_status():
         "android_sdk": {
             "path": sdk_path,
             "exists": os.path.exists(sdk_path)
-        }
+        },
+        "gaming": gaming_data
     })
 
 
@@ -9659,11 +9806,54 @@ def api_doctor_fix():
             if p.returncode != 0:
                 subprocess.Popen(['nohup', py, script], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 actions.append(f"Started {name}")
+    try:
+        import doshie_gaming_monitor
+        g_status = doshie_gaming_monitor.fix_gaming_stack()
+        if g_status.get("actions_taken"):
+            actions.extend([f"Gaming: {a}" for a in g_status["actions_taken"]])
+    except Exception:
+        pass
+
     return jsonify({
         "success": True,
         "actions_taken": actions,
         "message": "Auto-fixes applied successfully."
     })
+
+
+@app.route("/api/gaming-status", methods=["GET"])
+def api_gaming_status():
+    try:
+        import doshie_gaming_monitor
+        status = doshie_gaming_monitor.load_status()
+        if not status or request.args.get("refresh") == "1":
+            status = doshie_gaming_monitor.inspect_gaming_status()
+            doshie_gaming_monitor.save_status(status)
+        return jsonify({"ok": True, "gaming": status})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/gaming-fix", methods=["POST"])
+def api_gaming_fix():
+    try:
+        import doshie_gaming_monitor
+        status = doshie_gaming_monitor.fix_gaming_stack()
+        return jsonify({"ok": True, "gaming": status})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/gaming-launch", methods=["POST"])
+def api_gaming_launch():
+    try:
+        res = subprocess.run(["systemctl", "--user", "restart", "doshie-gaming-app.service"], capture_output=True, text=True)
+        if res.returncode == 0:
+            return jsonify({"ok": True, "message": "Doshie Gaming App started on desktop."})
+        subprocess.Popen(["python3", "/home/doshie/Desktop/app.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return jsonify({"ok": True, "message": "Launched Doshie Gaming App process."})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/dashboard", methods=["GET"])
@@ -12609,9 +12799,23 @@ def messaging_people():
     profile, error = _messaging_profile_request()
     if error:
         return error
+    catalog = profile_catalog()
+    people_list = Doshie_messaging.people(catalog, profile)
+    # Ensure Doshie AI Assistant is always available as a Messenger contact
+    if not any(p.get("name", "").casefold() == "doshie" for p in people_list):
+        people_list.insert(0, {
+            "name": "Doshie",
+            "role": "AI Assistant (Always Online)",
+            "initials": "🦖",
+            "avatar_url": "/favicon.svg",
+            "is_admin": False,
+            "online": True,
+            "self": False,
+            "is_ai": True,
+        })
     return jsonify({
         "profile": profile,
-        "people": Doshie_messaging.people(profile_catalog(), profile),
+        "people": people_list,
     })
 
 
@@ -12648,7 +12852,11 @@ def messaging_conversations_create():
         return jsonify({"error": "Members must be a list."}), 400
     resolved_members = []
     for value in members:
-        member = resolve_profile(value)
+        clean_val = str(value or "").strip()
+        if clean_val.casefold() == "doshie":
+            resolved_members.append("Doshie")
+            continue
+        member = resolve_profile(clean_val)
         if member is None:
             return jsonify({"error": "Choose valid family profiles."}), 400
         resolved_members.append(member)
@@ -12689,20 +12897,75 @@ def messaging_messages_get(conversation_id):
     })
 
 
+def _trigger_doshie_messaging_reply(conversation_id, sender_profile, text):
+    def _worker():
+        try:
+            with Doshie_messaging._db_lock, Doshie_messaging._connect() as conn:
+                members = [
+                    item["profile"]
+                    for item in conn.execute(
+                        "SELECT profile FROM conversation_members WHERE conversation_id = ?",
+                        (conversation_id,),
+                    ).fetchall()
+                ]
+            has_doshie = any(m.casefold() == "doshie" for m in members)
+            if not has_doshie:
+                return
+
+            time.sleep(0.4)
+            Doshie_messaging.set_typing(conversation_id, "Doshie", True)
+
+            recent = Doshie_messaging.get_messages(conversation_id, "Doshie", limit=8)
+            msg_history = []
+            for m in recent[:-1]:
+                p = m.get("sender_profile", "")
+                b = m.get("body", "")
+                if p.casefold() == "doshie":
+                    msg_history.append({"role": "assistant", "content": b})
+                else:
+                    msg_history.append({"role": "user", "content": f"{p}: {b}" if len(members) > 2 else b})
+
+            prompt_user_text = f"{sender_profile}: {text}" if len(members) > 2 else text
+
+            reply_text = Doshie_memory.ask_yoshi(
+                msg_history,
+                prompt_user_text,
+                profile=sender_profile,
+                system_context="You are replying directly inside Doshie Messenger. Keep replies conversational, concise, and friendly, like a text message on mobile.",
+            )
+
+            if not reply_text:
+                reply_text = "I'm right here! What's on your mind?"
+
+            Doshie_messaging.set_typing(conversation_id, "Doshie", False)
+            Doshie_messaging.send_message(conversation_id, "Doshie", reply_text)
+        except Exception as exc:
+            try:
+                Doshie_messaging.set_typing(conversation_id, "Doshie", False)
+            except Exception:
+                pass
+            print(f"[Doshie Messaging] Error generating AI reply: {exc}")
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+
 @app.route("/messaging/conversations/<conversation_id>/messages", methods=["POST"])
 def messaging_messages_post(conversation_id):
     data = request.get_json(silent=True) or {}
     profile, error = _messaging_profile_request(data)
     if error:
         return error
+    body = str(data.get("body", data.get("message", ""))).strip()
     try:
-        message = Doshie_messaging.send_message(
-            conversation_id, profile, data.get("body", data.get("message", ""))
-        )
+        message = Doshie_messaging.send_message(conversation_id, profile, body)
     except PermissionError:
         return jsonify({"error": "Conversation access denied."}), 403
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+
+    if profile.casefold() != "doshie":
+        _trigger_doshie_messaging_reply(conversation_id, profile, body)
+
     return jsonify({"ok": True, "message": message}), 201
 
 
@@ -12856,6 +13119,21 @@ def _chat_impl():
     text = raw_text.strip()
     settings = Doshie_settings.load_settings()
     profile = resolve_profile(data.get("profile", "Hermes"))
+
+    # Location context from client (for weather, local info, and maps)
+    client_location = None
+    location_payload = data.get("location")
+    if isinstance(location_payload, dict):
+        client_location = str(location_payload.get("name") or "").strip()
+        if not client_location:
+            lat = location_payload.get("latitude")
+            lon = location_payload.get("longitude")
+            if lat is not None and lon is not None:
+                client_location = f"{lat},{lon}"
+    elif isinstance(location_payload, str) and location_payload.strip():
+        client_location = location_payload.strip()
+
+    effective_weather_loc = client_location or settings.get("default_weather_location", "El Paso")
 
     if profile is None:
         return jsonify({
@@ -13108,9 +13386,7 @@ def _chat_impl():
 
     if text == "/weather":
         return jsonify({
-            "reply": Doshie_memory.get_weather(
-                settings.get("default_weather_location", "El Paso")
-            )
+            "reply": Doshie_memory.get_weather(effective_weather_loc)
         })
 
     if text.startswith(("/agent ", "/build ", "/cli ")) or text in ("/agent", "/build", "/cli"):
@@ -13183,6 +13459,9 @@ def _chat_impl():
             (text + "\n\n") if text else ""
         ) + "USER ATTACHMENTS:\n" + attachment_context
 
+    if client_location:
+        model_text += f"\n\n[USER CURRENT LOCATION: {client_location}]"
+
     target_agent = None
     target_agent_id = str(data.get("agent_id") or data.get("agent") or "").strip()
     if target_agent_id:
@@ -13196,6 +13475,8 @@ def _chat_impl():
                 target_agent = candidate_agent
                 text = match_at.group(2).strip()
                 model_text = text + ("\n\nUSER ATTACHMENTS:\n" + attachment_context if attachment_context else "")
+                if client_location:
+                    model_text += f"\n\n[USER CURRENT LOCATION: {client_location}]"
         else:
             # Automatic multi-agent routing
             routed = Doshie_agents.auto_route_agent(text)
@@ -13205,7 +13486,7 @@ def _chat_impl():
 
     handled, tool_reply = route_tool(
         text,
-        settings.get("default_weather_location", "El Paso"),
+        effective_weather_loc,
         profile=profile
     )
 

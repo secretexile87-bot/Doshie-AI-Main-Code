@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import threading
 import urllib.parse
@@ -448,6 +449,33 @@ TOOLS = [
                 "properties": {}
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "render_3d_model",
+            "description": (
+                "Render a 3D model (.obj, .glb, .gltf, .fbx, .ply) in native 4K UHD photorealistic resolution using Blender Cycles and the NVIDIA RTX 5070 GPU with OptiX hardware ray tracing."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "input_path": {
+                        "type": "string",
+                        "description": "Path to the 3D model file."
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "Optional output image path (.png). Defaults to model path with .png suffix."
+                    },
+                    "samples": {
+                        "type": "integer",
+                        "description": "Render quality sample count (default: 128)."
+                    }
+                },
+                "required": ["input_path"]
+            }
+        }
     }
 ]
 
@@ -459,6 +487,7 @@ CAPABILITY_TOOL_MAP = {
     "hardware_management": ["inspect_hardware", "propose_hardware_change", "execute_hardware_change", "get_hardware_governance"],
     "memory_read": ["search_memories", "get_tasks_and_notes"],
     "memory_write": ["save_memory", "create_task", "add_note"],
+    "3d_rendering": ["render_3d_model"],
 }
 
 
@@ -771,6 +800,32 @@ def execute_tool(name, arguments, actor_profile="", can_propose_changes=False):
         import doshie_hardware
         return doshie_hardware.load_governance()
 
+    if name == "render_3d_model":
+        import subprocess
+        from pathlib import Path
+        input_path = str(arguments.get("input_path") or "").strip()
+        output_path = str(arguments.get("output_path") or "").strip()
+        samples = int(arguments.get("samples") or 128)
+
+        if not input_path or not os.path.isfile(input_path):
+            return {"success": False, "error": f"3D model file not found: {input_path}"}
+
+        blender_bin = "/home/doshie/.local/share/blender-4.3.2-linux-x64/blender"
+        render_script = "/home/doshie/Doshie/doshie_render_4k.py"
+        if not output_path:
+            output_path = str(Path(input_path).with_suffix(".png"))
+
+        cmd = [blender_bin, "-b", "-P", render_script, "--", "--input", input_path, "--output", output_path, "--samples", str(samples)]
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+            return {
+                "success": res.returncode == 0,
+                "output_image": output_path,
+                "message": f"Rendered 4K image saved to {output_path}" if res.returncode == 0 else f"Render failed: {res.stderr[-300:]}"
+            }
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+
     raise ValueError("Unknown or unauthorized tool.")
 
 
@@ -817,7 +872,13 @@ def needs_project_tools(messages):
         "pcie",
         "change governor",
         "hardware setting",
-        "doshie hw"
+        "doshie hw",
+        "render 3d",
+        "3d render",
+        "render in 4k",
+        "4k render",
+        "render model",
+        "render mesh",
     )
 
     return any(trigger in latest for trigger in triggers)

@@ -40,6 +40,8 @@ interface SidebarProps {
   oversightProfile?: string
   onSelectOversightProfile?: (profile: string) => void
   availableProfiles?: Profile[]
+  onOpenMessenger?: () => void
+  messengerUnreadCount?: number
 }
 
 function formatRelativeTime(dateInput: number | string): string {
@@ -107,6 +109,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   oversightProfile,
   onSelectOversightProfile,
   availableProfiles = [],
+  onOpenMessenger,
+  messengerUnreadCount = 0,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [sessionFilter, setSessionFilter] = useState<'all' | 'chats' | 'voice'>('all')
@@ -258,6 +262,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>New Chat</span>
           </button>
         </div>
+
+        {/* Action: Open Doshie Messenger Button */}
+        {onOpenMessenger && (
+          <div className="px-3 pb-2">
+            <button
+              onClick={() => {
+                onOpenMessenger()
+                if (window.innerWidth < 768) onClose()
+              }}
+              className="w-full py-2 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-500/40 text-neutral-200 hover:text-white text-xs font-semibold flex items-center justify-between transition-all cursor-pointer active:scale-[0.98]"
+            >
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Doshie Messenger</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {messengerUnreadCount > 0 ? (
+                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-neutral-950 text-[10px] font-bold">
+                    {messengerUnreadCount}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-emerald-400/80 font-mono">DMs</span>
+                )}
+              </div>
+            </button>
+          </div>
+        )}
 
         {/* Admin Guest Oversight Selector (Visible ONLY to Admin) */}
         {isAdmin && availableProfiles && availableProfiles.length > 1 && (

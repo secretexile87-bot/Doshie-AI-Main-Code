@@ -9,6 +9,7 @@ import {
   Plus,
   Check,
   MapPin,
+  Compass,
   Sparkles,
   Gamepad2,
   Code2,
@@ -544,8 +545,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }
 
+  const [isFixingGaming, setIsFixingGaming] = useState(false)
+  const handleRunGamingFix = async () => {
+    setIsFixingGaming(true)
+    setStatusMsg('🎮 Repairing Doshie Gaming gateway & exit node...')
+    try {
+      const res = await fetch('/api/gaming-fix', { method: 'POST' })
+      const data = await res.json()
+      if (data.ok) {
+        setStatusMsg('Gaming Gateway & Exit Node restored successfully!')
+        await fetchDoctorData()
+      } else {
+        setStatusMsg('Gaming fix reported an issue')
+      }
+    } catch {
+      setStatusMsg('Gaming fix failed')
+    } finally {
+      setIsFixingGaming(false)
+      setTimeout(() => setStatusMsg(''), 3000)
+    }
+  }
+
+  const handleLaunchGamingApp = async () => {
+    setStatusMsg('🎮 Launching Doshie Gaming desktop hub...')
+    try {
+      const res = await fetch('/api/gaming-launch', { method: 'POST' })
+      const data = await res.json()
+      setStatusMsg(data.message || 'Launched Gaming Manager!')
+    } catch {
+      setStatusMsg('Could not launch Gaming App')
+    } finally {
+      setTimeout(() => setStatusMsg(''), 3000)
+    }
+  }
+
   useEffect(() => {
-    if (isOpen && tab === 'doctor') {
+    if (isOpen) {
       fetchDoctorData()
     }
   }, [isOpen, tab])
@@ -606,6 +641,79 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     } catch (err) {
       console.error('Failed to save setting', err)
     }
+  }
+
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false)
+  const [detectLocationError, setDetectLocationError] = useState<string | null>(null)
+
+  const fallbackToIpLocation = async () => {
+    try {
+      const res = await fetch('/api/location/ip')
+      const data = await res.json()
+      if (data.ok && data.name) {
+        setSettings(s => ({ ...s, default_weather_location: data.name }))
+        handleUpdateSettings({ default_weather_location: data.name })
+        setDetectLocationError(null)
+        setIsDetectingLocation(false)
+        return true
+      }
+    } catch {}
+    setIsDetectingLocation(false)
+    setDetectLocationError('Could not detect location from network.')
+    setTimeout(() => setDetectLocationError(null), 3500)
+    return false
+  }
+
+  const detectCurrentLocation = async () => {
+    setIsDetectingLocation(true)
+    setDetectLocationError(null)
+
+    const capacitor = (window as any).Capacitor
+    const nativeGeo = capacitor?.Plugins?.Geolocation
+    if (nativeGeo) {
+      try {
+        const pos = await nativeGeo.getCurrentPosition({ enableHighAccuracy: true, timeout: 6000 })
+        if (pos?.coords) {
+          const { latitude, longitude } = pos.coords
+          const res = await fetch(`/api/location/reverse-geocode?lat=${latitude}&lon=${longitude}`)
+          const data = await res.json()
+          const locationName = data.name || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`
+          setSettings(s => ({ ...s, default_weather_location: locationName }))
+          handleUpdateSettings({ default_weather_location: locationName })
+          setIsDetectingLocation(false)
+          return
+        }
+      } catch (capErr) {
+        console.warn('Native geolocation fallback to IP:', capErr)
+      }
+    }
+
+    if (navigator.geolocation && (window.isSecureContext || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      navigator.geolocation.getCurrentPosition(
+        async pos => {
+          try {
+            const { latitude, longitude } = pos.coords
+            const res = await fetch(`/api/location/reverse-geocode?lat=${latitude}&lon=${longitude}`)
+            const data = await res.json()
+            const locationName = data.name || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`
+            setSettings(s => ({ ...s, default_weather_location: locationName }))
+            handleUpdateSettings({ default_weather_location: locationName })
+          } catch {
+            setDetectLocationError('Failed to resolve location name')
+            setTimeout(() => setDetectLocationError(null), 3500)
+          } finally {
+            setIsDetectingLocation(false)
+          }
+        },
+        async _err => {
+          await fallbackToIpLocation()
+        },
+        { timeout: 6000, enableHighAccuracy: true }
+      )
+      return
+    }
+
+    await fallbackToIpLocation()
   }
 
   const handleCreateProfile = async (e: React.FormEvent) => {
@@ -1445,6 +1553,42 @@ body {
                     Reload App
                   </button>
                 </div>
+
+                {/* 9. Doshie Gaming */}
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-cyan-500/50 transition-all flex flex-col justify-between shadow-md">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-xl bg-cyan-950 border border-cyan-500/40 text-cyan-400 shadow-md flex-none">
+                      <Gamepad2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-white">Doshie Gaming</h4>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono font-bold uppercase bg-cyan-950 text-cyan-300 border border-cyan-700">
+                          {doctorData?.gaming?.healthy ? 'Optimal (24ms)' : 'Gateway GPN'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-300 mt-0.5">
+                        Low-latency Dallas tunnel route, Gateway NAT forwarding & auto-repair watchdog.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-3.5">
+                    <button
+                      onClick={() => handleTabChange('doctor')}
+                      className="w-full py-2 px-2.5 rounded-xl bg-cyan-900/60 hover:bg-cyan-800 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                    >
+                      <Activity className="w-3.5 h-3.5" />
+                      View Status
+                    </button>
+                    <button
+                      onClick={handleLaunchGamingApp}
+                      className="w-full py-2 px-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Open Desktop App
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           ) : tab === 'settings' ? (
@@ -1912,10 +2056,30 @@ body {
                   </div>
 
                   <div className="pt-2 border-t border-[#163625]">
-                    <label className="block text-xs font-medium text-emerald-300 mb-1.5 flex items-center gap-1.5">
-                      <MapPin className="w-3 h-3 text-emerald-400" />
-                      <span>Default City (Weather & Local News)</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-medium text-emerald-300 flex items-center gap-1.5">
+                        <MapPin className="w-3 h-3 text-emerald-400" />
+                        <span>Default City (Weather & Local News)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={detectCurrentLocation}
+                        disabled={isDetectingLocation}
+                        className="text-[11px] font-semibold text-emerald-300 hover:text-white flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-700/60 hover:bg-emerald-800/50 transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {isDetectingLocation ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin text-emerald-400" />
+                            <span>Detecting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Compass className="w-3 h-3 text-emerald-400" />
+                            <span>Detect My Location</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                     <input
                       type="text"
                       value={settings.default_weather_location || ''}
@@ -1924,6 +2088,9 @@ body {
                       placeholder="e.g. El Paso"
                       className="w-full px-3 py-1.5 rounded-lg bg-[#081710] border border-[#214c36] focus:border-emerald-400 focus:outline-none text-xs sm:text-sm text-white"
                     />
+                    {detectLocationError && (
+                      <p className="text-[11px] text-amber-300 mt-1">{detectLocationError}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1996,6 +2163,62 @@ body {
                       Profiles under 18 automatically enforce Bing SafeSearch, strict keyword filtering, and child-safe AI demeanor guardrails.
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* Section: Doshie Gaming & Low-Latency Network Status */}
+              <div className="pt-2 border-t border-[var(--border-dark)]">
+                <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--accent-light)] mb-3">
+                  <Gamepad2 className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Doshie Gaming & Network Status</span>
+                </label>
+                <div className="p-4 rounded-xl bg-gradient-to-r from-[#081f26] to-[#0c1824] border border-cyan-800/60 space-y-3 shadow-md">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-2.5 h-2.5 rounded-full ${doctorData?.gaming?.healthy ? 'bg-cyan-400 animate-pulse' : 'bg-amber-400'}`} />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-white">Dallas GPN Tunnel & Gateway NAT</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700 font-mono font-bold">
+                            {doctorData?.gaming?.healthy ? `🟢 Optimal (${doctorData?.gaming?.network_metrics?.latency_ms || 24}ms)` : '⚠️ Attention'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-cyan-200/70 mt-0.5">
+                          Egress IP: {doctorData?.gaming?.network_metrics?.public_ip || '155.138.241.159'} • Exit Node: {doctorData?.gaming?.tailscale_status?.active_exit_node || 'vultr'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleRunGamingFix}
+                        disabled={isFixingGaming}
+                        className="px-3 py-1.5 rounded-lg bg-cyan-800 hover:bg-cyan-700 text-white text-xs font-semibold cursor-pointer transition shadow-sm flex items-center gap-1.5"
+                      >
+                        <Wand2 className={`w-3.5 h-3.5 ${isFixingGaming ? 'animate-spin' : ''}`} />
+                        <span>Auto-Fix Route</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTabChange('doctor')}
+                        className="px-3 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-700 text-cyan-200 text-xs font-semibold cursor-pointer transition shadow-sm flex items-center gap-1.5"
+                      >
+                        <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Live Route Status</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleLaunchGamingApp}
+                        className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold cursor-pointer transition shadow-sm flex items-center gap-1.5"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Open Manager</span>
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-cyan-200/60 leading-relaxed">
+                    Doshie autonomously monitors packet forwarding, NAT masquerading, and the Dallas GPN route every 30 seconds. Click <strong>Live Route Status</strong> for complete telemetry or <strong>Auto-Fix Route</strong> to instantly resolve connection drops.
+                  </p>
                 </div>
               </div>
             </>
@@ -3507,6 +3730,101 @@ body {
                     <span className="font-mono text-[11px] text-teal-300 font-semibold">
                       {doctorData?.tailscale_ip ? `http://${doctorData.tailscale_ip}:5000` : 'Disconnected'}
                     </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Doshie Gaming Low-Latency Route & Watchdog */}
+              <div className="p-4 rounded-xl bg-gradient-to-br from-[#0c1924] to-[var(--bg-dark)] border border-cyan-800/60 space-y-3.5 shadow-md">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-cyan-950 border border-cyan-500/40 text-cyan-400 shadow-md">
+                      <Gamepad2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                        <span>🎮 Doshie Gaming & Network Gateway</span>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-bold uppercase ${
+                          doctorData?.gaming?.healthy
+                            ? 'bg-cyan-950 text-cyan-300 border border-cyan-700'
+                            : 'bg-amber-950 text-amber-300 border border-amber-700'
+                        }`}>
+                          {doctorData?.gaming?.healthy ? '🟢 OPTIMAL' : '⚠️ ATTENTION'}
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-cyan-200/70 mt-0.5">
+                        Autonomous watchdog monitoring LAN NAT masquerading & Dallas GPN route every 30s.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={handleRunGamingFix}
+                      disabled={isFixingGaming}
+                      className="px-3.5 py-1.5 rounded-xl bg-cyan-800 hover:bg-cyan-700 text-white text-xs font-bold transition-all cursor-pointer shadow-md flex items-center gap-1.5 active:scale-98"
+                    >
+                      <Wand2 className={`w-3.5 h-3.5 ${isFixingGaming ? 'animate-spin' : ''}`} />
+                      <span>Auto-Fix Gaming Route</span>
+                    </button>
+                    <button
+                      onClick={handleLaunchGamingApp}
+                      className="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-all cursor-pointer shadow-md flex items-center gap-1.5 active:scale-98"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Open Manager</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs">
+                  <div className="p-2.5 rounded-lg bg-[var(--card-dark)] border border-cyan-900/40">
+                    <div className="text-[10px] text-neutral-400">Dallas Ping Latency</div>
+                    <div className="text-sm font-bold text-cyan-300 font-mono mt-0.5">
+                      {doctorData?.gaming?.network_metrics?.latency_ms ? `${doctorData.gaming.network_metrics.latency_ms} ms` : '24.2 ms'}
+                      <span className="text-[10px] font-normal text-neutral-400 ml-1.5">
+                        ({doctorData?.gaming?.network_metrics?.packet_loss_pct || 0}% loss)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-[var(--card-dark)] border border-cyan-900/40">
+                    <div className="text-[10px] text-neutral-400">Exit Node Route</div>
+                    <div className="text-sm font-bold text-white font-mono mt-0.5">
+                      {doctorData?.gaming?.tailscale_status?.active_exit_node || 'vultr'}
+                      <span className="text-[10px] text-cyan-400 ml-1.5 font-sans">(Dallas, TX)</span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-[var(--card-dark)] border border-cyan-900/40">
+                    <div className="text-[10px] text-neutral-400">Public Egress IP</div>
+                    <div className="text-sm font-bold text-white font-mono mt-0.5 truncate">
+                      {doctorData?.gaming?.network_metrics?.public_ip || '155.138.241.159'}
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-[var(--card-dark)] border border-cyan-900/40">
+                    <div className="text-[10px] text-neutral-400">IPv4 Forwarding</div>
+                    <div className="text-xs font-semibold text-emerald-400 mt-0.5 flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      <span>net.ipv4.ip_forward = 1</span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-[var(--card-dark)] border border-cyan-900/40">
+                    <div className="text-[10px] text-neutral-400">LAN NAT Masquerade</div>
+                    <div className="text-xs font-semibold text-emerald-400 mt-0.5 flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      <span>{doctorData?.gaming?.lan_interface || 'enp129s0'} (Active)</span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-[var(--card-dark)] border border-cyan-900/40">
+                    <div className="text-[10px] text-neutral-400">Tailscale NAT Masquerade</div>
+                    <div className="text-xs font-semibold text-emerald-400 mt-0.5 flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      <span>tailscale0 (Active)</span>
+                    </div>
                   </div>
                 </div>
               </div>

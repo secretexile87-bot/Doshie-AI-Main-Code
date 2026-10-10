@@ -18,8 +18,55 @@ def _route_tool_rules(
     lower = clean.lower()
     normalized = lower.rstrip(" ?.!")
 
+    # Specific 3D / 4D Object Requests (e.g., house, car, train, building, robot)
+    known_3d_objects = ["house", "building", "car", "train", "tree", "rocket", "plane", "jet", "robot", "skyscraper", "tower", "school", "city", "architecture"]
+    has_specific_object = any(w in lower for w in known_3d_objects)
+
+    # 4D Personal Avatar Pipeline (only if not asking for a specific object like a house or car)
+    avatar_triggers = [
+        "4d", "make a 4d", "lets make a 4d", "let's make a 4d", "render 4d",
+        "render my face", "3d avatar", "4d avatar", "turn my photo into 3d",
+        "turn my picture into 3d", "render me in 4d", "render me in 3d", "my 4d",
+        "4d me", "4d photo", "4d picture", "avatar of me", "my avatar",
+        "make an avatar", "make my avatar", "create an avatar", "create my avatar",
+        "3d of me", "this is me"
+    ]
+    is_4d_avatar = not has_specific_object and (
+        any(k in lower for k in avatar_triggers) or
+        (any(action in lower for action in ["render", "make", "create", "generate"]) and any(target in lower for target in ["avatar", "4d", "3d face", "my face"]))
+    )
+
+    if is_4d_avatar:
+        renders_dir = Path(__file__).resolve().parent / "static" / "renders"
+        custom_portraits = sorted(renders_dir.glob("*_4k_portrait.png"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if custom_portraits:
+            base_id = custom_portraits[0].stem.replace("_4k_portrait", "")
+            img_url = f"/static/renders/{base_id}_4k_portrait.png"
+            vid_url = f"/static/renders/{base_id}_4d_turntable.mp4"
+            glb_url = f"/static/renders/{base_id}_3d_avatar.glb"
+        else:
+            img_url = "/static/renders/doshie_native_4k.png"
+            vid_url = "/static/renders/doshie_native_4d_turntable.mp4"
+            glb_url = "/static/renders/doshie_selfie_3d_avatar.glb"
+
+        reply = (
+            "🎬 **Here is your 4D Avatar Studio Render!**\n\n"
+            "✨ **4K UHD Studio Portrait:**\n"
+            f"![4K Portrait]({img_url})\n\n"
+            "🎥 **360° 4D Turntable Video Loop:**\n"
+            f"[▶️ Play / Download 4D Turntable Video]({vid_url})\n\n"
+            "📦 **Native 3D Mesh (.GLB):**\n"
+            f"[⬇️ Download 3D Model File]({glb_url})\n\n"
+            "```3d\n"
+            "type: avatar\n"
+            f"model: {glb_url}\n"
+            "```\n\n"
+            "*(Rendered 100% locally from your photo on your Acer Nitro RTX 5070 with Cycles OptiX ray-tracing)*"
+        )
+        return True, reply
+
     # Interactive 3D Model Generator & WebGL Viewer
-    is_3d_explicit = "3d" in lower and not any(meta in lower for meta in ["can you have it where", "how do i", "how to make", "can you make it where", "why does", "only showing"])
+    is_3d_explicit = ("3d" in lower or "4d" in lower) and not any(meta in lower for meta in ["can you have it where", "how do i", "how to make", "can you make it where", "why does", "only showing"])
     # Also detect direct 3D follow-ups (e.g. "show me a school", "show me a car", "show a building")
     is_3d_followup = bool(re.search(r"^(?:(?:that\s+looks\s+like\s+[^.!?]+[.!?]\s*)?(?:can\s+you\s+)?(?:show(?:\s+me)?|display|render|give\s+me)\s+(?:a\s+|an\s+|the\s+)?([a-z0-9_\-\s]+))", lower) and any(w in lower for w in ["school", "building", "house", "car", "train", "tree", "rocket", "plane", "jet", "robot", "skyscraper", "tower"]))
 
@@ -32,7 +79,7 @@ def _route_tool_rules(
 
         if not subject:
             match_3d = re.search(
-                r"(?:(?:can\s+you\s+)?(?:show(?:\s+me)?|display|generate|render|create|build|make)?\s*(?:a\s+|an\s+)?(?:interactive\s+)?)?3d(?:\s+model)?(?:\s+of)?\s*(?:a\s+|an\s+|the\s+)?([a-z0-9_\-\s]+)",
+                r"(?:(?:can\s+you\s+)?(?:show(?:\s+me)?|display|generate|render|create|build|make)?\s*(?:a\s+|an\s+)?(?:interactive\s+)?)?[34]d(?:\s+model)?(?:\s+of)?\s*(?:a\s+|an\s+|the\s+)?([a-z0-9_\-\s]+)",
                 lower
             )
             if match_3d and match_3d.group(1).strip():
@@ -72,9 +119,12 @@ def _route_tool_rules(
         reply = f"```3d\ntype: {subject}\n```"
         return True, reply
 
-    # Picture / Photo / Image Search Rule
+    # Picture / Photo / Image Search Rule (Strictly for generic subjects, NEVER personal avatar, 3D, or 4D)
     img_triggers = ("picture", "pictures", "photo", "photos", "image", "images", "/image", "/pic", "/photo")
-    if any(t in lower for t in img_triggers) and "3d" not in lower and not any(meta in lower for meta in ["can you have it where", "how do i", "how to make", "can you make it where", "why does"]):
+    personal_keywords = ("avatar", "me", "myself", "my", "selfie", "this is me", "4d", "3d", "face", "my face", "make me", "render me")
+    is_personal_or_3d = any(k in lower for k in personal_keywords)
+
+    if any(t in lower for t in img_triggers) and not is_personal_or_3d and not any(meta in lower for meta in ["can you have it where", "how do i", "how to make", "can you make it where", "why does"]):
         img_subject = None
         if lower.startswith("/image") or lower.startswith("/photo") or lower.startswith("/pic"):
             parts = re.split(r"/(?:image|photo|pic)\s*", lower, maxsplit=1)
@@ -87,7 +137,7 @@ def _route_tool_rules(
             if mA:
                 cand = mA.group(1).strip().rstrip(" ?.!").replace("please", "").strip()
                 cand = re.sub(r"^(?:a\s+|an\s+|the\s+)", "", cand).strip()
-                if cand and len(cand) >= 2:
+                if cand and len(cand) >= 2 and not any(b in cand.lower() for b in personal_keywords):
                     img_subject = cand
 
         if not img_subject:
@@ -96,7 +146,7 @@ def _route_tool_rules(
             if mB:
                 cand = mB.group(1).strip().rstrip(" ?.!").replace("please", "").strip()
                 cand = re.sub(r"^(?:a\s+|an\s+|the\s+)", "", cand).strip()
-                if cand and len(cand) >= 2:
+                if cand and len(cand) >= 2 and not any(b in cand.lower() for b in personal_keywords):
                     img_subject = cand
 
         if img_subject:
@@ -1451,8 +1501,12 @@ def _route_tool_rules(
         "weather?",
         "current weather",
         "weather now",
+        "weather here",
+        "weather near me",
+        "weather outside",
+        "weather today",
     ):
-        return True, yoshi_memory.get_weather("El Paso")
+        return True, yoshi_memory.get_weather(default_location)
 
     if lower.startswith("/weather "):
         location = clean[len("/weather "):].strip()
@@ -1678,7 +1732,7 @@ Rules:
 - Use none if normal conversation does not require a local tool.
 - device_status means check, test, benchmark, inspect, or diagnose the host PC/computer hardware, CPU, GPU, RAM, storage, or system status.
 - battery means check device battery percentage or charge status.
-- image_search means search for a picture, photo, or image of something. Put the subject or query in text.
+- image_search means search for an existing picture, photo, or image of something on the internet. Put the subject or query in text. Never use image_search if the user is asking to render, generate 3D, or create imagery.
 - news means local or current news headlines. Put the topic or location in text.
 - web_search means search the internet or web for info. Put the query in text.
 - add_task means create a task.
@@ -1801,6 +1855,9 @@ def _execute_ai_tool(result, default_location, profile="Hermes"):
     if intent == "image_search":
         if not value:
             return True, "What would you like me to find a picture of?"
+        # Block personal avatar or selfie requests from searching external web pictures
+        if any(w in value.lower() for w in ["avatar", "me", "myself", "selfie", "this is me", "my photo", "my picture", "4d", "3d"]):
+            return False, None
         try:
             import Doshie_search
             import Doshie_profile_preferences

@@ -18,6 +18,7 @@ export interface CommandContext {
   onOpenVoiceStudio?: () => void
   onOpenAgentHub?: () => void
   onOpenAgentConsole?: () => void
+  onOpenMessenger?: () => void
   onOpenSidebar?: () => void
   onNewChat?: () => void
   onSendMessage?: (text: string) => void
@@ -176,6 +177,16 @@ export async function parseAndExecuteCommand(
     context.onOpenSidebar?.()
     confirmAction('Opening Chat Explorer', '💬')
     return { handled: true, actionType: 'open', feedback: 'Opening Chat Explorer' }
+  }
+
+  // Open Doshie Messenger / DMs / Family Chat
+  if (
+    /\b(?:open|launch|show|go\s+to)\s+(?:messenger|messages?|inbox|dms?|family\s*chat)\b/i.test(lower) ||
+    /^\/(?:message|messages|messenger|inbox|dm)\b/i.test(lower)
+  ) {
+    context.onOpenMessenger?.()
+    confirmAction('Opening Doshie Messenger', '💬')
+    return { handled: true, actionType: 'open', feedback: 'Opening Doshie Messenger' }
   }
 
   // New Chat / Fresh Conversation

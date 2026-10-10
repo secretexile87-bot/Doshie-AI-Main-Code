@@ -13,6 +13,7 @@ import { VoiceStudioModal } from './components/VoiceStudioModal'
 import { AgentHubModal } from './components/AgentHubModal'
 import { AgentConsoleModal } from './components/AgentConsoleModal'
 import { MobileNavBar } from './components/MobileNavBar'
+import { MessengerModal } from './components/MessengerModal'
 import { stopSpeech, subscribeSpeechState, playNeuralSpeech, playWakeChime } from './utils/audio'
 import { parseAndExecuteCommand, detectWakeWord, type CommandContext } from './utils/commands'
 import { getSeasonalInfo } from './utils/seasonal'
@@ -94,6 +95,8 @@ export function App() {
   const [isVoiceStudioOpen, setIsVoiceStudioOpen] = useState(false)
   const [isAgentHubOpen, setIsAgentHubOpen] = useState(false)
   const [isAgentConsoleOpen, setIsAgentConsoleOpen] = useState(false)
+  const [isMessengerOpen, setIsMessengerOpen] = useState(false)
+  const [messengerUnreadCount, setMessengerUnreadCount] = useState(0)
   const [selectedAgent, setSelectedAgent] = useState<SpecialistAgent | null>(null)
 
 
@@ -147,6 +150,30 @@ export function App() {
     const local = loadInitialCustomization(activeProfile)
     setCustomization(local)
     syncProfilePreferences(activeProfile)
+  }, [activeProfile])
+
+  // Periodic check for Doshie Messenger unread count
+  useEffect(() => {
+    let isCancelled = false
+    const checkMessengerUnread = async () => {
+      try {
+        const res = await fetch(`/messaging/conversations?profile=${encodeURIComponent(activeProfile)}`)
+        if (res.ok && !isCancelled) {
+          const data = await res.json()
+          const totalUnread = (data.conversations || []).reduce(
+            (acc: number, c: any) => acc + (c.unread_count || 0),
+            0
+          )
+          setMessengerUnreadCount(totalUnread)
+        }
+      } catch {}
+    }
+    checkMessengerUnread()
+    const interval = setInterval(checkMessengerUnread, 10000)
+    return () => {
+      isCancelled = true
+      clearInterval(interval)
+    }
   }, [activeProfile])
 
   // Apply customization attributes to html element
@@ -745,6 +772,10 @@ export function App() {
         setIsVoiceStudioOpen(false)
         return true
       }
+      if (isMessengerOpen) {
+        setIsMessengerOpen(false)
+        return true
+      }
       if (isMusicPlayerOpen) {
         setIsMusicPlayerOpen(false)
         return true
@@ -789,6 +820,7 @@ export function App() {
     }
   }, [
     isVoiceStudioOpen,
+    isMessengerOpen,
     isMusicPlayerOpen,
     isLiveVoiceOpen,
     isAgentConsoleOpen,
@@ -831,7 +863,8 @@ export function App() {
     pendingAssistantId: string,
     targetSessionId: string,
     brainMode?: string,
-    agentId?: string
+    agentId?: string,
+    location?: any
   ) => {
     setIsGenerating(true)
     const controller = new AbortController()
@@ -854,6 +887,7 @@ export function App() {
           attachments: hasAttachments ? attachments!.map(a => a.id) : [],
           brain_mode: effectiveBrain,
           agent_id: targetAgentId,
+          location: location || undefined,
         }),
         signal: controller.signal,
       })
@@ -947,6 +981,7 @@ export function App() {
     onOpenVoiceStudio: () => setIsVoiceStudioOpen(true),
     onOpenAgentHub: () => setIsAgentHubOpen(true),
     onOpenAgentConsole: () => setIsAgentConsoleOpen(true),
+    onOpenMessenger: () => setIsMessengerOpen(true),
     onOpenSidebar: () => setIsSidebarOpen(true),
     onNewChat: () => handleNewChatRef.current?.(),
     onSendMessage: (txt) => handleSend(txt),
@@ -969,12 +1004,17 @@ export function App() {
     content: string,
     attachments?: ChatAttachment[],
     brainMode?: string,
-    agentId?: string
+    agentId?: string,
+    location?: any
   ) => {
     const trimmed = content.trim()
     const lower = trimmed.toLowerCase()
     if (lower === '/cli' || lower === '/console' || lower === '/terminal' || lower === '/agentcli') {
       setIsAgentConsoleOpen(true)
+      return
+    }
+    if (lower === '/message' || lower === '/messages' || lower === '/messenger' || lower === '/inbox' || lower === '/dm') {
+      setIsMessengerOpen(true)
       return
     }
 
@@ -1067,7 +1107,7 @@ export function App() {
     setMessages(updatedWithUser)
     syncSessionMessages(updatedWithUser, targetSessionId)
 
-    await executeChatRequest(trimmed, attachments, pendingAssistantMessage.id, targetSessionId, brainMode, agentId)
+    await executeChatRequest(trimmed, attachments, pendingAssistantMessage.id, targetSessionId, brainMode, agentId, location)
   }
 
   // Resend prompt as a fresh new message at the end of chat
@@ -1254,6 +1294,8 @@ export function App() {
         handleNewChat()
       } else if (action === 'console' || action === 'agent_console') {
         setIsAgentConsoleOpen(true)
+      } else if (action === 'messenger' || action === 'messages' || action === 'inbox' || action === 'dm') {
+        setIsMessengerOpen(true)
       }
     }
 
@@ -1529,6 +1571,8 @@ export function App() {
         oversightProfile={oversightProfile}
         onSelectOversightProfile={handleSelectOversightProfile}
         availableProfiles={profiles}
+        onOpenMessenger={() => setIsMessengerOpen(true)}
+        messengerUnreadCount={messengerUnreadCount}
       />
 
       {/* Main Content Area */}
@@ -1544,6 +1588,8 @@ export function App() {
           onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
           onOpenAgentHub={() => setIsAgentHubOpen(true)}
           onOpenAgentConsole={() => setIsAgentConsoleOpen(true)}
+          onOpenMessenger={() => setIsMessengerOpen(true)}
+          messengerUnreadCount={messengerUnreadCount}
           activeViewTitle={activeViewTitle}
           assistantEmoji={customization.assistantEmoji}
           assistantName={customization.assistantName}
@@ -1775,6 +1821,14 @@ export function App() {
           setIsSettingsOpen(false)
           setIsAgentConsoleOpen(true)
         }}
+      />
+
+      {/* Doshie Messenger Modal */}
+      <MessengerModal
+        isOpen={isMessengerOpen}
+        onClose={() => setIsMessengerOpen(false)}
+        activeProfile={activeProfile}
+        customization={customization}
       />
 
       {/* Lock Screen Security Overlay */}

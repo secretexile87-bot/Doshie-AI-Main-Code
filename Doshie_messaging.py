@@ -114,6 +114,8 @@ def touch_presence(profile):
 
 
 def is_online(conn, profile):
+    if str(profile or "").strip().casefold() == "doshie":
+        return True
     row = conn.execute(
         "SELECT last_seen FROM presence WHERE lower(profile) = lower(?)",
         (profile,),

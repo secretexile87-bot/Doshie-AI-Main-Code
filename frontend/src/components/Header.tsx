@@ -17,6 +17,8 @@ interface HeaderProps {
   onOpenLiveVoice?: () => void
   onOpenAgentHub?: () => void
   onOpenAgentConsole?: () => void
+  onOpenMessenger?: () => void
+  messengerUnreadCount?: number
   activeViewTitle?: string
   assistantEmoji?: string
   assistantName?: string
@@ -33,6 +35,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLiveVoice: _onOpenLiveVoice,
   onOpenAgentHub: _onOpenAgentHub,
   onOpenAgentConsole: _onOpenAgentConsole,
+  onOpenMessenger,
+  messengerUnreadCount = 0,
   activeViewTitle,
   assistantEmoji = '🦖',
   assistantName = 'Doshie',
@@ -134,6 +138,23 @@ export const Header: React.FC<HeaderProps> = ({
           <User className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[var(--accent-light)] flex-none" />
           <span className="max-w-[46px] sm:max-w-[120px] truncate">{activeProfile}</span>
         </button>
+
+        {/* Doshie Messenger Button */}
+        {onOpenMessenger && (
+          <button
+            onClick={onOpenMessenger}
+            title="Open Doshie Messenger (Family & AI DMs)"
+            className="relative p-1.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-500/40 text-xs font-semibold text-white transition-all cursor-pointer active:scale-95 shadow-xs flex items-center gap-1.5"
+          >
+            <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--accent-light)]" />
+            <span className="hidden md:inline">Messenger</span>
+            {messengerUnreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-emerald-500 text-neutral-950 text-[9px] font-bold shadow-xs">
+                {messengerUnreadCount}
+              </span>
+            )}
+          </button>
+        )}
 
         {/* Settings Hub Button */}
         <button

@@ -52,5 +52,7 @@ Downloads/
 *.wav
 *.pdf
 data/*.wav
-
+*.db
+data/doshie_gaming_status.json
+static/renders/
 

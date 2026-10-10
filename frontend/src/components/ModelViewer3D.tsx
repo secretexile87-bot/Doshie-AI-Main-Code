@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import {
   RotateCcw,
   Play,
@@ -49,9 +50,10 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     const text = (title + '\n' + code).toLowerCase()
 
     // 1. Check explicit type / model / subject header
-    const typeMatch = text.match(/(?:type|model|subject|object|prompt):\s*([a-z0-9_\-\s]+)/i)
+    const typeMatch = text.match(/(?:type|model|subject|object|prompt):\s*([a-z0-9_\-\s\.\/]+)/i)
     if (typeMatch) {
       const explicit = typeMatch[1].trim()
+      if (explicit.includes('avatar') || explicit.includes('face') || explicit.includes('portrait') || explicit.includes('selfie') || explicit.includes('head') || explicit.includes('person')) return 'avatar'
       if (explicit.includes('house') || explicit.includes('home') || explicit.includes('cottage') || explicit.includes('cabin') || explicit.includes('bungalow') || explicit.includes('mansion') || explicit.includes('residence')) return 'house'
       if (explicit.includes('train') || explicit.includes('locomotive')) return 'train'
       if (explicit.includes('building') || explicit.includes('skyscraper') || explicit.includes('tower') || explicit.includes('city') || explicit.includes('architecture') || explicit.includes('school') || explicit.includes('university') || explicit.includes('campus') || explicit.includes('academy')) return 'building'
@@ -65,6 +67,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     }
 
     // 2. Keyword fallback across comment lines, title, or prompt
+    if (text.includes('avatar') || text.includes('face') || text.includes('portrait') || text.includes('selfie') || text.includes('person')) return 'avatar'
     if (text.includes('house') || text.includes('home') || text.includes('cottage') || text.includes('cabin') || text.includes('bungalow') || text.includes('mansion') || text.includes('residence')) return 'house'
     if (text.includes('train') || text.includes('locomotive') || text.includes('railroad') || text.includes('railway') || text.includes('boiler') || text.includes('smokestack')) return 'train'
     if (text.includes('building') || text.includes('skyscraper') || text.includes('tower') || text.includes('city') || text.includes('architecture')) return 'building'
@@ -78,9 +81,20 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     return 'custom'
   })()
 
+  // Extract optional external GLB/GLTF model URL
+  const glbUrl = (() => {
+    const glbMatch = code.match(/(?:model|url|file|src|path):\s*(\S+\.(?:glb|gltf))/i)
+    if (glbMatch) return glbMatch[1].trim()
+    const rawUrlMatch = code.match(/(\/static\/renders\/\S+\.(?:glb|gltf))/i)
+    if (rawUrlMatch) return rawUrlMatch[1].trim()
+    return null
+  })()
+
   const displayTitle = (() => {
     if (title && title !== 'Interactive 3D Model') return title
     switch (detectedType) {
+      case 'avatar':
+        return '3D Personal Avatar & Face Model'
       case 'house':
         return '3D Cozy Home & Residence'
       case 'train':
@@ -118,7 +132,9 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     const width = container.clientWidth || 400
     const height = container.clientHeight || 300
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000)
-    if (detectedType === 'house') {
+    if (detectedType === 'avatar') {
+      camera.position.set(0, 1.6, 2.8)
+    } else if (detectedType === 'house') {
       camera.position.set(5.5, 3.8, 5.5)
     } else if (detectedType === 'train') {
       camera.position.set(6, 4, 6)
@@ -161,7 +177,10 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     controls.maxDistance = 25
 
     resetCameraRef.current = () => {
-      if (detectedType === 'house') {
+      if (detectedType === 'avatar') {
+        camera.position.set(0, 1.6, 2.8)
+        controls.target.set(0, 1.5, 0)
+      } else if (detectedType === 'house') {
         camera.position.set(5.5, 3.8, 5.5)
         controls.target.set(0, 1.3, 0)
       } else if (detectedType === 'train') {
@@ -240,8 +259,107 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     }
 
     try {
-      // 1. Procedural Models based on detected type
-      if (detectedType === 'train') {
+      if (glbUrl) {
+        // Load external GLB/GLTF model (e.g. user personal 3D avatar)
+        const loader = new GLTFLoader()
+        loader.load(
+          glbUrl,
+          (gltf) => {
+            const root = gltf.scene
+            root.traverse((child) => {
+              if ((child as THREE.Mesh).isMesh) {
+                const mesh = child as THREE.Mesh
+                mesh.castShadow = true
+                mesh.receiveShadow = true
+                if (mesh.material) {
+                  if (Array.isArray(mesh.material)) {
+                    mesh.material.forEach((m) => regMat(m))
+                  } else {
+                    regMat(mesh.material)
+                  }
+                }
+              }
+            })
+
+            // Calculate bounding box and automatically center & scale model
+            const box = new THREE.Box3().setFromObject(root)
+            const size = box.getSize(new THREE.Vector3())
+            const center = box.getCenter(new THREE.Vector3())
+
+            const maxDim = Math.max(size.x, size.y, size.z) || 1.0
+            const targetSize = 2.4
+            const scale = targetSize / maxDim
+            root.scale.setScalar(scale)
+
+            // Center horizontally and place base at ground level
+            root.position.x = -center.x * scale
+            root.position.z = -center.z * scale
+            root.position.y = -box.min.y * scale
+
+            scene.add(root)
+
+            // Update controls target to center of scaled model
+            const targetY = (size.y * scale) / 2
+            controls.target.set(0, targetY, 0)
+            camera.position.set(0, targetY + 0.3, Math.max(2.2, size.z * scale * 2.2))
+            controls.update()
+          },
+          undefined,
+          (loadErr) => {
+            console.error('Error loading GLTF model:', loadErr)
+            setError('Failed to load 3D GLB model')
+          }
+        )
+      } else if (detectedType === 'avatar') {
+        // Procedural Avatar Bust Fallback
+        const avatarGroup = new THREE.Group()
+        const skinMat = regMat(new THREE.MeshStandardMaterial({ color: 0xe0ac69, roughness: 0.6, metalness: 0.1 }))
+        const hairMat = regMat(new THREE.MeshStandardMaterial({ color: 0x1c1917, roughness: 0.9 }))
+        const shirtMat = regMat(new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.7 }))
+        const eyeMat = regMat(new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2 }))
+
+        // Head
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.65, 32, 32), skinMat)
+        head.position.y = 1.7
+        head.scale.set(1.0, 1.15, 1.0)
+        head.castShadow = true
+        avatarGroup.add(head)
+
+        // Hair / Cap
+        const hair = new THREE.Mesh(new THREE.SphereGeometry(0.68, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat)
+        hair.position.y = 1.82
+        avatarGroup.add(hair)
+
+        // Eyes
+        const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), eyeMat)
+        leftEye.position.set(-0.2, 1.75, 0.58)
+        const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), eyeMat)
+        rightEye.position.set(0.2, 1.75, 0.58)
+        avatarGroup.add(leftEye)
+        avatarGroup.add(rightEye)
+
+        // Neck
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.45, 24), skinMat)
+        neck.position.y = 1.15
+        avatarGroup.add(neck)
+
+        // Torso / Shoulders
+        const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.75, 1.1, 32), shirtMat)
+        torso.position.y = 0.55
+        torso.scale.set(1.4, 1.0, 0.8)
+        torso.castShadow = true
+        avatarGroup.add(torso)
+
+        // Base Pedestal
+        const baseMat = regMat(new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 }))
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.95, 0.15, 32), baseMat)
+        base.position.y = 0.075
+        base.receiveShadow = true
+        avatarGroup.add(base)
+
+        scene.add(avatarGroup)
+        controls.target.set(0, 1.3, 0)
+      } else if (detectedType === 'train') {
         const trainGroup = new THREE.Group()
 
         // Track Rails
