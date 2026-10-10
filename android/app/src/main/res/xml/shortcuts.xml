@@ -31,17 +31,17 @@
     </shortcut>
 
     <shortcut
-        android:shortcutId="shortcut_music"
+        android:shortcutId="shortcut_home"
         android:enabled="true"
-        android:icon="@drawable/ic_widget_music"
-        android:shortcutShortLabel="@string/shortcut_music_short"
-        android:shortcutLongLabel="@string/shortcut_music_long">
+        android:icon="@drawable/ic_widget_home"
+        android:shortcutShortLabel="@string/shortcut_home_short"
+        android:shortcutLongLabel="@string/shortcut_home_long">
         <intent
-            android:action="org.diyoshi.assistant.ACTION_MUSIC"
+            android:action="org.diyoshi.assistant.ACTION_HOME"
             android:targetPackage="org.diyoshi.assistant"
             android:targetClass="org.diyoshi.assistant.MainActivity"
-            android:data="doshie://action/music">
-            <extra android:name="doshie_action" android:value="music" />
+            android:data="doshie://action/home">
+            <extra android:name="doshie_action" android:value="home" />
         </intent>
     </shortcut>
 </shortcuts>

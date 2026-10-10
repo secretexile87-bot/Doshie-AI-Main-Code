@@ -60,7 +60,8 @@
             <intent-filter>
                 <action android:name="org.diyoshi.assistant.ACTION_LIVE_VOICE" />
                 <action android:name="org.diyoshi.assistant.ACTION_CHAT" />
-                <action android:name="org.diyoshi.assistant.ACTION_MUSIC" />
+                <action android:name="org.diyoshi.assistant.ACTION_HOME" />
+                <action android:name="org.diyoshi.assistant.ACTION_MESSENGER" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 

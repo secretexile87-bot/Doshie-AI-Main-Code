@@ -253,12 +253,15 @@ public class MainActivity extends BridgeActivity {
         if ("org.diyoshi.assistant.ACTION_LIVE_VOICE".equals(action) || "live_voice".equals(extra)
                 || (data != null && "live_voice".equalsIgnoreCase(data.getLastPathSegment()))) {
             targetAction = "live_voice";
-        } else if ("org.diyoshi.assistant.ACTION_MUSIC".equals(action) || "music".equals(extra)
-                || (data != null && "music".equalsIgnoreCase(data.getLastPathSegment()))) {
-            targetAction = "music";
+        } else if ("org.diyoshi.assistant.ACTION_HOME".equals(action) || "home".equals(extra)
+                || (data != null && "home".equalsIgnoreCase(data.getLastPathSegment()))) {
+            targetAction = "home";
         } else if ("org.diyoshi.assistant.ACTION_CHAT".equals(action) || "chat".equals(extra)
                 || (data != null && "chat".equalsIgnoreCase(data.getLastPathSegment()))) {
             targetAction = "chat";
+        } else if ("org.diyoshi.assistant.ACTION_MESSENGER".equals(action) || "messenger".equals(extra)
+                || (data != null && "messenger".equalsIgnoreCase(data.getLastPathSegment()))) {
+            targetAction = "messenger";
         }
 
         if (targetAction != null) {

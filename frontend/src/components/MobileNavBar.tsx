@@ -1,23 +1,27 @@
 import React from 'react'
-import { Bot, Radio, Music, Settings, PanelLeft } from 'lucide-react'
+import { Home, PanelLeft, Radio, MessageSquare, Settings } from 'lucide-react'
 
 interface MobileNavBarProps {
+  onGoHome: () => void
   onToggleSidebar: () => void
-  onOpenAgentHub: () => void
   onOpenLiveVoice: () => void
-  onOpenMusicPlayer: () => void
+  onOpenChat: () => void
   onOpenSettings: () => void
   isSidebarOpen?: boolean
+  isChatActive?: boolean
+  messengerUnreadCount?: number
   selectedAgentName?: string
 }
 
 export const MobileNavBar: React.FC<MobileNavBarProps> = ({
+  onGoHome,
   onToggleSidebar,
-  onOpenAgentHub,
   onOpenLiveVoice,
-  onOpenMusicPlayer,
+  onOpenChat,
   onOpenSettings,
   isSidebarOpen = false,
+  isChatActive = false,
+  messengerUnreadCount = 0,
   selectedAgentName,
 }) => {
   return (
@@ -25,39 +29,34 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
       style={{
         paddingBottom: 'max(env(safe-area-inset-bottom, 0px), var(--native-safe-bottom, 0px), 8px)',
       }}
-      className="lg:hidden flex-none z-30 bg-black/75 backdrop-blur-2xl border-t border-white/10 px-2 pt-1.5 shadow-2xl select-none"
+      className="lg:hidden flex-none z-30 bg-black/80 backdrop-blur-2xl border-t border-white/10 px-2 pt-1.5 shadow-2xl select-none"
     >
       <div className="flex items-center justify-around max-w-md mx-auto">
-        {/* Chats / Sidebar */}
+        {/* 1. Home Screen Button */}
+        <button
+          onClick={onGoHome}
+          type="button"
+          title="Home Screen"
+          className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-neutral-400 hover:text-emerald-300 transition-all cursor-pointer active:scale-90"
+        >
+          <Home className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-medium tracking-tight">Home</span>
+        </button>
+
+        {/* 2. Chats / Sidebar Drawer */}
         <button
           onClick={onToggleSidebar}
           type="button"
+          title="Past Chats & Transcripts"
           className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer active:scale-90 ${
-            isSidebarOpen ? 'text-[var(--accent-light)]' : 'text-neutral-400 hover:text-white'
+            isSidebarOpen ? 'text-[var(--accent-light)] font-semibold' : 'text-neutral-400 hover:text-white'
           }`}
         >
           <PanelLeft className="w-5 h-5 mb-0.5" />
           <span className="text-[10px] font-medium tracking-tight">Chats</span>
         </button>
 
-        {/* Agents Hub */}
-        <button
-          onClick={onOpenAgentHub}
-          type="button"
-          className={`relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer active:scale-90 ${
-            selectedAgentName ? 'text-[var(--accent-light)] font-semibold' : 'text-neutral-400 hover:text-white'
-          }`}
-        >
-          <Bot className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px] font-medium tracking-tight truncate max-w-[50px]">
-            {selectedAgentName || 'Agents'}
-          </span>
-          {selectedAgentName && (
-            <span className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-ping" />
-          )}
-        </button>
-
-        {/* Center Jewel: Live Talk */}
+        {/* 3. Center Jewel: Live Talk */}
         <button
           onClick={onOpenLiveVoice}
           type="button"
@@ -72,20 +71,31 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
           </span>
         </button>
 
-        {/* Music Player */}
+        {/* 4. Chat Interface & Messenger Button (Replaced Music Player) */}
         <button
-          onClick={onOpenMusicPlayer}
+          onClick={onOpenChat}
           type="button"
-          className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-neutral-400 hover:text-sky-300 transition-all cursor-pointer active:scale-90"
+          title={selectedAgentName ? `Chat with ${selectedAgentName}` : "Open Chat & Messenger Interface"}
+          className={`relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer active:scale-90 ${
+            isChatActive ? 'text-emerald-400 font-semibold' : 'text-neutral-400 hover:text-emerald-300'
+          }`}
         >
-          <Music className="w-5 h-5 mb-0.5 text-neutral-400 hover:text-sky-400" />
-          <span className="text-[10px] font-medium tracking-tight">Music</span>
+          <MessageSquare className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-medium tracking-tight truncate max-w-[50px]">
+            {selectedAgentName || 'Chat'}
+          </span>
+          {messengerUnreadCount > 0 && (
+            <span className="absolute top-0.5 right-1.5 px-1 py-0.2 rounded-full bg-emerald-500 text-neutral-950 text-[9px] font-black leading-none shadow-xs">
+              {messengerUnreadCount}
+            </span>
+          )}
         </button>
 
-        {/* Settings */}
+        {/* 5. Settings */}
         <button
           onClick={onOpenSettings}
           type="button"
+          title="Settings & Appearance"
           className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-neutral-400 hover:text-white transition-all cursor-pointer active:scale-90"
         >
           <Settings className="w-5 h-5 mb-0.5" />

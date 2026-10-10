@@ -4,6 +4,7 @@ import {
   PanelLeft,
   MessageSquare,
   User,
+  Home,
 } from 'lucide-react'
 import { getSeasonalInfo } from '../utils/seasonal'
 
@@ -13,7 +14,7 @@ interface HeaderProps {
   isSidebarOpen: boolean
   onToggleSidebar: () => void
   onOpenSettings: (tab?: 'apps' | 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor') => void
-  onOpenMusicPlayer?: () => void
+  onGoHome?: () => void
   onOpenLiveVoice?: () => void
   onOpenAgentHub?: () => void
   onOpenAgentConsole?: () => void
@@ -31,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
   isSidebarOpen,
   onToggleSidebar,
   onOpenSettings,
-  onOpenMusicPlayer: _onOpenMusicPlayer,
+  onGoHome,
   onOpenLiveVoice: _onOpenLiveVoice,
   onOpenAgentHub: _onOpenAgentHub,
   onOpenAgentConsole: _onOpenAgentConsole,
@@ -66,7 +67,22 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="hidden sm:inline">Chats</span>
         </button>
 
-        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+        {onGoHome && (
+          <button
+            onClick={onGoHome}
+            title="Go to Home Screen"
+            className="p-1.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 text-xs font-semibold flex-none active:scale-95"
+          >
+            <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--accent-light)]" />
+            <span className="hidden sm:inline">Home</span>
+          </button>
+        )}
+
+        <div
+          onClick={onGoHome}
+          title={onGoHome ? "Doshie Home" : undefined}
+          className={`flex items-center gap-1.5 sm:gap-2.5 min-w-0 ${onGoHome ? 'cursor-pointer' : ''}`}
+        >
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[var(--accent)] to-[var(--accent-light)] flex items-center justify-center text-xs sm:text-sm shadow-md flex-none border border-white/20">
             {assistantEmoji}
           </div>

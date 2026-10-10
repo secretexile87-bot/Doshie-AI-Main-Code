@@ -8,7 +8,6 @@ import { SettingsModal } from './components/SettingsModal'
 import { LiveVoiceModal } from './components/LiveVoiceModal'
 import { TranscriptViewer } from './components/TranscriptViewer'
 import { LockScreen } from './components/LockScreen'
-import { MusicPlayerModal } from './components/MusicPlayerModal'
 import { VoiceStudioModal } from './components/VoiceStudioModal'
 import { AgentHubModal } from './components/AgentHubModal'
 import { AgentConsoleModal } from './components/AgentConsoleModal'
@@ -335,7 +334,6 @@ export function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [settingsTab, setSettingsTab] = useState<'apps' | 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor'>('apps')
   const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState(false)
-  const [isMusicPlayerOpen, setIsMusicPlayerOpen] = useState(false)
   const [isGlobalSpeaking, setIsGlobalSpeaking] = useState(false)
 
   // Floating Action Command & Wake-Up Banner State
@@ -365,9 +363,10 @@ export function App() {
     setMessages([])
     setIsSettingsOpen(false)
     setIsLiveVoiceOpen(false)
-    setIsMusicPlayerOpen(false)
     setIsVoiceStudioOpen(false)
     setIsAgentHubOpen(false)
+    setIsAgentConsoleOpen(false)
+    setIsMessengerOpen(false)
     setSelectedAgent(null)
     voiceSessionIdRef.current = null
     stopSpeech()
@@ -381,6 +380,34 @@ export function App() {
     if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '') {
       window.history.pushState(null, '', '/')
     }
+  }
+
+  // Go Home: closes all modals and overlays and returns to the home screen
+  const handleGoHome = () => {
+    setIsSettingsOpen(false)
+    setIsLiveVoiceOpen(false)
+    setIsVoiceStudioOpen(false)
+    setIsAgentHubOpen(false)
+    setIsAgentConsoleOpen(false)
+    setIsMessengerOpen(false)
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setIsSidebarOpen(false)
+    }
+    const textarea = document.querySelector('textarea') as HTMLTextAreaElement | null
+    if (textarea) textarea.focus()
+  }
+
+  // Open Chat Interface / Messenger
+  const handleOpenChatInterface = () => {
+    setIsSettingsOpen(false)
+    setIsLiveVoiceOpen(false)
+    setIsVoiceStudioOpen(false)
+    setIsAgentHubOpen(false)
+    setIsAgentConsoleOpen(false)
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setIsSidebarOpen(false)
+    }
+    setIsMessengerOpen(true)
   }
 
   // Lock account: reverts to home and presents the login/lock screen
@@ -776,10 +803,6 @@ export function App() {
         setIsMessengerOpen(false)
         return true
       }
-      if (isMusicPlayerOpen) {
-        setIsMusicPlayerOpen(false)
-        return true
-      }
       if (isLiveVoiceOpen) {
         setIsLiveVoiceOpen(false)
         return true
@@ -821,7 +844,6 @@ export function App() {
   }, [
     isVoiceStudioOpen,
     isMessengerOpen,
-    isMusicPlayerOpen,
     isLiveVoiceOpen,
     isAgentConsoleOpen,
     isAgentHubOpen,
@@ -972,7 +994,8 @@ export function App() {
 
   const getCommandContext = (): CommandContext => ({
     activeProfile,
-    onOpenMusicPlayer: () => setIsMusicPlayerOpen(true),
+    onGoHome: handleGoHome,
+    onOpenChat: handleOpenChatInterface,
     onOpenLiveVoice: () => setIsLiveVoiceOpen(true),
     onOpenSettings: (tab) => {
       if (tab) setSettingsTab(tab)
@@ -1288,14 +1311,15 @@ export function App() {
         playWakeChime(customization.wakeSoundType || 'gemini', customization.wakeSoundVolume ?? 0.75, customization.wakeSoundCustomUrl)
         triggerCommandBanner("Doshie: I'm listening...", '🦖')
         setIsLiveVoiceOpen(true)
-      } else if (action === 'music' || action === 'player') {
-        setIsMusicPlayerOpen(true)
+      } else if (action === 'home' || action === 'main') {
+        handleGoHome()
       } else if (action === 'chat' || action === 'new_chat') {
+        handleGoHome()
         handleNewChat()
       } else if (action === 'console' || action === 'agent_console') {
         setIsAgentConsoleOpen(true)
       } else if (action === 'messenger' || action === 'messages' || action === 'inbox' || action === 'dm') {
-        setIsMessengerOpen(true)
+        handleOpenChatInterface()
       }
     }
 
@@ -1584,7 +1608,7 @@ export function App() {
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
           onOpenSettings={handleOpenSettings}
-          onOpenMusicPlayer={() => setIsMusicPlayerOpen(true)}
+          onGoHome={handleGoHome}
           onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
           onOpenAgentHub={() => setIsAgentHubOpen(true)}
           onOpenAgentConsole={() => setIsAgentConsoleOpen(true)}
@@ -1701,12 +1725,14 @@ export function App() {
             {/* Mobile Bottom Navigation Bar (Android & Mobile Web) - Hidden when typing so keyboard doesn't push composer offscreen */}
             {!isKeyboardOpen && (
               <MobileNavBar
+                onGoHome={handleGoHome}
                 onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
-                onOpenAgentHub={() => setIsAgentHubOpen(true)}
                 onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
-                onOpenMusicPlayer={() => setIsMusicPlayerOpen(true)}
+                onOpenChat={handleOpenChatInterface}
                 onOpenSettings={() => handleOpenSettings('settings')}
                 isSidebarOpen={isSidebarOpen}
+                isChatActive={isMessengerOpen}
+                messengerUnreadCount={messengerUnreadCount}
                 selectedAgentName={selectedAgent?.name}
               />
             )}
@@ -1748,13 +1774,6 @@ export function App() {
           const cmdText = remainder || spoken
           return parseAndExecuteCommand(cmdText, getCommandContext())
         }}
-      />
-
-      {/* Universal Music Player Modal */}
-      <MusicPlayerModal
-        isOpen={isMusicPlayerOpen}
-        onClose={() => setIsMusicPlayerOpen(false)}
-        activeProfile={activeProfile}
       />
 
       {/* Voice Studio & Voice Changer Modal */}
@@ -1805,9 +1824,9 @@ export function App() {
           setIsSettingsOpen(false)
           setIsLiveVoiceOpen(true)
         }}
-        onOpenMusicPlayer={() => {
+        onOpenMessenger={() => {
           setIsSettingsOpen(false)
-          setIsMusicPlayerOpen(true)
+          setIsMessengerOpen(true)
         }}
         onOpenVoiceStudio={() => {
           setIsSettingsOpen(false)

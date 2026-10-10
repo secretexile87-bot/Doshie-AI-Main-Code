@@ -12,7 +12,8 @@
 
 export interface CommandContext {
   activeProfile: string
-  onOpenMusicPlayer?: () => void
+  onGoHome?: () => void
+  onOpenChat?: () => void
   onOpenLiveVoice?: () => void
   onOpenSettings?: (tab?: 'apps' | 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor') => void
   onOpenVoiceStudio?: () => void
@@ -116,11 +117,18 @@ export async function parseAndExecuteCommand(
   // 1. OPEN COMMANDS
   // ==========================================
 
-  // Open Music Player
-  if (/\b(?:open|launch|play|show)\s+(?:music|music\s*player|songs?|audio\s*player|retro\s*player)\b/i.test(lower)) {
-    context.onOpenMusicPlayer?.()
-    confirmAction('Opening Music Player', '🎵')
-    return { handled: true, actionType: 'open', feedback: 'Opening Music Player' }
+  // Go to Home Screen
+  if (/\b(?:go\s+(?:to\s+)?home|open\s+home|home\s*screen|main\s*screen|dashboard)\b/i.test(lower)) {
+    context.onGoHome?.()
+    confirmAction('Going to Home Screen', '🏠')
+    return { handled: true, actionType: 'open', feedback: 'Going to Home Screen' }
+  }
+
+  // Open Chat Interface
+  if (/\b(?:open|launch|show)\s+(?:chat\s*interface|chat|chat\s*view)\b/i.test(lower)) {
+    context.onOpenChat?.()
+    confirmAction('Opening Chat Interface', '💬')
+    return { handled: true, actionType: 'open', feedback: 'Opening Chat Interface' }
   }
 
   // Open Live Voice

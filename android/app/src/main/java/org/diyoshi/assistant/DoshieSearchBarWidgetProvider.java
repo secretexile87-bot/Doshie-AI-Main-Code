@@ -20,7 +20,19 @@ public class DoshieSearchBarWidgetProvider extends AppWidgetProvider {
     static void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_doshie_search_bar);
 
-        // Chat / Search intent
+        // Home Screen Button intent (tapping Doshie Logo returns to home screen)
+        Intent homeIntent = new Intent(context, MainActivity.class);
+        homeIntent.setAction("org.diyoshi.assistant.ACTION_HOME");
+        homeIntent.putExtra("doshie_action", "home");
+        homeIntent.setData(Uri.parse("doshie://action/home"));
+        homeIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent homePendingIntent = PendingIntent.getActivity(
+            context, 100, homeIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        views.setOnClickPendingIntent(R.id.widget_btn_home, homePendingIntent);
+
+        // Chat Interface Intent (tapping search bar or dedicated chat button)
         Intent chatIntent = new Intent(context, MainActivity.class);
         chatIntent.setAction("org.diyoshi.assistant.ACTION_CHAT");
         chatIntent.putExtra("doshie_action", "chat");
@@ -32,21 +44,9 @@ public class DoshieSearchBarWidgetProvider extends AppWidgetProvider {
         );
         views.setOnClickPendingIntent(R.id.widget_search_bar_root, chatPendingIntent);
         views.setOnClickPendingIntent(R.id.widget_search_text, chatPendingIntent);
-        views.setOnClickPendingIntent(R.id.widget_doshie_logo, chatPendingIntent);
+        views.setOnClickPendingIntent(R.id.widget_btn_chat, chatPendingIntent);
 
-        // Music player intent
-        Intent musicIntent = new Intent(context, MainActivity.class);
-        musicIntent.setAction("org.diyoshi.assistant.ACTION_MUSIC");
-        musicIntent.putExtra("doshie_action", "music");
-        musicIntent.setData(Uri.parse("doshie://action/music"));
-        musicIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent musicPendingIntent = PendingIntent.getActivity(
-            context, 102, musicIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-        views.setOnClickPendingIntent(R.id.widget_btn_music, musicPendingIntent);
-
-        // Live Voice Mic intent
+        // Live Voice Mic intent (quick click wake)
         Intent voiceIntent = new Intent(context, MainActivity.class);
         voiceIntent.setAction("org.diyoshi.assistant.ACTION_LIVE_VOICE");
         voiceIntent.putExtra("doshie_action", "live_voice");

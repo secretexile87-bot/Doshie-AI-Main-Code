@@ -85,7 +85,7 @@ interface SettingsModalProps {
   onLockScreen?: () => void
   onTabChange?: (tab: 'apps' | 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor') => void
   onOpenLiveVoice?: () => void
-  onOpenMusicPlayer?: () => void
+  onOpenMessenger?: () => void
   onOpenVoiceStudio?: () => void
   onOpenAgentHub?: () => void
   onOpenAgentConsole?: () => void
@@ -131,7 +131,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onLockScreen,
   onTabChange,
   onOpenLiveVoice,
-  onOpenMusicPlayer,
+  onOpenMessenger,
   onOpenVoiceStudio,
   onOpenAgentHub,
   onOpenAgentConsole,
@@ -1383,28 +1383,28 @@ body {
                   </button>
                 </div>
 
-                {/* 2. Universal Music Player */}
-                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-sky-500/50 transition-all flex flex-col justify-between shadow-md">
+                {/* 2. Doshie Messenger & Chat Interface */}
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-emerald-500/50 transition-all flex flex-col justify-between shadow-md">
                   <div className="flex items-start gap-3">
-                    <div className="p-2.5 rounded-xl bg-sky-950 border border-sky-500/40 text-sky-400 shadow-md flex-none">
-                      <Music className="w-5 h-5" />
+                    <div className="p-2.5 rounded-xl bg-emerald-950 border border-emerald-500/40 text-emerald-400 shadow-md flex-none">
+                      <MessageSquare className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-white">Universal Music Player</h4>
+                      <h4 className="text-sm font-bold text-white">Doshie Messenger & Chat</h4>
                       <p className="text-xs text-neutral-300 mt-0.5">
-                        Stream music, tracks & playlists via Spotify, YouTube, SoundCloud & Radio.
+                        Direct peer &amp; family messaging, AI conversations, and real-time chat threads.
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={() => {
                       onClose()
-                      onOpenMusicPlayer?.()
+                      onOpenMessenger?.()
                     }}
-                    className="mt-3.5 w-full py-2 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                    className="mt-3.5 w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
                   >
-                    <Music className="w-3.5 h-3.5" />
-                    Open Music Player
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    Open Chat Interface
                   </button>
                 </div>
 
@@ -1759,7 +1759,7 @@ body {
                         <span className="px-1.5 py-0.2 text-[9px] bg-emerald-500/20 text-emerald-300 rounded font-mono">Gemini Mode</span>
                       </div>
                       <div className="text-[11px] text-emerald-400/70">
-                        Listen for hands-free wake phrases like "Hey Doshie" and voice commands like "open music", "lock screen"
+                        Listen for hands-free wake phrases like "Hey Doshie" and voice commands like "open chat", "open messenger", "lock screen"
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -1924,7 +1924,7 @@ body {
                             <span className="text-emerald-400 font-medium">Android Widget:</span> Long press your Android Home Screen or Lock Screen &rarr; tap <strong className="text-white">Widgets</strong> &rarr; select <strong className="text-white">Doshie</strong> to place the Gemini-style Search Bar or 1x1 Quick Wake button.
                           </p>
                           <p className="text-[11px] text-neutral-400 leading-relaxed">
-                            <span className="text-emerald-400 font-medium">App Shortcuts:</span> Long press the Doshie app icon on your home screen for instant shortcuts to <span className="text-emerald-300">Live Voice</span>, <span className="text-emerald-300">New Chat</span>, and <span className="text-emerald-300">Music Player</span>.
+                            <span className="text-emerald-400 font-medium">App Shortcuts:</span> Long press the Doshie app icon on your home screen for instant shortcuts to <span className="text-emerald-300">Live Voice</span>, <span className="text-emerald-300">New Chat</span>, and <span className="text-emerald-300">Home</span>.
                           </p>
                         </div>
                       </div>

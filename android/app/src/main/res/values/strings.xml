@@ -6,7 +6,7 @@
     <string name="custom_url_scheme">org.diyoshi.assistant</string>
 
     <!-- AppWidgets -->
-    <string name="widget_search_bar_description">Doshie Search Bar: Ask questions, play music, or tap to wake Live Voice</string>
+    <string name="widget_search_bar_description">Doshie Search Bar: Ask questions, open chat interface, or tap home &amp; Live Voice</string>
     <string name="widget_quick_wake_description">Doshie Quick Wake: 1-tap quick click to wake Live Voice</string>
 
     <!-- App Shortcuts -->
@@ -14,6 +14,6 @@
     <string name="shortcut_live_voice_long">Wake Doshie Live Voice</string>
     <string name="shortcut_new_chat_short">New Chat</string>
     <string name="shortcut_new_chat_long">Start a new conversation</string>
-    <string name="shortcut_music_short">Music</string>
-    <string name="shortcut_music_long">Open Ambient &amp; Music Studio</string>
+    <string name="shortcut_home_short">Home</string>
+    <string name="shortcut_home_long">Go to Doshie Home</string>
 </resources>
