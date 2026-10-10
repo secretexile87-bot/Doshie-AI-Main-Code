@@ -180,11 +180,14 @@ export async function parseAndExecuteCommand(
     return { handled: true, actionType: 'open', feedback: 'Opening Settings' }
   }
 
-  // Open Chats / History / Sidebar
-  if (/\b(?:open|show|view)\s+(?:chats?|chat\s*explorer|history|sidebar|transcripts?)\b/i.test(lower)) {
+  // Open dchats / History / Sidebar
+  if (
+    /\b(?:open|show|view)\s+(?:dchats?|chats?|chat\s*explorer|history|sidebar|transcripts?)\b/i.test(lower) ||
+    /^\/(?:dchats?|chats?|history|sidebar)\b/i.test(lower)
+  ) {
     context.onOpenSidebar?.()
-    confirmAction('Opening Chat Explorer', '💬')
-    return { handled: true, actionType: 'open', feedback: 'Opening Chat Explorer' }
+    confirmAction('Opening dchats', '💬')
+    return { handled: true, actionType: 'open', feedback: 'Opening dchats' }
   }
 
   // Open Doshie Messenger / DMs / Family Chat

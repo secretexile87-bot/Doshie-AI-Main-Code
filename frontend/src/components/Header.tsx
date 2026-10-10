@@ -56,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-shrink">
         <button
           onClick={onToggleSidebar}
-          title={isSidebarOpen ? 'Collapse chat sidebar' : 'Open past chats & transcripts'}
+          title={isSidebarOpen ? 'Collapse dchats sidebar' : 'Open past dchats & transcripts'}
           className={`p-1.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl border transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 text-xs font-semibold flex-none active:scale-95 ${
             isSidebarOpen
               ? 'bg-[var(--accent)]/30 border-[var(--accent)] text-white shadow-sm'
@@ -64,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
           }`}
         >
           <PanelLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--accent-light)]" />
-          <span className="hidden sm:inline">Chats</span>
+          <span className="hidden sm:inline">dchats</span>
         </button>
 
         {onGoHome && (

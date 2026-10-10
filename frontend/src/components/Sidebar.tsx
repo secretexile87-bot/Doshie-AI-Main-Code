@@ -319,7 +319,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   return (
                     <option key={p.id} value={p.name}>
                       {isSelf
-                        ? `👑 ${p.name} (My Admin Chats)`
+                        ? `👑 ${p.name} (My Admin dchats)`
                         : `👤 ${p.name} (${p.role || 'Guest'})`}
                     </option>
                   )
@@ -329,7 +329,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {/* Tab Switcher: Doshie vs Antigravity */}
+        {/* Tab Switcher: dchats vs Antigravity */}
         <div className="px-3 pb-2">
           <div className="grid grid-cols-2 p-0.5 rounded-xl bg-[var(--card-dark)] border border-[var(--border-dark)]">
             <button
@@ -341,7 +341,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Doshie ({sessions.length})</span>
+              <span>dchats ({sessions.length})</span>
             </button>
 
             <button
@@ -366,7 +366,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder={activeTab === 'doshie' ? 'Search Doshie chats...' : 'Search agent transcripts...'}
+              placeholder={activeTab === 'doshie' ? 'Search dchats...' : 'Search agent transcripts...'}
               className="w-full pl-8 pr-7 py-1.5 bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-hidden focus:border-[var(--accent)] transition-all"
             />
             {searchQuery && (
@@ -380,7 +380,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Filter Pills for Doshie Tab: All / Chats / Voice */}
+        {/* Filter Pills for dchats Tab: All / dchats / Voice */}
         {activeTab === 'doshie' && (
           <div className="px-3 pb-2">
             <div className="grid grid-cols-3 gap-1 p-0.5 rounded-xl bg-[var(--card-dark)] border border-[var(--border-dark)] text-[10.5px]">
@@ -402,7 +402,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                <span>Chats</span>
+                <span>dchats</span>
                 <span>({chatCount})</span>
               </button>
               <button
@@ -436,12 +436,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onClick={() => onSelectOversightProfile && onSelectOversightProfile(activeProfile)}
                     className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/80 hover:bg-amber-800 text-white font-medium flex-none ml-1 cursor-pointer active:scale-95"
                   >
-                    My Chats
+                    My dchats
                   </button>
                 </div>
               )}
 
-              {/* Doshie Chats List */}
+              {/* Doshie dchats List */}
               {filteredSessions.length === 0 ? (
                 <div className="text-center py-8 px-4 text-neutral-400">
                   {sessionFilter === 'voice' ? (
@@ -453,8 +453,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ) : (
                     <>
                       <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                      <p>{searchQuery ? 'No chats match your search.' : `No conversations saved for ${oversightProfile || activeProfile}.`}</p>
-                      <p className="text-[10px] mt-1 text-[var(--accent-light)]/80">Start a new chat to begin!</p>
+                      <p>{searchQuery ? 'No dchats match your search.' : `No dchats saved for ${oversightProfile || activeProfile}.`}</p>
+                      <p className="text-[10px] mt-1 text-[var(--accent-light)]/80">Start a new dchat to begin!</p>
                     </>
                   )}
                 </div>

@@ -43,17 +43,17 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
           <span className="text-[10px] font-medium tracking-tight">Home</span>
         </button>
 
-        {/* 2. Chats / Sidebar Drawer */}
+        {/* 2. dchats / Sidebar Drawer */}
         <button
           onClick={onToggleSidebar}
           type="button"
-          title="Past Chats & Transcripts"
+          title="Past dchats & Transcripts"
           className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer active:scale-90 ${
             isSidebarOpen ? 'text-[var(--accent-light)] font-semibold' : 'text-neutral-400 hover:text-white'
           }`}
         >
           <PanelLeft className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px] font-medium tracking-tight">Chats</span>
+          <span className="text-[10px] font-medium tracking-tight">dchats</span>
         </button>
 
         {/* 3. Center Jewel: Live Talk */}
