@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 import Doshie_memory as yoshi_memory
 import yoshi_spotify
 
@@ -18,8 +19,8 @@ def _route_tool_rules(
     lower = clean.lower()
     normalized = lower.rstrip(" ?.!")
 
-    # Specific 3D / 4D Object Requests (e.g., house, car, train, building, robot)
-    known_3d_objects = ["house", "building", "car", "train", "tree", "rocket", "plane", "jet", "robot", "skyscraper", "tower", "school", "city", "architecture"]
+    # Specific 3D / 4D Object Requests (e.g., house, car, train, building, robot, dog)
+    known_3d_objects = ["house", "building", "car", "train", "tree", "rocket", "plane", "jet", "robot", "skyscraper", "tower", "school", "city", "architecture", "dog", "puppy", "cat", "pet", "animal"]
     has_specific_object = any(w in lower for w in known_3d_objects)
 
     # 4D Personal Avatar Pipeline (only if not asking for a specific object like a house or car)

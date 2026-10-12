@@ -29,6 +29,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(DiYoshiSpeechPlugin.class);
+        registerPlugin(DiYoshiBiometricPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Ensure microphone permissions are prompted and granted for speech recognition and live voice

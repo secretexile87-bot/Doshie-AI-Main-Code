@@ -1,6 +1,6 @@
 /**
- * WebAuthn Biometric & Passkey Authentication Utility for Doshie
- * Supports Fingerprint, Touch ID, Face ID, Windows Hello, and Android Biometrics
+ * WebAuthn & Native Biometric Authentication Utility for Doshie
+ * Supports Fingerprint, Face Unlock, Touch ID, Face ID, Windows Hello, and Android Biometrics
  */
 
 export function bufferToBase64Url(buffer: ArrayBuffer): string {
@@ -29,8 +29,39 @@ export function base64UrlToBuffer(base64url: string): ArrayBuffer {
   return bytes.buffer
 }
 
+export function getNativeBiometricPlugin(): any {
+  if (typeof window === 'undefined') return null
+  const cap = (window as any).Capacitor
+  return cap?.Plugins?.DiYoshiBiometric || null
+}
+
+export function isNativePlatform(): boolean {
+  if (typeof window === 'undefined') return false
+  const cap = (window as any).Capacitor
+  return Boolean(
+    cap?.isNativePlatform?.() ||
+    (cap && typeof cap.getPlatform === 'function' && cap.getPlatform() !== 'web') ||
+    cap?.Plugins?.DiYoshiBiometric
+  )
+}
+
 export async function isBiometricsSupported(): Promise<boolean> {
   if (typeof window === 'undefined') return false
+
+  // Check native Android / Capacitor biometric plugin first
+  const nativePlugin = getNativeBiometricPlugin()
+  if (nativePlugin && typeof nativePlugin.isAvailable === 'function') {
+    try {
+      const res = await nativePlugin.isAvailable()
+      if (res && (res.isAvailable || res.hasHardware)) {
+        return true
+      }
+    } catch (e) {
+      console.warn('Native biometric check error:', e)
+    }
+  }
+
+  // Fallback to standard WebAuthn API in browser
   if (!window.PublicKeyCredential) return false
   try {
     if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
@@ -46,7 +77,7 @@ export async function isBiometricsSupported(): Promise<boolean> {
 export function getDeviceLabel(): string {
   const ua = navigator.userAgent
   let device = 'Biometric Passkey'
-  if (/Android/i.test(ua)) {
+  if (isNativePlatform() || /Android/i.test(ua)) {
     device = 'Android Biometrics'
   } else if (/iPhone|iPad|iPod/i.test(ua)) {
     device = 'Apple Touch/Face ID'
@@ -65,6 +96,68 @@ export async function enrollBiometricPasskey(
   deviceName?: string
 ): Promise<{ ok: boolean; message?: string; error?: string }> {
   try {
+    const nativePlugin = getNativeBiometricPlugin()
+    if (nativePlugin && typeof nativePlugin.authenticate === 'function') {
+      // 1. Get registration challenge
+      let challenge = ''
+      try {
+        const chRes = await fetch('/profile-lock/biometrics/native-challenge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profile, type: 'register' }),
+        })
+        if (chRes.ok) {
+          const chData = await chRes.json()
+          challenge = chData.challenge || ''
+        }
+      } catch (err) {
+        console.warn('Could not fetch registration challenge:', err)
+      }
+
+      // 2. Launch native Android BiometricPrompt
+      const authRes = await nativePlugin.authenticate({
+        title: 'Enroll Biometric Passkey',
+        subtitle: 'Touch the fingerprint sensor or glance at camera',
+        description: `Secure access for profile ${profile}`,
+      })
+
+      if (!authRes || (!authRes.success && !authRes.verified)) {
+        return { ok: false, error: 'Biometric verification was not recognized.' }
+      }
+
+      // 3. Generate or retrieve stable device key for this profile
+      const storageKey = `diyoshi_native_bio_${profile.toLowerCase()}`
+      let credentialId = localStorage.getItem(storageKey)
+      if (!credentialId) {
+        credentialId = `android-bio-${Math.random().toString(36).substring(2, 10)}-${Date.now().toString(36)}`
+        localStorage.setItem(storageKey, credentialId)
+      }
+      localStorage.setItem('diyoshi_native_bio_active', credentialId)
+
+      // 4. Register with backend
+      const name = deviceName || getDeviceLabel()
+      const regRes = await fetch('/profile-lock/biometrics/native-register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile,
+          credential_id: credentialId,
+          name,
+          challenge,
+        }),
+      })
+
+      const regData = await regRes.json()
+      if (!regRes.ok || !regData.ok) {
+        return { ok: false, error: regData.error || 'Failed to register native biometric credential.' }
+      }
+
+      return {
+        ok: true,
+        message: regData.message || 'Android biometrics enrolled successfully!',
+      }
+    }
+
     if (!window.PublicKeyCredential) {
       return { ok: false, error: 'WebAuthn biometrics are not supported on this browser.' }
     }
@@ -143,8 +236,12 @@ export async function enrollBiometricPasskey(
 
     return { ok: true, message: verifyData.message || 'Biometric passkey enrolled successfully!' }
   } catch (err: any) {
-    if (err.name === 'NotAllowedError') {
-      return { ok: false, error: 'Biometric prompt was cancelled or timed out.' }
+    if (
+      err.code === 'USER_CANCELED' ||
+      err.message?.toLowerCase().includes('cancel') ||
+      err.name === 'NotAllowedError'
+    ) {
+      return { ok: false, error: 'Biometric prompt was cancelled.' }
     }
     return { ok: false, error: err.message || 'Biometric enrollment failed.' }
   }
@@ -155,6 +252,66 @@ export async function authenticateWithBiometrics(
   mfaToken?: string
 ): Promise<{ ok: boolean; profile?: string; unlocked?: boolean; error?: string }> {
   try {
+    const nativePlugin = getNativeBiometricPlugin()
+    if (nativePlugin && typeof nativePlugin.authenticate === 'function') {
+      // 1. Get login challenge
+      let challenge = ''
+      try {
+        const chRes = await fetch('/profile-lock/biometrics/native-challenge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profile, type: 'login' }),
+        })
+        if (chRes.ok) {
+          const chData = await chRes.json()
+          challenge = chData.challenge || ''
+        }
+      } catch (err) {
+        console.warn('Could not fetch login challenge:', err)
+      }
+
+      // 2. Launch native Android BiometricPrompt
+      const authRes = await nativePlugin.authenticate({
+        title: 'Unlock Doshie',
+        subtitle: 'Touch the fingerprint sensor or glance at camera',
+        description: `Biometric quick unlock for ${profile}`,
+      })
+
+      if (!authRes || (!authRes.success && !authRes.verified)) {
+        return { ok: false, error: 'Biometric verification failed.' }
+      }
+
+      // 3. Retrieve stored credential ID
+      const storageKey = `diyoshi_native_bio_${profile.toLowerCase()}`
+      const credentialId =
+        localStorage.getItem(storageKey) ||
+        localStorage.getItem('diyoshi_native_bio_active') ||
+        ''
+
+      // 4. Verify with backend
+      const verifyRes = await fetch('/profile-lock/biometrics/native-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile,
+          credential_id: credentialId,
+          challenge,
+          mfa_token: mfaToken,
+        }),
+      })
+
+      const verifyData = await verifyRes.json()
+      if (!verifyRes.ok || !verifyData.ok) {
+        return { ok: false, error: verifyData.error || 'Biometric verification failed.' }
+      }
+
+      return {
+        ok: true,
+        profile: verifyData.profile || profile,
+        unlocked: true,
+      }
+    }
+
     if (!window.PublicKeyCredential) {
       return { ok: false, error: 'WebAuthn biometrics are not supported on this browser.' }
     }
@@ -225,7 +382,11 @@ export async function authenticateWithBiometrics(
       unlocked: true,
     }
   } catch (err: any) {
-    if (err.name === 'NotAllowedError') {
+    if (
+      err.code === 'USER_CANCELED' ||
+      err.message?.toLowerCase().includes('cancel') ||
+      err.name === 'NotAllowedError'
+    ) {
       return { ok: false, error: 'Biometric prompt was cancelled.' }
     }
     return { ok: false, error: err.message || 'Biometric verification failed.' }

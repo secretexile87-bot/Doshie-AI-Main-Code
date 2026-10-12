@@ -12,6 +12,7 @@ import time
 import os
 import sys
 import re
+import threading
 
 HOME = os.path.expanduser("~")
 YOSHI_DIR = os.path.join(HOME, "yoshi")
@@ -47,7 +48,7 @@ def _environment_float(name, default, minimum=0.0, maximum=2.0):
 
 MODEL = os.environ.get(
     "YOSHI_MODEL",
-    "qwen3.5:9b"
+    "qwen2.5:14b"
 )
 CODING_MODEL = os.environ.get(
     "YOSHI_CODING_MODEL",
@@ -55,11 +56,11 @@ CODING_MODEL = os.environ.get(
 )
 FAST_MODEL = os.environ.get(
     "YOSHI_FAST_MODEL",
-    "qwen3.5:4b"
+    "qwen3.5:9b"
 )
 ADVANCED_MODEL = os.environ.get(
     "YOSHI_ADVANCED_MODEL",
-    "qwen3.5:9b"
+    "deepseek-r1:14b"
 )
 HEAVYWEIGHT_MODEL = os.environ.get(
     "YOSHI_HEAVYWEIGHT_MODEL",
@@ -73,6 +74,10 @@ FALLBACK_VISION_MODEL = os.environ.get(
     "YOSHI_FALLBACK_VISION_MODEL",
     "moondream"
 )
+CLOUD_GENIUS_MODEL = os.environ.get(
+    "YOSHI_CLOUD_MODEL",
+    "gemini-2.5-flash"
+)
 BRAIN_MODELS = {
     "fast": FAST_MODEL,
     "balanced": MODEL,
@@ -80,6 +85,8 @@ BRAIN_MODELS = {
     "advanced": ADVANCED_MODEL,
     "heavyweight": HEAVYWEIGHT_MODEL,
     "vision": VISION_MODEL,
+    "genius": CLOUD_GENIUS_MODEL,
+    "cloud": CLOUD_GENIUS_MODEL,
 }
 PORT = _environment_int("YOSHI_MODEL_PORT", 11434, minimum=1024)
 FALLBACK_MODEL_PORT = _environment_int(
@@ -1795,14 +1802,50 @@ def _mark_memories_recalled(memory_rows):
         conn.close()
 
 
-def smart_recall(query, limit=5, profile="Hermes", scope=None):
-    """Return the selected profile's relevant private and shared memories.
+_EMBEDDING_CACHE = {}
+_EMBEDDING_CACHE_LOCK = threading.Lock()
 
-    This intentionally stays dependency-free so it works on WSL, Linux, and
-    Termux. It combines token overlap, topic aliases, category matches, and
-    importance. A later embedding provider can augment this without changing
-    the row contract returned to callers.
-    """
+
+def _get_embedding(text, timeout=3):
+    """Retrieve 768-dim semantic vector embedding from local Ollama nomic-embed-text."""
+    clean = str(text or "").strip()
+    if not clean:
+        return None
+    with _EMBEDDING_CACHE_LOCK:
+        if clean in _EMBEDDING_CACHE:
+            return _EMBEDDING_CACHE[clean]
+    try:
+        req = urllib.request.Request(
+            "http://127.0.0.1:11434/api/embeddings",
+            data=json.dumps({"model": "nomic-embed-text", "prompt": clean}).encode("utf-8"),
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            emb = json.loads(res.read().decode("utf-8")).get("embedding")
+            if emb and isinstance(emb, list):
+                with _EMBEDDING_CACHE_LOCK:
+                    if len(_EMBEDDING_CACHE) > 500:
+                        _EMBEDDING_CACHE.clear()
+                    _EMBEDDING_CACHE[clean] = emb
+                return emb
+    except Exception:
+        pass
+    return None
+
+
+def _cosine_similarity(v1, v2):
+    """Calculate cosine similarity between two vector embeddings."""
+    if not v1 or not v2 or len(v1) != len(v2):
+        return 0.0
+    import math
+    dot = sum(a * b for a, b in zip(v1, v2))
+    norm1 = math.sqrt(sum(a * a for a in v1))
+    norm2 = math.sqrt(sum(b * b for b in v2))
+    return dot / (norm1 * norm2) if norm1 and norm2 else 0.0
+
+
+def smart_recall(query, limit=5, profile="Hermes", scope=None):
+    """Return relevant private and shared memories using hybrid semantic vector and keyword recall."""
 
     query = (query or "").strip().lower()
     if not query:
@@ -1895,6 +1938,8 @@ def smart_recall(query, limit=5, profile="Hermes", scope=None):
             expanded.add(topic)
             expanded.update(values)
 
+    query_emb = _get_embedding(query)
+
     scored = []
     for row in get_memories(
         profile=_normalize_profile(profile),
@@ -1909,6 +1954,19 @@ def smart_recall(query, limit=5, profile="Hermes", scope=None):
         score = len(expanded.intersection(memory_words)) * 4
         category_lower = category.lower()
         importance_lower = importance.lower()
+
+        # Neural semantic vector similarity scoring (nomic-embed-text)
+        sim = 0.0
+        if query_emb:
+            mem_emb = _get_embedding(memory)
+            if mem_emb:
+                sim = _cosine_similarity(query_emb, mem_emb)
+                if sim >= 0.65:
+                    score += int(sim * 35)
+                elif sim >= 0.50:
+                    score += int(sim * 20)
+                elif sim < 0.30 and len(query_words) >= 3:
+                    score -= 4
 
         # Strong preference-subtype matching.
         preference_topics = {
@@ -1968,8 +2026,8 @@ def smart_recall(query, limit=5, profile="Hermes", scope=None):
             if importance_lower == "high":
                 score += 8
 
-        # Ignore weak accidental matches.
-        if score >= 8 or (len(query_words) <= 3 and score >= 4):
+        # Accept matches with strong semantic similarity or solid keyword relevance.
+        if score >= 8 or (len(query_words) <= 3 and score >= 4) or sim >= 0.58:
             scored.append((score, row))
 
     scored.sort(
@@ -2469,6 +2527,76 @@ def choose_brain_model(user_text, brain_mode="auto"):
 
     return FAST_MODEL
 
+
+def call_gemini_api(messages, model=None, api_key=None, timeout=60):
+    """Call Google Gemini API for cloud genius reasoning or fallback."""
+    target_model = model or os.environ.get("YOSHI_CLOUD_MODEL", "gemini-2.5-flash")
+    key = api_key or os.environ.get("GEMINI_API_KEY")
+    if not key:
+        try:
+            settings_path = os.path.join(YOSHI_DIR, "settings.json")
+            if os.path.isfile(settings_path):
+                with open(settings_path, "r", encoding="utf-8") as f:
+                    s_data = json.load(f)
+                    key = s_data.get("gemini_api_key")
+        except Exception:
+            pass
+
+    if not key:
+        raise ValueError("No Gemini API key found in GEMINI_API_KEY environment variable or settings.json.")
+
+    system_instruction = None
+    contents = []
+    for msg in messages:
+        role = msg.get("role", "user")
+        text = str(msg.get("content") or "").strip()
+        if not text:
+            continue
+        if role == "system":
+            if not system_instruction:
+                system_instruction = text
+            else:
+                system_instruction += "\n\n" + text
+            continue
+        g_role = "user" if role in ("user", "tool") else "model"
+        contents.append({
+            "role": g_role,
+            "parts": [{"text": text}]
+        })
+
+    if not contents:
+        raise ValueError("No conversational content provided for Gemini API.")
+
+    body = {
+        "contents": contents,
+        "generationConfig": {
+            "temperature": 0.4,
+            "maxOutputTokens": 2048,
+        }
+    }
+    if system_instruction:
+        body["systemInstruction"] = {
+            "parts": [{"text": system_instruction}]
+        }
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={urllib.parse.quote(key)}"
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+        candidates = data.get("candidates", [])
+        if candidates:
+            parts = candidates[0].get("content", {}).get("parts", [])
+            reply_text = "".join(p.get("text", "") for p in parts if "text" in p).strip()
+            if reply_text:
+                return reply_text
+    raise RuntimeError("Empty response received from Google Gemini API.")
+
+
 def ask_yoshi(
     history,
     user_text,
@@ -2582,6 +2710,20 @@ VISION MODE:
         "role": "user",
         "content": _compact_text(user_text, 8000)
     })
+
+    # Hybrid Cloud Brain (Google Gemini API)
+    is_cloud_genius = (
+        str(selected_model or "").lower().startswith("gemini")
+        or str(brain_mode or "").lower() in ("cloud", "genius", "gemini")
+    )
+    if is_cloud_genius:
+        try:
+            cloud_reply = call_gemini_api(messages, model=CLOUD_GENIUS_MODEL)
+            if cloud_reply:
+                return _clean_model_reply(cloud_reply, user_text=user_text)
+        except Exception:
+            # Seamless fallback to local advanced 14B model
+            selected_model = ADVANCED_MODEL
 
     last_error = None
     for model_url in _model_request_urls():

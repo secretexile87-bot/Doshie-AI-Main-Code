@@ -766,9 +766,9 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                 >
                   <option value="auto" className="bg-[#161b22] text-white">🧠 Auto</option>
                   <option value="fast" className="bg-[#161b22] text-white">⚡ Fast (9B)</option>
-                  <option value="balanced" className="bg-[#161b22] text-white">⚖️ Balanced (9B)</option>
-                  <option value="advanced" className="bg-[#161b22] text-white">🚀 Genius (14B)</option>
-                  <option value="heavyweight" className="bg-[#161b22] text-white">🥊 Heavy (14B)</option>
+                  <option value="balanced" className="bg-[#161b22] text-white">⚖️ Balanced (14B)</option>
+                  <option value="advanced" className="bg-[#161b22] text-white">🚀 Deep Reason (14B)</option>
+                  <option value="cloud" className="bg-[#161b22] text-white">✨ Cloud Genius</option>
                   <option value="coding" className="bg-[#161b22] text-white">⌨️ Coder (7B)</option>
                   <option value="vision" className="bg-[#161b22] text-white">👁 Vision (9B)</option>
                 </select>

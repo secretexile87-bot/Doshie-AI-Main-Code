@@ -476,11 +476,52 @@ TOOLS = [
                 "required": ["input_path"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "python_calculator",
+            "description": (
+                "Execute verified Python code or mathematical expressions for exact calculations, statistics, date math, or data processing. "
+                "Always use this when precise numbers, complex arithmetic, formulas, unit conversions, or algorithmic steps are needed."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "The Python expression (e.g. 'math.sqrt(54321)') or script to execute."
+                    }
+                },
+                "required": ["code"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "wikipedia_search",
+            "description": (
+                "Search and retrieve authoritative summaries and verified knowledge from Wikipedia about science, history, geography, people, technology, and culture."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Topic, entity, concept, or search term to look up on Wikipedia."
+                    }
+                },
+                "required": ["query"]
+            }
+        }
     }
 ]
 
 CAPABILITY_TOOL_MAP = {
-    "web_research": ["web_search"],
+    "web_research": ["web_search", "wikipedia_search"],
+    "math_calculation": ["python_calculator"],
+    "encyclopedia": ["wikipedia_search"],
     "project_read": ["list_code_files", "read_code_file", "search_code"],
     "code_proposals": ["propose_code_edit", "propose_new_file", "request_python_diagnostics"],
     "service_health": ["check_service_health", "request_python_diagnostics"],
@@ -498,6 +539,70 @@ def execute_tool(name, arguments, actor_profile="", can_propose_changes=False):
         import Doshie_profile_preferences
         is_under_18 = Doshie_profile_preferences.is_profile_under_18(actor_profile)
         return Doshie_search.web_search(arguments.get("query"), is_under_18=is_under_18)
+
+    if name == "python_calculator":
+        import subprocess
+        import sys
+        code = str(arguments.get("code") or arguments.get("expression") or "").strip()
+        if not code:
+            raise ValueError("No calculation code provided.")
+        wrapped = (
+            "import math, sys, json, datetime, statistics, random\n"
+            "code_str = " + repr(code) + "\n"
+            "try:\n"
+            "    res = eval(code_str)\n"
+            "    if res is not None:\n"
+            "        print(res)\n"
+            "except SyntaxError:\n"
+            "    exec(code_str)\n"
+        )
+        try:
+            proc = subprocess.run(
+                [sys.executable, "-c", wrapped],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            stdout = proc.stdout.strip()
+            stderr = proc.stderr.strip()
+            return {
+                "stdout": stdout,
+                "stderr": stderr,
+                "exit_code": proc.returncode,
+                "result": stdout if stdout else (stderr if proc.returncode != 0 else "Execution completed.")
+            }
+        except subprocess.TimeoutExpired:
+            return {"error": "Execution timed out after 5 seconds."}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    if name == "wikipedia_search":
+        query = str(arguments.get("query") or "").strip()
+        if not query:
+            raise ValueError("No search query provided.")
+        headers = {"User-Agent": "DoshieAssistant/1.0 (contact@doshie.local)"}
+        try:
+            search_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(query)}&format=json&srlimit=3"
+            req = urllib.request.Request(search_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                sdata = json.loads(resp.read().decode("utf-8"))
+            results = sdata.get("query", {}).get("search", [])
+            if not results:
+                return {"found": False, "message": f"No Wikipedia article found for '{query}'."}
+            best_title = results[0]["title"]
+            summary_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(best_title)}"
+            req_sum = urllib.request.Request(summary_url, headers=headers)
+            with urllib.request.urlopen(req_sum, timeout=5) as resp:
+                sum_data = json.loads(resp.read().decode("utf-8"))
+            return {
+                "found": True,
+                "title": sum_data.get("title", best_title),
+                "description": sum_data.get("description", ""),
+                "summary": sum_data.get("extract", ""),
+                "url": sum_data.get("content_urls", {}).get("desktop", {}).get("page", "")
+            }
+        except Exception as exc:
+            return {"found": False, "error": str(exc)}
 
     if name == "list_code_files":
         return yoshi_code_tools.list_code_files(
@@ -1115,7 +1220,7 @@ def chat(
             allowed_tools = []
             for tool in TOOLS:
                 name = tool["function"]["name"]
-                if name == "web_search":
+                if name in ("web_search", "python_calculator", "wikipedia_search"):
                     allowed_tools.append(tool)
                 elif project_tools_needed:
                     if inside_hermes and name == "consult_hermes_ai":
@@ -1162,6 +1267,27 @@ def chat(
             accumulated_thoughts.append(reasoning.strip())
 
         tool_calls = message.get("tool_calls") or []
+
+        if not tool_calls:
+            raw_c = str(message.get("content") or "").strip()
+            clean_c = re.sub(r"^```(?:json)?\s*", "", raw_c)
+            clean_c = re.sub(r"\s*```$", "", clean_c).strip()
+            if clean_c.startswith("{") and clean_c.endswith("}"):
+                try:
+                    parsed = json.loads(clean_c)
+                    if isinstance(parsed, dict) and ("name" in parsed or "tool" in parsed):
+                        t_name = str(parsed.get("name") or parsed.get("tool") or "").strip()
+                        t_args = parsed.get("arguments") or parsed.get("parameters") or {}
+                        if any(t["function"]["name"] == t_name for t in allowed_tools):
+                            tool_calls = [{
+                                "id": "call_inline_fallback",
+                                "function": {
+                                    "name": t_name,
+                                    "arguments": t_args
+                                }
+                            }]
+                except Exception:
+                    pass
 
         if not tool_calls:
             final_content = str(message.get("content") or "").strip()

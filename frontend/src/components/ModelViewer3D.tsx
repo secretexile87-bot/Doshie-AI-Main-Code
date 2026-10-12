@@ -53,6 +53,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     const typeMatch = text.match(/(?:type|model|subject|object|prompt):\s*([a-z0-9_\-\s\.\/]+)/i)
     if (typeMatch) {
       const explicit = typeMatch[1].trim()
+      if (explicit.includes('dog') || explicit.includes('puppy') || explicit.includes('canine') || explicit.includes('hound') || explicit.includes('corgi') || explicit.includes('retriever')) return 'dog'
       if (explicit.includes('avatar') || explicit.includes('face') || explicit.includes('portrait') || explicit.includes('selfie') || explicit.includes('head') || explicit.includes('person')) return 'avatar'
       if (explicit.includes('house') || explicit.includes('home') || explicit.includes('cottage') || explicit.includes('cabin') || explicit.includes('bungalow') || explicit.includes('mansion') || explicit.includes('residence')) return 'house'
       if (explicit.includes('train') || explicit.includes('locomotive')) return 'train'
@@ -67,6 +68,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     }
 
     // 2. Keyword fallback across comment lines, title, or prompt
+    if (text.includes('dog') || text.includes('puppy') || text.includes('canine') || text.includes('hound') || text.includes('corgi') || text.includes('retriever')) return 'dog'
     if (text.includes('avatar') || text.includes('face') || text.includes('portrait') || text.includes('selfie') || text.includes('person')) return 'avatar'
     if (text.includes('house') || text.includes('home') || text.includes('cottage') || text.includes('cabin') || text.includes('bungalow') || text.includes('mansion') || text.includes('residence')) return 'house'
     if (text.includes('train') || text.includes('locomotive') || text.includes('railroad') || text.includes('railway') || text.includes('boiler') || text.includes('smokestack')) return 'train'
@@ -93,6 +95,8 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
   const displayTitle = (() => {
     if (title && title !== 'Interactive 3D Model') return title
     switch (detectedType) {
+      case 'dog':
+        return '3D Playful Golden Pup'
       case 'avatar':
         return '3D Personal Avatar & Face Model'
       case 'house':
@@ -132,7 +136,9 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     const width = container.clientWidth || 400
     const height = container.clientHeight || 300
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000)
-    if (detectedType === 'avatar') {
+    if (detectedType === 'dog') {
+      camera.position.set(3.8, 2.4, 4.2)
+    } else if (detectedType === 'avatar') {
       camera.position.set(0, 1.6, 2.8)
     } else if (detectedType === 'house') {
       camera.position.set(5.5, 3.8, 5.5)
@@ -177,7 +183,10 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     controls.maxDistance = 25
 
     resetCameraRef.current = () => {
-      if (detectedType === 'avatar') {
+      if (detectedType === 'dog') {
+        camera.position.set(3.8, 2.4, 4.2)
+        controls.target.set(0, 0.9, 0)
+      } else if (detectedType === 'avatar') {
         camera.position.set(0, 1.6, 2.8)
         controls.target.set(0, 1.5, 0)
       } else if (detectedType === 'house') {
@@ -359,6 +368,243 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
         scene.add(avatarGroup)
         controls.target.set(0, 1.3, 0)
+      } else if (detectedType === 'dog') {
+        // Procedural 3D Golden Pup / Dog
+        const dogGroup = new THREE.Group()
+
+        // Materials
+        const furMat = regMat(new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.8, metalness: 0.05 })) // Warm golden fur
+        const bellyMat = regMat(new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.85, metalness: 0.05 })) // Light cream belly & snout
+        const noseMat = regMat(new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.2, metalness: 0.1 })) // Wet black nose
+        const darkEyeMat = regMat(new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.1, metalness: 0.2 })) // Glossy eyes
+        const eyeSparkleMat = regMat(new THREE.MeshBasicMaterial({ color: 0xffffff }))
+        const tongueMat = regMat(new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.4 })) // Pink tongue
+        const collarMat = regMat(new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4, metalness: 0.3 })) // Red collar
+        const tagMat = regMat(new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.2, metalness: 0.9 })) // Gold medallion tag
+        const pawMat = regMat(new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.8 }))
+
+        // 1. Torso / Body (Rounded capsule)
+        const bodyGeo = new THREE.CylinderGeometry(0.55, 0.62, 1.4, 24)
+        const body = new THREE.Mesh(bodyGeo, furMat)
+        body.rotation.x = Math.PI / 2
+        body.position.set(0, 0.95, 0)
+        body.scale.set(1.0, 1.05, 0.9)
+        body.castShadow = true
+        dogGroup.add(body)
+
+        // Chest / Belly fluff patch
+        const belly = new THREE.Mesh(new THREE.SphereGeometry(0.52, 20, 16), bellyMat)
+        belly.position.set(0, 0.85, 0.2)
+        belly.scale.set(0.85, 0.9, 1.2)
+        dogGroup.add(belly)
+
+        // 2. Neck & Collar
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 0.5, 20), furMat)
+        neck.rotation.x = -Math.PI / 6
+        neck.position.set(0, 1.35, 0.55)
+        neck.castShadow = true
+        dogGroup.add(neck)
+
+        const collar = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.06, 12, 32), collarMat)
+        collar.rotation.x = Math.PI / 3
+        collar.position.set(0, 1.32, 0.58)
+        collar.castShadow = true
+        dogGroup.add(collar)
+
+        const collarTag = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.02, 16), tagMat)
+        collarTag.rotation.x = Math.PI / 2
+        collarTag.position.set(0, 1.15, 0.85)
+        collarTag.castShadow = true
+        dogGroup.add(collarTag)
+
+        // 3. Head (Child group for animated tilting/nodding)
+        const headGroup = new THREE.Group()
+        headGroup.position.set(0, 1.65, 0.75)
+
+        const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 24), furMat)
+        headMesh.scale.set(1.0, 0.95, 1.05)
+        headMesh.castShadow = true
+        headGroup.add(headMesh)
+
+        // Snout & Muzzle
+        const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 16), bellyMat)
+        muzzle.position.set(0, -0.08, 0.45)
+        muzzle.scale.set(1.05, 0.8, 1.3)
+        muzzle.castShadow = true
+        headGroup.add(muzzle)
+
+        // Nose
+        const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 12), noseMat)
+        nose.position.set(0, 0.04, 0.78)
+        nose.scale.set(1.2, 0.8, 0.9)
+        nose.castShadow = true
+        headGroup.add(nose)
+
+        // Mouth & Tongue (Happy open mouth)
+        const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.22), tongueMat)
+        tongue.position.set(0, -0.18, 0.52)
+        tongue.rotation.x = Math.PI / 8
+        tongue.castShadow = true
+        headGroup.add(tongue)
+
+        // Eyes
+        for (const side of [-1, 1]) {
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(0.085, 16, 16), darkEyeMat)
+          eye.position.set(side * 0.24, 0.12, 0.42)
+          headGroup.add(eye)
+
+          const sparkle = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), eyeSparkleMat)
+          sparkle.position.set(side * 0.25, 0.15, 0.49)
+          headGroup.add(sparkle)
+
+          // Eyebrow accent spot
+          const brow = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 12), bellyMat)
+          brow.position.set(side * 0.22, 0.26, 0.38)
+          brow.scale.set(1.0, 0.5, 0.8)
+          headGroup.add(brow)
+        }
+
+        // Floppy Puppy Ears
+        const leftEarGroup = new THREE.Group()
+        leftEarGroup.position.set(-0.45, 0.22, 0.05)
+        const earGeo = new THREE.CylinderGeometry(0.18, 0.12, 0.55, 16)
+        const leftEarMesh = new THREE.Mesh(earGeo, furMat)
+        leftEarMesh.position.set(0, -0.22, 0)
+        leftEarMesh.rotation.z = 0.25
+        leftEarMesh.rotation.x = 0.2
+        leftEarMesh.scale.set(0.6, 1.0, 1.2)
+        leftEarMesh.castShadow = true
+        leftEarGroup.add(leftEarMesh)
+        headGroup.add(leftEarGroup)
+
+        const rightEarGroup = new THREE.Group()
+        rightEarGroup.position.set(0.45, 0.22, 0.05)
+        const rightEarMesh = new THREE.Mesh(earGeo, furMat)
+        rightEarMesh.position.set(0, -0.22, 0)
+        rightEarMesh.rotation.z = -0.25
+        rightEarMesh.rotation.x = 0.2
+        rightEarMesh.scale.set(0.6, 1.0, 1.2)
+        rightEarMesh.castShadow = true
+        rightEarGroup.add(rightEarMesh)
+        headGroup.add(rightEarGroup)
+
+        dogGroup.add(headGroup)
+
+        // 4. Four Legs & Paws
+        const legGeo = new THREE.CylinderGeometry(0.15, 0.13, 0.75, 16)
+        const pawGeo = new THREE.SphereGeometry(0.18, 16, 12)
+
+        const frontLeftLeg = new THREE.Group()
+        frontLeftLeg.position.set(-0.38, 0.7, 0.45)
+        const fll = new THREE.Mesh(legGeo, furMat)
+        fll.position.y = -0.35
+        fll.castShadow = true
+        frontLeftLeg.add(fll)
+        const flp = new THREE.Mesh(pawGeo, pawMat)
+        flp.position.set(0, -0.65, 0.06)
+        flp.scale.set(1.0, 0.6, 1.3)
+        flp.castShadow = true
+        frontLeftLeg.add(flp)
+        dogGroup.add(frontLeftLeg)
+
+        const frontRightLeg = new THREE.Group()
+        frontRightLeg.position.set(0.38, 0.7, 0.45)
+        const frl = new THREE.Mesh(legGeo, furMat)
+        frl.position.y = -0.35
+        frl.castShadow = true
+        frontRightLeg.add(frl)
+        const frp = new THREE.Mesh(pawGeo, pawMat)
+        frp.position.set(0, -0.65, 0.06)
+        frp.scale.set(1.0, 0.6, 1.3)
+        frp.castShadow = true
+        frontRightLeg.add(frp)
+        dogGroup.add(frontRightLeg)
+
+        // Hind Legs (Thicker haunches)
+        const hindLeftLeg = new THREE.Group()
+        hindLeftLeg.position.set(-0.4, 0.75, -0.48)
+        const hllHaunch = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 16), furMat)
+        hllHaunch.position.set(0, -0.05, 0)
+        hllHaunch.scale.set(0.9, 1.3, 1.1)
+        hllHaunch.castShadow = true
+        hindLeftLeg.add(hllHaunch)
+        const hllLower = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.12, 0.6, 16), furMat)
+        hllLower.position.set(0, -0.42, 0)
+        hllLower.castShadow = true
+        hindLeftLeg.add(hllLower)
+        const hlp = new THREE.Mesh(pawGeo, pawMat)
+        hlp.position.set(0, -0.7, 0.05)
+        hlp.scale.set(1.0, 0.6, 1.3)
+        hlp.castShadow = true
+        hindLeftLeg.add(hlp)
+        dogGroup.add(hindLeftLeg)
+
+        const hindRightLeg = new THREE.Group()
+        hindRightLeg.position.set(0.4, 0.75, -0.48)
+        const hrlHaunch = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 16), furMat)
+        hrlHaunch.position.set(0, -0.05, 0)
+        hrlHaunch.scale.set(0.9, 1.3, 1.1)
+        hrlHaunch.castShadow = true
+        hindRightLeg.add(hrlHaunch)
+        const hrlLower = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.12, 0.6, 16), furMat)
+        hrlLower.position.set(0, -0.42, 0)
+        hrlLower.castShadow = true
+        hindRightLeg.add(hrlLower)
+        const hrp = new THREE.Mesh(pawGeo, pawMat)
+        hrp.position.set(0, -0.7, 0.05)
+        hrp.scale.set(1.0, 0.6, 1.3)
+        hrp.castShadow = true
+        hindRightLeg.add(hrp)
+        dogGroup.add(hindRightLeg)
+
+        // 5. Animated Wagging Tail
+        const tailGroup = new THREE.Group()
+        tailGroup.position.set(0, 1.25, -0.65)
+        const tailMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.13, 0.7, 16), furMat)
+        tailMesh.position.set(0, 0.28, -0.15)
+        tailMesh.rotation.x = -Math.PI / 3
+        tailMesh.castShadow = true
+        tailGroup.add(tailMesh)
+        const tailTip = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 12), bellyMat)
+        tailTip.position.set(0, 0.58, -0.32)
+        tailGroup.add(tailTip)
+        dogGroup.add(tailGroup)
+
+        // 6. Grass Platform Base with Tennis Ball & Bone
+        const grassMat = regMat(new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.8 }))
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 2.1, 0.12, 32), grassMat)
+        base.position.y = 0.05
+        base.receiveShadow = true
+        dogGroup.add(base)
+
+        // Tennis Ball toy
+        const tennisMat = regMat(new THREE.MeshStandardMaterial({ color: 0x84cc16, roughness: 0.7 }))
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), tennisMat)
+        ball.position.set(0.9, 0.17, 0.7)
+        ball.castShadow = true
+        dogGroup.add(ball)
+
+        // Animations: Tail Wag, Head Tilting, Breathing & Ear Flop
+        animatedObjects.push((_d, elapsed) => {
+          // Energetic happy tail wag
+          tailGroup.rotation.y = Math.sin(elapsed * 12) * 0.45
+          tailGroup.rotation.z = Math.cos(elapsed * 12) * 0.15
+
+          // Curious gentle head tilt
+          headGroup.rotation.z = Math.sin(elapsed * 1.8) * 0.12
+          headGroup.rotation.x = Math.sin(elapsed * 2.5) * 0.06
+
+          // Subtle ear bounce with head tilt
+          leftEarGroup.rotation.z = Math.sin(elapsed * 1.8) * 0.08
+          rightEarGroup.rotation.z = -Math.sin(elapsed * 1.8) * 0.08
+
+          // Subtle breathing body rhythm
+          body.scale.x = 1.0 + Math.sin(elapsed * 2.8) * 0.02
+          body.scale.y = 1.05 + Math.sin(elapsed * 2.8) * 0.02
+        })
+
+        scene.add(dogGroup)
+        controls.target.set(0, 0.95, 0)
       } else if (detectedType === 'train') {
         const trainGroup = new THREE.Group()
 

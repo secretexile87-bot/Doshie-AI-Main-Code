@@ -3147,7 +3147,9 @@ body {
 
                     {!bioSupported && (
                       <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300/90">
-                        Notice: WebAuthn hardware biometrics require HTTPS or localhost. If connecting across LAN via HTTP, enrollment is enabled on the host server or via SSL proxy.
+                        {Boolean((window as any).Capacitor?.isNativePlatform?.() || (window as any).Capacitor)
+                          ? 'Notice: Android hardware biometrics (fingerprint/face unlock) are not set up or not available on this device.'
+                          : 'Notice: WebAuthn hardware biometrics require HTTPS or localhost. If connecting across LAN via HTTP, enrollment is enabled on the host server or via SSL proxy.'}
                       </div>
                     )}
 

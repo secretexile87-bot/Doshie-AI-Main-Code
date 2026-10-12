@@ -9008,8 +9008,8 @@ def normalize_chat_mode(value):
     return mode if mode in CHAT_MODE_CONTEXTS else "general"
 
 
-ADMIN_BRAIN_MODES = {"auto", "fast", "balanced", "coding", "advanced", "vision"}
-MEMBER_BRAIN_MODES = {"auto", "balanced"}
+ADMIN_BRAIN_MODES = {"auto", "fast", "balanced", "coding", "advanced", "heavyweight", "vision", "genius", "cloud"}
+MEMBER_BRAIN_MODES = {"auto", "balanced", "genius", "cloud"}
 
 
 def normalize_brain_mode(value, profile):
@@ -11134,6 +11134,119 @@ def profile_lock_webauthn_login_verify():
         "is_admin": record.get("is_admin", False),
         "is_child": record.get("is_child", False),
     })
+
+
+@app.route("/profile-lock/biometrics/native-challenge", methods=["POST"])
+def profile_lock_biometrics_native_challenge():
+    data = request.get_json(silent=True) or {}
+    profile = resolve_profile(data.get("profile", ""))
+    if not profile:
+        profile = "Hermes"
+    challenge_type = str(data.get("type", "login")).strip()
+    if challenge_type not in ("register", "login"):
+        challenge_type = "login"
+    challenge = Doshie_profile_lock.create_challenge(profile, challenge_type=challenge_type)
+    return jsonify({
+        "ok": True,
+        "profile": profile,
+        "challenge": challenge,
+    })
+
+
+@app.route("/profile-lock/biometrics/native-register", methods=["POST"])
+def profile_lock_biometrics_native_register():
+    data = request.get_json(silent=True) or {}
+    profile = resolve_profile(data.get("profile", ""))
+    if not profile:
+        profile = "Hermes"
+
+    cred_id = str(data.get("credential_id") or "").strip()
+    if not cred_id:
+        return jsonify({"error": "Missing biometric credential ID."}), 400
+
+    challenge = data.get("challenge")
+    if challenge:
+        if not Doshie_profile_lock.verify_and_consume_challenge(
+            profile, challenge, challenge_type="register"
+        ):
+            return jsonify({"error": "Biometric registration challenge expired or invalid."}), 400
+
+    device_name = str(data.get("name") or "Android Biometrics").strip()[:80]
+    Doshie_profile_lock.add_biometric(
+        profile=profile,
+        credential_id=cred_id,
+        name=device_name,
+        raw_id=cred_id,
+    )
+    return jsonify({
+        "ok": True,
+        "profile": profile,
+        "message": "Android biometric authentication enrolled successfully!",
+        "status": Doshie_profile_lock.status(profile),
+        "biometrics": Doshie_profile_lock.get_biometrics(profile),
+    })
+
+
+@app.route("/profile-lock/biometrics/native-verify", methods=["POST"])
+def profile_lock_biometrics_native_verify():
+    data = request.get_json(silent=True) or {}
+    profile = resolve_profile(data.get("profile", ""))
+    if not profile:
+        profile = "Hermes"
+
+    retry_after = _profile_retry_after(profile)
+    if retry_after:
+        return jsonify({
+            "error": "Too many incorrect sign-in attempts.",
+            "retry_after": retry_after,
+        }), 429
+
+    cred_id = str(data.get("credential_id") or "").strip()
+    bios = Doshie_profile_lock.get_biometrics(profile)
+    if not bios:
+        return jsonify({"error": f"No biometrics registered for profile '{profile}'."}), 400
+
+    if cred_id:
+        if not Doshie_profile_lock.verify_biometric_credential(profile, cred_id):
+            return _credential_failure_response(profile)
+    else:
+        cred_id = bios[0]["id"]
+
+    challenge = data.get("challenge")
+    if challenge:
+        if not Doshie_profile_lock.verify_and_consume_challenge(
+            profile, challenge, challenge_type="login"
+        ):
+            return jsonify({"error": "Biometric challenge expired or invalid. Please try again."}), 400
+
+    mfa_token = data.get("mfa_token")
+    if mfa_token:
+        if not Doshie_profile_lock.verify_and_consume_mfa_token(profile, mfa_token):
+            return jsonify({"error": "2FA session expired. Please re-enter your PIN."}), 401
+
+    _clear_profile_failures(profile)
+    session.clear()
+    session["public_profile"] = profile
+    session["public_profile_expires"] = time.time() + 8 * 60 * 60
+    _remember_profile_unlock(profile)
+    session.permanent = True
+    session.modified = True
+    catalog = profile_catalog()
+    record = next((item for item in catalog if item["name"].casefold() == profile.casefold()), {
+        "id": f"profile-{profile.lower()}",
+        "name": profile,
+        "role": "Owner Administrator" if profile.casefold() == "hermes" else "User",
+        "is_admin": profile.casefold() == "hermes",
+        "is_child": False,
+    })
+    return jsonify({
+        "ok": True,
+        "profile": record["name"],
+        "unlocked": True,
+        "is_admin": record.get("is_admin", False),
+        "is_child": record.get("is_child", False),
+    })
+
 
 
 def _health_request_online(value):
