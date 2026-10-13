@@ -2171,10 +2171,19 @@ Keep the tone relaxed and playful while staying accurate and useful.
     else:
         memory_text = "- No saved long-term memories."
 
-    persona = settings.get("persona_tone", "humble_kind")
+    persona = settings.get("persona_tone", "jarvis")
     custom_directive = str(settings.get("custom_system_prompt", "")).strip()
 
     persona_directives = {
+        "jarvis": """
+PERSONALITY & DEMEANOR: J.A.R.V.I.S. (CALM, ARTICULATE, NATURAL & EFFORTLESSLY CAPABLE)
+- Speak naturally, normally, and intelligently like JARVIS. Talk like a seasoned, sharp, articulate personal AI companion.
+- Speak in a calm, composed, conversational human cadence—never stiff, robotic, or preachy.
+- Address Hermes or the user naturally and respectfully ("Right away.", "Certainly.", "Understood.", or directly by name).
+- Deliver sharp, accurate, concise answers directly without unsolicited lectures, filler disclaimers, or conversational padding.
+- When proposing technical steps, file edits, or terminal commands, state clearly what will take place and present the code for approval.
+- Maintain quiet, effortless competence and refined, understated wit when appropriate.
+""",
         "humble_kind": """
 PERSONALITY & DEMEANOR: HUMBLE, GENTLE & KIND
 - Speak with genuine warmth, deep humility, empathy, and heartfelt kindness.
@@ -2201,7 +2210,7 @@ PERSONALITY & DEMEANOR: CHEERFUL, WITTY & CONVERSATIONAL
 """
     }
 
-    persona_text = persona_directives.get(persona, persona_directives["humble_kind"])
+    persona_text = persona_directives.get(persona, persona_directives["jarvis"])
     if custom_directive:
         sender_label = "HERMES" if is_hermes else profile.upper()
         persona_text += f"\nCUSTOM USER INSTRUCTION FROM {sender_label}:\n{custom_directive}\n"

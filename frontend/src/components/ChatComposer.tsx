@@ -8,13 +8,10 @@ import {
   FileText,
   FileCode,
   Loader2,
-  ChevronUp,
   Plus,
   Edit3,
-  Camera,
   MapPin,
   AlertCircle,
-  Sparkles
 } from 'lucide-react'
 import type { ChatAttachment, SpecialistAgent } from '../types'
 import { FileEditorModal } from './FileEditorModal'
@@ -93,7 +90,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const [isDragging, setIsDragging] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [editingAttachment, setEditingAttachment] = useState<ChatAttachment | null>(null)
-  const [selectedBrain, setSelectedBrain] = useState<string>(() => {
+  const [selectedBrain] = useState<string>(() => {
     return localStorage.getItem('Doshie_brain_mode') || 'auto'
   })
 
@@ -107,7 +104,6 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       return null
     }
   })
-  const [isLocating, setIsLocating] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -148,113 +144,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     }
   }
 
-  const handleBrainChange = (newBrain: string) => {
-    setSelectedBrain(newBrain)
-    localStorage.setItem('Doshie_brain_mode', newBrain)
-  }
-
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false)
-
-  const fallbackToIpLocation = async () => {
-    try {
-      const res = await fetch('/api/location/ip')
-      const data = await res.json()
-      if (data.ok && data.name) {
-        const locObj: ClientLocation = {
-          latitude: data.latitude || 0,
-          longitude: data.longitude || 0,
-          name: data.name,
-          city: data.city,
-          region: data.region,
-          country: data.country,
-        }
-        setClientLocation(locObj)
-        localStorage.setItem('Doshie_client_location', JSON.stringify(locObj))
-        setLocationError(null)
-        setIsLocating(false)
-        return true
-      }
-    } catch (err) {
-      console.warn('IP location fetch error:', err)
-    }
-    setIsLocating(false)
-    setIsLocationModalOpen(true)
-    return false
-  }
-
-  const handleDetectLocation = async () => {
-    setIsLocating(true)
-    setLocationError(null)
-
-    // 1. Try Native Capacitor Geolocation first (on Android mobile app)
-    const capacitor = (window as any).Capacitor
-    const nativeGeo = capacitor?.Plugins?.Geolocation
-    if (nativeGeo) {
-      try {
-        const pos = await nativeGeo.getCurrentPosition({ enableHighAccuracy: true, timeout: 6000 })
-        if (pos?.coords) {
-          const { latitude, longitude } = pos.coords
-          const res = await fetch(`/api/location/reverse-geocode?lat=${latitude}&lon=${longitude}`)
-          const data = await res.json()
-          const locObj: ClientLocation = {
-            latitude,
-            longitude,
-            name: data.name || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`,
-            city: data.city,
-            region: data.region,
-            country: data.country,
-          }
-          setClientLocation(locObj)
-          localStorage.setItem('Doshie_client_location', JSON.stringify(locObj))
-          setIsLocating(false)
-          return
-        }
-      } catch (capErr) {
-        console.warn('Capacitor native geolocation error:', capErr)
-      }
-    }
-
-    // 2. Try browser navigator.geolocation
-    if (navigator.geolocation && (window.isSecureContext || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-      navigator.geolocation.getCurrentPosition(
-        async pos => {
-          try {
-            const { latitude, longitude } = pos.coords
-            const res = await fetch(`/api/location/reverse-geocode?lat=${latitude}&lon=${longitude}`)
-            const data = await res.json()
-            const locObj: ClientLocation = {
-              latitude,
-              longitude,
-              name: data.name || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`,
-              city: data.city,
-              region: data.region,
-              country: data.country,
-            }
-            setClientLocation(locObj)
-            localStorage.setItem('Doshie_client_location', JSON.stringify(locObj))
-          } catch {
-            const fallbackObj: ClientLocation = {
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              name: `${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`,
-            }
-            setClientLocation(fallbackObj)
-          } finally {
-            setIsLocating(false)
-          }
-        },
-        async _err => {
-          // If browser GPS denied or blocked on insecure origin, seamlessly fallback to IP location!
-          await fallbackToIpLocation()
-        },
-        { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
-      )
-      return
-    }
-
-    // 3. Fallback to IP geolocation immediately if origin is non-HTTPS or navigator unavailable
-    await fallbackToIpLocation()
-  }
 
   const clearLocation = () => {
     setClientLocation(null)
@@ -781,75 +671,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           </div>
         )}
 
-        {/* Smart Predictive Hints Tray */}
-        {hints.length > 0 && (isFocused || input.length > 0) && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 px-1 scrollbar-none animate-fadeIn select-none w-full max-w-full">
-            <div className="flex items-center gap-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider pl-1.5 pr-2 py-1 flex-none bg-white/5 border border-white/10 rounded-lg shadow-sm">
-              <Sparkles className="w-3 h-3 text-neutral-400 flex-none" />
-              <span>Hints</span>
-            </div>
-            {hints.map((hint, idx) => {
-              const isSelected = idx === activeHintIndex
-              return (
-                <button
-                  key={hint.id}
-                  type="button"
-                  onPointerDown={e => {
-                    e.preventDefault()
-                  }}
-                  onClick={e => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    applyHint(hint)
-                  }}
-                  onMouseEnter={() => setActiveHintIndex(idx)}
-                  className={`group flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs transition-all shadow-md flex-none cursor-pointer active:scale-95 ${
-                    isSelected
-                      ? 'bg-[#1e1e24] border border-white/30 text-white shadow-sm'
-                      : 'bg-[#121215] hover:bg-[#18181b] border border-white/10 text-neutral-300 hover:text-white'
-                  }`}
-                  title={hint.description || hint.title}
-                >
-                  <span className="text-xs flex-none">{hint.icon}</span>
-                  <span
-                    className="text-[9.5px] px-1.5 py-0.2 rounded font-semibold uppercase tracking-wider flex-none"
-                    style={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                      color: '#e4e4e7',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                    }}
-                  >
-                    {hint.badge}
-                  </span>
-                  <span className="font-medium text-[11.5px] whitespace-nowrap text-neutral-300 group-hover:text-white">
-                    {hint.title}
-                  </span>
-                  {isSelected && (
-                    <span className="text-[9.5px] px-1 py-0.2 rounded bg-white/15 text-white font-mono flex-none ml-1 hidden sm:inline-block border border-white/20">
-                      ↵ Enter
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-            {ghostSuffix && (
-              <div className="flex items-center gap-1 text-[10px] text-neutral-400 px-2 py-1 rounded-lg bg-white/5 border border-white/10 flex-none hidden sm:flex shadow-sm">
-                <span>Press</span>
-                <kbd className="px-1.5 py-0.2 text-[9px] font-mono rounded bg-white/15 text-white border border-white/20 font-bold">
-                  ↵ Enter
-                </kbd>
-                <span>or</span>
-                <kbd className="px-1.5 py-0.2 text-[9px] font-mono rounded bg-white/15 text-white border border-white/20 font-bold">
-                  Tab ⇥
-                </kbd>
-                <span>to fill</span>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Integrated Composer Input Capsule */}
-        <div className="relative flex flex-col px-3 sm:px-4 pt-3 pb-2 sm:pb-2.5 bg-[#09090b] hover:bg-[#0d0d10] border border-[#27272a] hover:border-[#3f3f46] focus-within:border-white/30 rounded-2xl transition-all shadow-xl shadow-black/60 group overflow-hidden box-border w-full">
+        <div className="relative flex flex-col px-3 sm:px-4 pt-2.5 pb-2 bg-[#09090b] border border-[#27272a] focus-within:border-white/30 rounded-xl transition-all shadow-lg shadow-black/60 group overflow-hidden box-border w-full">
           {/* Top Row: Textarea Container with Inline Ghost Text */}
           <div className="relative w-full min-w-0">
             {/* Inline Ghost Text Backdrop */}
@@ -857,7 +680,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               <div
                 ref={ghostBackdropRef}
                 aria-hidden="true"
-                className="absolute inset-0 pointer-events-none select-none text-white/35 font-inherit text-[15px] sm:text-[16px] leading-relaxed px-0 py-0.5 whitespace-pre-wrap break-words overflow-hidden"
+                className="absolute inset-0 pointer-events-none select-none text-white/35 font-inherit text-[14.5px] sm:text-[15px] leading-relaxed px-0 py-0.5 whitespace-pre-wrap break-words overflow-hidden"
               >
                 <span className="invisible">{input}</span>
                 <span className="text-white/40 italic font-normal">{ghostSuffix}</span>
@@ -905,92 +728,39 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               autoCapitalize="sentences"
               autoCorrect="on"
               spellCheck="true"
-              className="w-full min-w-0 bg-transparent text-white placeholder-neutral-400 text-[15px] sm:text-[16px] leading-relaxed outline-none resize-none px-0 py-0.5 min-h-[36px] max-h-[160px] overflow-y-auto relative z-10"
+              className="w-full min-w-0 bg-transparent text-white placeholder-neutral-500 text-[14.5px] sm:text-[15px] leading-relaxed outline-none resize-none px-0 py-0.5 min-h-[32px] max-h-[160px] overflow-y-auto relative z-10 font-mono"
             />
           </div>
 
-          {/* Bottom Bar: Attach, Model Selector, Voice & Send */}
-          <div className="flex items-center justify-between gap-1.5 sm:gap-2 pt-2 sm:pt-2.5 mt-1 border-t border-white/5 w-full min-w-0">
-            {/* Left Controls */}
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-              {/* Attach File Button (+) */}
+          {/* Bottom Bar: Attach, Voice & Send */}
+          <div className="flex items-center justify-between gap-2 pt-2 mt-1 border-t border-white/5 w-full min-w-0">
+            {/* Left: Attach File Button */}
+            <div className="flex items-center gap-1.5 min-w-0">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isGenerating || attachments.length >= 5}
-                title="Attach file or photo"
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer active:scale-90 flex-none"
+                title="Attach file"
+                className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer active:scale-95 flex-none"
               >
-                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <Plus className="w-3.5 h-3.5" />
               </button>
-
-              {/* Camera Button */}
-              <button
-                type="button"
-                onClick={() => setIsCameraOpen(true)}
-                disabled={isGenerating || attachments.length >= 5}
-                title="Camera (Photo or 4D Spatial Burst)"
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer active:scale-90 flex-none"
-              >
-                <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </button>
-
-              {/* Location Toggle Button */}
-              <button
-                type="button"
-                onClick={handleDetectLocation}
-                disabled={isGenerating || isLocating}
-                title={
-                  clientLocation
-                    ? `Current location: ${clientLocation.name} (Click to refresh)`
-                    : 'Detect current location (for weather & local queries)'
-                }
-                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border flex items-center justify-center transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer active:scale-90 flex-none ${
-                  clientLocation
-                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-sm shadow-emerald-950/50'
-                    : 'bg-white/5 hover:bg-white/15 border-white/10 text-neutral-300 hover:text-white'
-                }`}
-              >
-                {isLocating ? (
-                  <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin text-emerald-400" />
-                ) : (
-                  <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                )}
-              </button>
-
-              {/* Model Selection Dropdown Pill Button */}
-              <div className="relative flex items-center min-w-0 flex-1 max-w-[110px] sm:max-w-[210px] md:max-w-none">
-                <select
-                  value={selectedBrain}
-                  onChange={(e) => handleBrainChange(e.target.value)}
-                  className="appearance-none bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-[10.5px] sm:text-[11.5px] font-semibold text-neutral-200 pl-2.5 pr-6 sm:pl-3 sm:pr-7 py-1 sm:py-1.5 rounded-full cursor-pointer transition-all outline-none truncate w-full max-w-full"
-                >
-                  <option value="auto" className="bg-[#161b22] text-white">🧠 Auto</option>
-                  <option value="fast" className="bg-[#161b22] text-white">⚡ Fast (9B)</option>
-                  <option value="balanced" className="bg-[#161b22] text-white">⚖️ Balanced (14B)</option>
-                  <option value="advanced" className="bg-[#161b22] text-white">🚀 Deep Reason (14B)</option>
-                  <option value="cloud" className="bg-[#161b22] text-white">✨ Cloud Genius</option>
-                  <option value="coding" className="bg-[#161b22] text-white">⌨️ Coder (7B)</option>
-                  <option value="vision" className="bg-[#161b22] text-white">👁 Vision (9B)</option>
-                </select>
-                <ChevronUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-neutral-400 absolute right-1.5 sm:right-2.5 pointer-events-none" />
-              </div>
             </div>
 
-            {/* Right Controls */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-none">
+            {/* Right: Voice & Send / Stop */}
+            <div className="flex items-center gap-1.5 shrink-0 flex-none">
               {/* Voice Button */}
               <button
                 type="button"
                 onClick={toggleSpeech}
-                title={isListening ? "Stop listening" : "Voice input"}
-                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-90 shrink-0 flex-none ${
+                title={isListening ? "Stop listening" : "Voice chat"}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0 flex-none ${
                   isListening
-                    ? 'bg-rose-600 text-white animate-pulse shadow-md shadow-rose-900/50'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/10 border border-white/10'
+                    ? 'bg-rose-600 text-white animate-pulse'
+                    : 'text-neutral-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10'
                 }`}
               >
-                {isListening ? <MicOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
               </button>
 
               {/* Send or Stop Thinking Button */}
@@ -998,10 +768,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                 <button
                   type="button"
                   onClick={onStop}
-                  title="Stop thinking"
-                  className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-full bg-rose-600 hover:bg-rose-500 active:scale-95 text-white flex items-center justify-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-semibold transition-all shadow-lg shadow-rose-950/60 cursor-pointer border border-rose-400/30 shrink-0 flex-none"
+                  title="Stop generating"
+                  className="h-7 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-95 text-white flex items-center justify-center gap-1.5 text-xs font-mono font-medium transition-all cursor-pointer shrink-0 flex-none"
                 >
-                  <Square className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-current" />
+                  <Square className="w-3 h-3 fill-current" />
                   <span>Stop</span>
                 </button>
               ) : (
@@ -1009,10 +779,11 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                   type="button"
                   onClick={handleSend}
                   disabled={!canSend}
-                  title="Send message"
-                  className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-tr from-[var(--accent)] to-[var(--accent-light)] text-neutral-950 font-bold hover:opacity-95 active:scale-90 flex items-center justify-center transition-all disabled:opacity-30 disabled:pointer-events-none shadow-lg shadow-[var(--accent)]/20 cursor-pointer shrink-0 flex-none"
+                  title="Send message (Enter)"
+                  className="h-7 px-3 rounded-lg bg-white hover:bg-neutral-200 text-black active:scale-95 flex items-center justify-center gap-1 text-xs font-mono font-bold transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer shrink-0 flex-none shadow-sm"
                 >
-                  <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-0.5 text-neutral-950" />
+                  <Send className="w-3 h-3 ml-0.5" />
+                  <span className="hidden sm:inline">Send</span>
                 </button>
               )}
             </div>

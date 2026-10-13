@@ -2,14 +2,11 @@ import React from 'react'
 import {
   Settings,
   PanelLeft,
-  MessageSquare,
-  User,
-  Home,
 } from 'lucide-react'
 
 interface HeaderProps {
   online: boolean
-  activeProfile: string
+  activeProfile?: string
   isSidebarOpen: boolean
   onToggleSidebar: () => void
   onOpenSettings: (tab?: 'apps' | 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor') => void
@@ -27,138 +24,58 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   online,
-  activeProfile,
   isSidebarOpen,
   onToggleSidebar,
   onOpenSettings,
-  onGoHome,
-  onOpenLiveVoice: _onOpenLiveVoice,
-  onOpenAgentHub: _onOpenAgentHub,
-  onOpenAgentConsole: _onOpenAgentConsole,
-  onOpenMessenger,
-  messengerUnreadCount = 0,
   activeViewTitle,
-  assistantEmoji = '🦖',
-  assistantName = 'Doshie',
-  seasonalCountdownVisible: _seasonalCountdownVisible,
 }) => {
 
   return (
     <header
       style={{
-        paddingTop: 'max(env(safe-area-inset-top, 0px), var(--native-safe-top, 0px), 12px)',
+        paddingTop: 'max(env(safe-area-inset-top, 0px), var(--native-safe-top, 0px), 8px)',
       }}
-      className="relative flex-none bg-black/60 backdrop-blur-xl border-b border-white/10 px-2 sm:px-5 pb-2 sm:pb-3 flex items-center justify-between z-30 shadow-md shadow-black/40 select-none gap-1 sm:gap-2"
+      className="relative flex-none bg-black border-b border-[#27272a] px-3 sm:px-4 py-2 flex items-center justify-between z-30 select-none"
     >
-      {/* Left: Sidebar Toggle & Brand */}
-      <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-shrink">
+      {/* Left: Sidebar Toggle & Clean Brand */}
+      <div className="flex items-center gap-2.5 min-w-0">
         <button
           onClick={onToggleSidebar}
-          title={isSidebarOpen ? 'Collapse dchats sidebar' : 'Open past dchats & transcripts'}
-          className={`p-1.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl border transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 text-xs font-semibold flex-none active:scale-95 ${
-            isSidebarOpen
-              ? 'bg-[var(--accent)]/30 border-[var(--accent)] text-white shadow-sm'
-              : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-neutral-300 hover:text-white'
-          }`}
+          title={isSidebarOpen ? 'Collapse sidebar' : 'Open past chats'}
+          className="px-2.5 py-1 rounded bg-[#18181b] hover:bg-[#27272a] border border-[#27272a] text-xs font-mono text-neutral-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
         >
-          <PanelLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--accent-light)]" />
-          <span className="hidden sm:inline">dchats</span>
+          <PanelLeft className="w-3.5 h-3.5" />
+          <span>chats</span>
         </button>
 
-        {onGoHome && (
-          <button
-            onClick={onGoHome}
-            title="Go to Home Screen"
-            className="p-1.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 text-xs font-semibold flex-none active:scale-95"
-          >
-            <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--accent-light)]" />
-            <span className="hidden sm:inline">Home</span>
-          </button>
-        )}
-
-        <div
-          onClick={onGoHome}
-          title={onGoHome ? "Doshie Home" : undefined}
-          className={`flex items-center gap-1.5 sm:gap-2.5 min-w-0 ${onGoHome ? 'cursor-pointer' : ''}`}
-        >
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[var(--accent)] to-[var(--accent-light)] flex items-center justify-center text-xs sm:text-sm shadow-md flex-none border border-white/20">
-            {assistantEmoji}
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1 leading-tight">
-              <span className="font-bold text-white text-xs sm:text-sm tracking-wide truncate max-w-[55px] sm:max-w-none">
-                {assistantName}
-              </span>
-              <span className="text-[8px] sm:text-[9px] uppercase font-bold tracking-wider px-1 py-0.5 rounded-full bg-white/10 border border-white/10 text-[var(--accent-light)] flex-none">
-                AI
-              </span>
-            </div>
-            <div className="flex items-center gap-1 text-[9px] sm:text-[10px] text-[var(--accent-light)]/80">
-              {online ? (
-                <>
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse flex-none" />
-                  <span className="truncate font-mono">
-                    Ready<span className="hidden md:inline"> · RTX 5070</span>
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 flex-none" />
-                  <span className="truncate font-mono">Connecting...</span>
-                </>
-              )}
-            </div>
-          </div>
+        <div className="flex items-center gap-1.5 font-mono text-xs">
+          <span className="font-semibold text-white tracking-wide">doshie</span>
+          <span
+            className={`inline-block w-1.5 h-1.5 rounded-full ${
+              online ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'
+            }`}
+            title={online ? 'Online · Workstation' : 'Connecting...'}
+          />
         </div>
       </div>
 
-      {/* Center: Active View Title if present */}
-      <div className="flex items-center justify-center min-w-0 shrink-0 mx-1 sm:mx-2">
+      {/* Center: Active Title */}
+      <div className="flex items-center justify-center min-w-0 truncate mx-2">
         {activeViewTitle && (
-          <div className="flex items-center gap-2 text-xs text-neutral-300 bg-white/5 px-3 py-1 rounded-full border border-white/10 max-w-[240px] truncate shadow-xs">
-            <MessageSquare className="w-3.5 h-3.5 text-[var(--accent)] flex-none" />
-            <span className="truncate font-medium">{activeViewTitle}</span>
-          </div>
+          <span className="text-xs font-mono text-neutral-400 truncate max-w-[200px] sm:max-w-xs">
+            {activeViewTitle}
+          </span>
         )}
       </div>
 
-      {/* Right: Clean Profile & Settings Hub Access */}
-      <div className="flex items-center gap-1 sm:gap-2 flex-none">
-        {/* Active Profile Pill (Click opens profile settings) */}
-        <button
-          onClick={() => onOpenSettings('profiles')}
-          title={`Active Profile: ${activeProfile} (Click to switch)`}
-          className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-xs font-semibold text-white transition-all cursor-pointer active:scale-95 shadow-xs"
-        >
-          <User className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[var(--accent-light)] flex-none" />
-          <span className="max-w-[46px] sm:max-w-[120px] truncate">{activeProfile}</span>
-        </button>
-
-        {/* Doshie Messenger Button */}
-        {onOpenMessenger && (
-          <button
-            onClick={onOpenMessenger}
-            title="Open Doshie Messenger (Family & AI DMs)"
-            className="relative p-1.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-500/40 text-xs font-semibold text-white transition-all cursor-pointer active:scale-95 shadow-xs flex items-center gap-1.5"
-          >
-            <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--accent-light)]" />
-            <span className="hidden md:inline">Messenger</span>
-            {messengerUnreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-emerald-500 text-neutral-950 text-[9px] font-bold shadow-xs">
-                {messengerUnreadCount}
-              </span>
-            )}
-          </button>
-        )}
-
-        {/* Settings Hub Button */}
+      {/* Right: Clean Settings Access */}
+      <div className="flex items-center gap-2 flex-none">
         <button
           onClick={() => onOpenSettings('apps')}
-          title="Open Control Center, Apps & Settings"
-          className="p-1.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-xs font-semibold text-white transition-all cursor-pointer active:scale-95 shadow-xs flex items-center gap-1.5"
+          title="Settings"
+          className="p-1.5 rounded bg-[#18181b] hover:bg-[#27272a] border border-[#27272a] text-neutral-300 hover:text-white transition-all cursor-pointer active:scale-95"
         >
-          <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--accent-light)]" />
-          <span className="hidden sm:inline">Settings</span>
+          <Settings className="w-3.5 h-3.5" />
         </button>
       </div>
     </header>

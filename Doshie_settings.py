@@ -9,8 +9,8 @@ SETTINGS_FILE = Path.home() / "yoshi" / "settings.json"
 DEFAULTS = {
     "auto_memory": True,
     "speak_replies": False,
-    "persona_tone": "humble_kind",
-    "custom_system_prompt": "Always be humble, deeply kind, gentle, empathetic, patient, and encouraging in every response. Keep answers concise, direct, and natural without unnecessary filler.",
+    "persona_tone": "jarvis",
+    "custom_system_prompt": "Speak naturally, calmly, and intelligently like JARVIS. Talk normally and concisely without corporate robotic disclaimers, forced emotional filler, or unprompted lectures. When technical code or changes are needed, state them cleanly for approval.",
     "voice_identity": "hermes",
     "voice_engine": "clone",
     "voice_rate": 1.0,

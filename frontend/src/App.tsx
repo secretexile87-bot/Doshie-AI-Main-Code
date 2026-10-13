@@ -10,9 +10,8 @@ import { TranscriptViewer } from './components/TranscriptViewer'
 import { LockScreen } from './components/LockScreen'
 import { VoiceStudioModal } from './components/VoiceStudioModal'
 import { AgentHubModal } from './components/AgentHubModal'
-import { AgentConsoleModal } from './components/AgentConsoleModal'
-import { MobileNavBar } from './components/MobileNavBar'
 import { MessengerModal } from './components/MessengerModal'
+import { AgentConsoleModal } from './components/AgentConsoleModal'
 import { stopSpeech, subscribeSpeechState, playNeuralSpeech, playWakeChime } from './utils/audio'
 import { parseAndExecuteCommand, detectWakeWord, type CommandContext } from './utils/commands'
 import { getSeasonalInfo } from './utils/seasonal'
@@ -1830,20 +1829,7 @@ export function App() {
               onClearDraftText={() => setDraftText('')}
             />
 
-            {/* Mobile Bottom Navigation Bar (Android & Mobile Web) - Hidden when typing so keyboard doesn't push composer offscreen */}
-            {!isKeyboardOpen && (
-              <MobileNavBar
-                onGoHome={handleGoHome}
-                onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
-                onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
-                onOpenChat={handleOpenChatInterface}
-                onOpenSettings={() => handleOpenSettings('settings')}
-                isSidebarOpen={isSidebarOpen}
-                isChatActive={isMessengerOpen}
-                messengerUnreadCount={messengerUnreadCount}
-                selectedAgentName={selectedAgent?.name}
-              />
-            )}
+
           </>
         )}
       </div>
