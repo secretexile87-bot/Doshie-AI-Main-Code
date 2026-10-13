@@ -571,6 +571,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       }
     }
 
+    // If text has inline bullets (e.g. " • " or "• ") that didn't have newlines, normalize them so markdown renders them as proper list items
+    if (content.includes('•') && !content.includes('\n•') && !content.includes('\n- ')) {
+      content = content.replace(/\s*•\s*/g, '\n- ')
+    }
+
     return { displayContent: content, thoughtContent: thought, parsedInlineStep: inlineStep }
   }, [message.content, message.thinking])
 

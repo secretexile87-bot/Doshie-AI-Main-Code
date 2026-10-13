@@ -2916,7 +2916,7 @@ def get_week_forecast(location="El Paso"):
                     d_str = dates[i]
                     try:
                         dt = datetime.datetime.strptime(d_str, "%Y-%m-%d")
-                        day_name = dt.strftime("%A (%b %d)")
+                        day_name = dt.strftime("%A, %b %d")
                     except Exception:
                         day_name = d_str
                     
@@ -2924,10 +2924,10 @@ def get_week_forecast(location="El Paso"):
                     low = round(min_temps[i]) if i < len(min_temps) else "?"
                     rain = rain_probs[i] if i < len(rain_probs) else 0
                     cond = wmo_to_desc(codes[i]) if i < len(codes) else "Fair"
-                    rain_str = f", 💧 {rain}% rain" if rain and rain > 10 else ""
-                    lines.append(f"• **{day_name}**: {cond} — High: **{high}°F** / Low: **{low}°F**{rain_str}")
+                    rain_str = f" • 💧 {rain}% rain" if rain and rain > 10 else ""
+                    lines.append(f"\n- **{day_name}**\n  {cond} | **{high}°F** / {low}°F{rain_str}")
 
-                return "\n".join(lines)
+                return "\n".join(lines).strip()
     except Exception as e:
         pass
 
