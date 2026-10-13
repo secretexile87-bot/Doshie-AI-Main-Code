@@ -13679,7 +13679,7 @@ def _chat_impl():
         agent_memory_scope = "none" if incognito else "all"
 
     try:
-        reply = Doshie_memory.ask_yoshi(
+        chat_res = Doshie_memory.ask_yoshi(
             current_history,
             model_text,
             raise_on_error=True,
@@ -13694,7 +13694,16 @@ def _chat_impl():
             memory_scope=agent_memory_scope,
             images=image_payloads,
             agent_capabilities=agent_capabilities,
+            return_details=True,
         )
+        if isinstance(chat_res, dict):
+            reply = chat_res.get("reply", "")
+            thinking = chat_res.get("thinking")
+            steps = chat_res.get("steps", [])
+        else:
+            reply = str(chat_res or "")
+            thinking = None
+            steps = []
     except Exception:
         app.logger.exception("Doshie could not complete a chat request")
         return jsonify({
@@ -13720,6 +13729,8 @@ def _chat_impl():
 
     response_payload = {
         "reply": reply,
+        "thinking": thinking,
+        "steps": steps,
         "memory": saved,
         "profile": profile,
         "space": space,

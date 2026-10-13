@@ -1164,16 +1164,49 @@ def _vision_chat(
     return vision_description
 
 
+TOOL_TITLES = {
+    "python_calculator": "Python Calculator",
+    "wikipedia_search": "Wikipedia Lookup",
+    "web_search": "Web Search",
+    "list_code_files": "List Project Files",
+    "read_code_file": "Read Source Code",
+    "search_code": "Search Codebase",
+    "propose_code_edit": "Propose Code Edit",
+    "propose_new_file": "Propose New File",
+    "request_python_diagnostics": "Python Diagnostics",
+    "consult_hermes_ai": "Consult Hermes AI",
+    "consult_agent": "Consult Specialist Agent",
+    "check_service_health": "Check Service Health",
+    "search_memories": "Search Memories",
+    "get_tasks_and_notes": "Tasks & Notes",
+    "save_memory": "Save Memory",
+    "create_task": "Create Task",
+    "add_note": "Add Note",
+    "inspect_hardware": "Inspect Hardware",
+    "propose_hardware_change": "Propose Hardware Change",
+    "execute_hardware_change": "Execute Hardware Change",
+    "get_hardware_governance": "Hardware Governance",
+    "render_3d_model": "Render 3D Model",
+}
+
+
 def chat(
     url, model, messages, timeout=180, request_id="",
     actor_profile="", can_propose_changes=False, images=None,
-    agent_capabilities=None, brain_mode="auto"
+    agent_capabilities=None, brain_mode="auto", return_details=False
 ):
     if images:
-        return _vision_chat(
+        v_reply = _vision_chat(
             url, model, messages, images,
             timeout=timeout, request_id=request_id
         )
+        if return_details:
+            return {
+                "reply": v_reply,
+                "thinking": None,
+                "steps": [],
+            }
+        return v_reply
 
     working_messages = list(messages)
 
@@ -1184,6 +1217,7 @@ def chat(
     )
 
     accumulated_thoughts = []
+    executed_steps = []
 
     for _ in range(5):
         request_body = {
@@ -1293,10 +1327,15 @@ def chat(
             final_content = str(message.get("content") or "").strip()
             if not final_content and accumulated_thoughts:
                 final_content = accumulated_thoughts[-1]
-            if accumulated_thoughts and "<think>" not in final_content:
-                thoughts_text = "\n\n".join(accumulated_thoughts).strip()
-                if thoughts_text:
-                    final_content = f"<think>\n{thoughts_text}\n</think>\n\n{final_content}"
+            thoughts_text = "\n\n".join(accumulated_thoughts).strip() if accumulated_thoughts else None
+            if thoughts_text and "<think>" not in final_content:
+                final_content = f"<think>\n{thoughts_text}\n</think>\n\n{final_content}"
+            if return_details:
+                return {
+                    "reply": final_content,
+                    "thinking": thoughts_text,
+                    "steps": executed_steps,
+                }
             return final_content
 
         working_messages.append(message)
@@ -1313,7 +1352,13 @@ def chat(
                     arguments = raw_arguments
                 else:
                     arguments = {}
+            except Exception:
+                arguments = {}
 
+            import time
+            step_start = time.time()
+            step_ok = True
+            try:
                 result = execute_tool(
                     name,
                     arguments,
@@ -1325,10 +1370,22 @@ def chat(
                     ensure_ascii=False
                 )
             except Exception as error:
+                step_ok = False
+                result = {"error": str(error)}
                 content = json.dumps({
                     "ok": False,
                     "error": str(error)
                 })
+
+            duration_ms = max(int((time.time() - step_start) * 1000), 1)
+            executed_steps.append({
+                "tool": name,
+                "title": TOOL_TITLES.get(name, name.replace("_", " ").title()),
+                "arguments": arguments,
+                "result": result,
+                "ok": step_ok,
+                "duration_ms": duration_ms,
+            })
 
             working_messages.append({
                 "role": "tool",
@@ -1336,7 +1393,14 @@ def chat(
                 "content": content
             })
 
-    return "I could not finish inspecting the project within the safe tool limit."
+    fallback_text = "I could not finish inspecting the project within the safe tool limit."
+    if return_details:
+        return {
+            "reply": fallback_text,
+            "thinking": "\n\n".join(accumulated_thoughts).strip() if accumulated_thoughts else None,
+            "steps": executed_steps,
+        }
+    return fallback_text
 
 
 def helper_activity_snapshot():

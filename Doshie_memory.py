@@ -2608,7 +2608,8 @@ def ask_yoshi(
     request_id="",
     memory_scope="all",
     images=None,
-    agent_capabilities=None
+    agent_capabilities=None,
+    return_details=False,
 ):
     """Brain v4.3 profile-aware, model-routed Ollama request."""
 
@@ -2720,7 +2721,14 @@ VISION MODE:
         try:
             cloud_reply = call_gemini_api(messages, model=CLOUD_GENIUS_MODEL)
             if cloud_reply:
-                return _clean_model_reply(cloud_reply, user_text=user_text)
+                cleaned = _clean_model_reply(cloud_reply, user_text=user_text)
+                if return_details:
+                    return {
+                        "reply": cleaned,
+                        "thinking": None,
+                        "steps": [],
+                    }
+                return cleaned
         except Exception:
             # Seamless fallback to local advanced 14B model
             selected_model = ADVANCED_MODEL
@@ -2728,7 +2736,7 @@ VISION MODE:
     last_error = None
     for model_url in _model_request_urls():
         try:
-            reply = yoshi_tool_agent.chat(
+            res = yoshi_tool_agent.chat(
                 model_url,
                 selected_model,
                 messages,
@@ -2741,9 +2749,13 @@ VISION MODE:
                 images=images,
                 agent_capabilities=agent_capabilities,
                 brain_mode=brain_mode,
+                return_details=return_details,
             )
             URL = model_url
-            return _clean_model_reply(reply, user_text=user_text)
+            if return_details and isinstance(res, dict):
+                res["reply"] = _clean_model_reply(res.get("reply", ""), user_text=user_text)
+                return res
+            return _clean_model_reply(res, user_text=user_text)
         except Exception as error:
             last_error = error
 

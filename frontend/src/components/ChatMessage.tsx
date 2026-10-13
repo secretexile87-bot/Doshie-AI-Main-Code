@@ -42,6 +42,12 @@ import {
   RotateCw,
   Repeat,
   Trash2,
+  Calculator,
+  BookOpen,
+  Search,
+  Cpu,
+  Database,
+  Bot,
 } from 'lucide-react'
 import type { Message, ChatAttachment } from '../types'
 import { playNeuralSpeech, stopSpeech } from '../utils/audio'
@@ -270,6 +276,247 @@ const CodeBlock: React.FC<{
   )
 }
 
+// Antigravity Tool Icon Resolver
+const ToolIcon: React.FC<{ tool: string }> = ({ tool }) => {
+  const t = (tool || '').toLowerCase()
+  if (t.includes('calc') || t.includes('math')) return <Calculator className="w-3.5 h-3.5 text-amber-400" />
+  if (t.includes('wiki') || t.includes('book')) return <BookOpen className="w-3.5 h-3.5 text-sky-400" />
+  if (t.includes('search') || t.includes('web')) return <Search className="w-3.5 h-3.5 text-teal-400" />
+  if (t.includes('terminal') || t.includes('command') || t.includes('cli') || t.includes('diagnost')) return <Terminal className="w-3.5 h-3.5 text-emerald-400" />
+  if (t.includes('code') || t.includes('file') || t.includes('edit')) return <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+  if (t.includes('hard') || t.includes('cpu') || t.includes('gpu') || t.includes('governor')) return <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+  if (t.includes('memo') || t.includes('task') || t.includes('note')) return <Database className="w-3.5 h-3.5 text-purple-400" />
+  if (t.includes('agent') || t.includes('hermes')) return <Bot className="w-3.5 h-3.5 text-violet-400" />
+  return <Wrench className="w-3.5 h-3.5 text-neutral-400" />
+}
+
+// Antigravity Step Card Component
+const AntigravityStepCard: React.FC<{
+  step: {
+    tool: string
+    title?: string
+    arguments?: any
+    result?: any
+    ok?: boolean
+    duration_ms?: number
+    preview?: string
+    thought?: string
+  }
+  index: number
+  defaultExpanded?: boolean
+}> = ({ step, index, defaultExpanded = false }) => {
+  const [expanded, setExpanded] = useState(defaultExpanded)
+  const [copiedInput, setCopiedInput] = useState(false)
+  const [copiedOutput, setCopiedOutput] = useState(false)
+
+  const toolName = (step.tool || '').toLowerCase()
+  const title = step.title || step.tool.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+
+  // Quick summary string for the header pill
+  const quickParam = useMemo(() => {
+    if (!step.arguments) return ''
+    if (typeof step.arguments === 'string') return step.arguments.slice(0, 52)
+    if (step.arguments.code) return String(step.arguments.code).slice(0, 52)
+    if (step.arguments.expression) return String(step.arguments.expression).slice(0, 52)
+    if (step.arguments.query) return `"${String(step.arguments.query).slice(0, 38)}"`
+    if (step.arguments.command) return String(step.arguments.command).slice(0, 52)
+    if (step.arguments.relative_path) return String(step.arguments.relative_path)
+    if (step.arguments.fact) return `"${String(step.arguments.fact).slice(0, 38)}"`
+    if (step.arguments.note) return `"${String(step.arguments.note).slice(0, 38)}"`
+    if (step.arguments.component) return String(step.arguments.component)
+    return ''
+  }, [step.arguments])
+
+  const formatPayload = (val: any): string => {
+    if (val === null || val === undefined) return ''
+    if (typeof val === 'string') return val
+    try {
+      return JSON.stringify(val, null, 2)
+    } catch {
+      return String(val)
+    }
+  }
+
+  const inputStr = useMemo(() => formatPayload(step.arguments), [step.arguments])
+  const outputStr = useMemo(() => {
+    if (step.result && typeof step.result === 'object') {
+      if (step.result.stdout !== undefined) {
+        let out = step.result.stdout || ''
+        if (step.result.stderr) out += (out ? '\n' : '') + '[stderr]: ' + step.result.stderr
+        if (!out && step.result.result) out = String(step.result.result)
+        return out || '(Execution returned empty stdout)'
+      }
+      if (step.result.summary !== undefined) {
+        let out = ''
+        if (step.result.title) out += `### ${step.result.title}\n`
+        if (step.result.description) out += `*${step.result.description}*\n\n`
+        out += step.result.summary
+        if (step.result.url) out += `\n\nLink: ${step.result.url}`
+        return out
+      }
+      if (step.result.error) return String(step.result.error)
+    }
+    return formatPayload(step.result)
+  }, [step.result])
+
+  const handleCopyInput = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(inputStr)
+    setCopiedInput(true)
+    setTimeout(() => setCopiedInput(false), 2000)
+  }
+
+  const handleCopyOutput = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(outputStr)
+    setCopiedOutput(true)
+    setTimeout(() => setCopiedOutput(false), 2000)
+  }
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#0f141c]/90 overflow-hidden shadow-sm shadow-black/40 mb-2 transition-all hover:border-white/20">
+      {/* Step Header */}
+      <div
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-3 py-2 flex items-center justify-between text-xs hover:bg-white/[0.04] transition-colors cursor-pointer select-none gap-2"
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          {/* Step Number Badge */}
+          <span className="w-4 h-4 rounded-full bg-white/10 text-[10px] font-mono text-neutral-300 flex items-center justify-center flex-none font-bold">
+            {index + 1}
+          </span>
+
+          {/* Tool Icon */}
+          <div className="p-1 rounded-md bg-black/40 border border-white/10 flex-none">
+            <ToolIcon tool={toolName} />
+          </div>
+
+          {/* Action Title */}
+          <span className="font-semibold text-white truncate text-[12px] tracking-wide">
+            {title}
+          </span>
+
+          {/* Quick Param Preview */}
+          {quickParam && (
+            <span className="hidden sm:inline-block font-mono text-[10.5px] text-neutral-300 bg-black/40 px-2 py-0.5 rounded border border-white/5 truncate max-w-[280px]">
+              {quickParam}
+            </span>
+          )}
+        </div>
+
+        {/* Right Status Badge */}
+        <div className="flex items-center gap-2 flex-none">
+          {step.ok !== false ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+              <span>{step.duration_ms ? `${step.duration_ms}ms` : 'Done'}</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-rose-400 bg-rose-950/60 border border-rose-500/30 px-2 py-0.5 rounded-full">
+              <AlertTriangle className="w-3 h-3 text-rose-400" />
+              <span>Error</span>
+            </span>
+          )}
+
+          {expanded ? (
+            <ChevronUp className="w-3.5 h-3.5 text-neutral-400 hover:text-white transition-colors" />
+          ) : (
+            <ChevronDown className="w-3.5 h-3.5 text-neutral-400 hover:text-white transition-colors" />
+          )}
+        </div>
+      </div>
+
+      {/* Expanded Accordion Drawer */}
+      {expanded && (
+        <div className="p-3 border-t border-white/10 bg-[#080c13] space-y-2.5 text-xs font-mono">
+          {/* Input / Arguments */}
+          {inputStr && (
+            <div>
+              <div className="flex items-center justify-between text-[10px] uppercase font-bold text-neutral-400 mb-1">
+                <span>Input Parameters</span>
+                <button
+                  type="button"
+                  onClick={handleCopyInput}
+                  className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  {copiedInput ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedInput ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+              <pre className="p-2.5 rounded-lg bg-black/60 text-neutral-200 border border-white/5 overflow-x-auto whitespace-pre-wrap max-h-48 text-[11px] leading-relaxed">
+                {inputStr}
+              </pre>
+            </div>
+          )}
+
+          {/* Result / Output */}
+          {outputStr && (
+            <div>
+              <div className="flex items-center justify-between text-[10px] uppercase font-bold text-[var(--accent-light)] mb-1">
+                <span>Execution Output</span>
+                <button
+                  type="button"
+                  onClick={handleCopyOutput}
+                  className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  {copiedOutput ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedOutput ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+              <pre className={`p-2.5 rounded-lg bg-black/60 border border-white/5 overflow-x-auto whitespace-pre-wrap max-h-60 text-[11px] leading-relaxed ${
+                step.ok === false ? 'text-rose-300' : 'text-emerald-300'
+              }`}>
+                {outputStr}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Antigravity Multi-Step Trajectory Block
+const AntigravityExecutionBlock: React.FC<{
+  steps: Array<any>
+}> = ({ steps }) => {
+  if (!steps || steps.length === 0) return null
+
+  const [allExpanded, setAllExpanded] = useState(false)
+
+  return (
+    <div className="my-3 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md p-3 shadow-md shadow-black/30">
+      <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10 text-xs font-semibold text-neutral-300">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-white font-bold tracking-wide">Agent Execution Trajectory</span>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+            {steps.length} {steps.length === 1 ? 'action' : 'actions'}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setAllExpanded(!allExpanded)}
+          className="text-[11px] text-[var(--accent-light)] hover:text-white transition-colors cursor-pointer font-medium"
+        >
+          {allExpanded ? 'Collapse All' : 'Expand All'}
+        </button>
+      </div>
+
+      <div className="space-y-1.5">
+        {steps.map((st, idx) => (
+          <AntigravityStepCard
+            key={idx}
+            step={st}
+            index={idx}
+            defaultExpanded={allExpanded}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
   assistantEmoji = '🦖',
@@ -289,9 +536,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const [lightboxImage, setLightboxImage] = useState<ChatAttachment | null>(null)
   const [editingFile, setEditingFile] = useState<ChatAttachment | null>(null)
 
-  const { displayContent, thoughtContent } = useMemo(() => {
+  const { displayContent, thoughtContent, parsedInlineStep } = useMemo(() => {
     let content = message.content || ''
     let thought = message.thinking || ''
+    let inlineStep: any = null
 
     const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/i)
     if (thinkMatch) {
@@ -301,8 +549,40 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       content = content.replace(/<think>[\s\S]*?<\/think>/i, '').trim()
     }
 
-    return { displayContent: content, thoughtContent: thought }
+    // Check if content contains raw tool call JSON (e.g., from Ollama/local models)
+    const jsonMatch =
+      content.match(/^```(?:json)?\s*(\{[\s\S]*?\})\s*```$/i) ||
+      content.match(/^\s*(\{[\s\S]*\})\s*$/)
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[1])
+        if (parsed.name || parsed.tool || parsed.action) {
+          inlineStep = {
+            tool: parsed.name || parsed.tool || parsed.action,
+            title: parsed.title,
+            arguments: parsed.arguments || parsed.parameters || parsed.args || {},
+            result: parsed.result || parsed.output || '',
+            ok: parsed.ok !== false,
+          }
+          content = ''
+        }
+      } catch {
+        // Not valid JSON
+      }
+    }
+
+    return { displayContent: content, thoughtContent: thought, parsedInlineStep: inlineStep }
   }, [message.content, message.thinking])
+
+  const effectiveSteps = useMemo(() => {
+    if (message.steps && message.steps.length > 0) {
+      return message.steps
+    }
+    if (parsedInlineStep) {
+      return [parsedInlineStep]
+    }
+    return []
+  }, [message.steps, parsedInlineStep])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(displayContent || message.content)
@@ -580,17 +860,22 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             </div>
           )}
 
-          {/* Thinking / Streaming Indicator */}
+          {/* Thinking / Streaming / Tool Planning Indicator */}
           {message.pending ? (
-            <div className="py-2 space-y-2">
-              <div className="flex items-center gap-2 text-[var(--accent-light)]">
-                <span className="flex gap-1 items-center">
-                  <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-wave-1" />
-                  <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-wave-2" />
-                  <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-wave-3" />
-                </span>
-                <span className="text-xs font-semibold tracking-wide">
-                  Doshie is synthesizing response...
+            <div className="py-2.5 px-3 rounded-xl bg-black/40 border border-[var(--accent)]/30 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-[var(--accent-light)] font-mono">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent-light)] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--accent)]"></span>
+                  </span>
+                  <span className="font-semibold tracking-wide flex items-center gap-1.5">
+                    <Terminal className="w-3.5 h-3.5 text-[var(--accent)]" />
+                    <span>Doshie is reasoning & planning tools on RTX 5070...</span>
+                  </span>
+                </div>
+                <span className="text-[10px] text-neutral-400 font-mono px-2 py-0.5 rounded bg-white/5 border border-white/5">
+                  Running
                 </span>
               </div>
               <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
@@ -609,7 +894,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                   >
                     <div className="flex items-center gap-2">
                       <Brain className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>Thought Process & Reasoning</span>
+                      <span>Thinking Process & Reasoning</span>
                     </div>
                     {isThoughtExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
@@ -622,20 +907,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                 </div>
               )}
 
-              {/* ⚡ Multi-Step Tool Execution Badges */}
-              {message.steps && message.steps.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {message.steps.map((st, sIdx) => (
-                    <span
-                      key={sIdx}
-                      title={st.preview || st.thought || ''}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-[11px] font-mono text-emerald-300 shadow-sm"
-                    >
-                      <Wrench className="w-3 h-3 text-emerald-400" />
-                      <span>{st.tool ? `Step ${sIdx + 1}: ${st.tool}` : `Step ${sIdx + 1}`}</span>
-                    </span>
-                  ))}
-                </div>
+              {/* ⚡ Antigravity Agent Execution Trajectory */}
+              {effectiveSteps.length > 0 && (
+                <AntigravityExecutionBlock steps={effectiveSteps} />
               )}
 
               {(displayContent || message.content) && (

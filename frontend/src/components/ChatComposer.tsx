@@ -118,6 +118,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   // Smart Autocomplete & Hint Prediction States
   const [isFocused, setIsFocused] = useState(false)
   const [dismissedHints, setDismissedHints] = useState(false)
+  const [activeHintIndex, setActiveHintIndex] = useState(0)
+  const blurTimeoutRef = useRef<any>(null)
 
   const hints = useMemo(() => {
     if (dismissedHints) return []
@@ -129,13 +131,20 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     return getTopGhostSuffix(input, hints)
   }, [input, hints, dismissedHints])
 
+  useEffect(() => {
+    setActiveHintIndex(0)
+  }, [input])
+
   const applyHint = (hint: PredictionHint) => {
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current)
     setInput(hint.completion)
     setDismissedHints(false)
+    setIsFocused(true)
     if (textareaRef.current) {
       textareaRef.current.focus()
       const len = hint.completion.length
       textareaRef.current.setSelectionRange(len, len)
+      textareaRef.current.style.height = 'auto'
     }
   }
 
@@ -439,7 +448,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // 1. Tab accepts the ghost text completion or top predictive hint
+    // 1. Tab accepts the ghost text completion or active predictive hint
     if (e.key === 'Tab' && !e.shiftKey) {
       if (ghostSuffix) {
         e.preventDefault()
@@ -448,7 +457,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         return
       } else if (hints.length > 0) {
         e.preventDefault()
-        applyHint(hints[0])
+        applyHint(hints[activeHintIndex >= 0 ? activeHintIndex : 0])
         return
       }
     }
@@ -463,14 +472,54 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       }
     }
 
-    // 3. Escape dismisses hints
+    // 3. ArrowDown and ArrowUp navigate through hints pills
+    if (e.key === 'ArrowDown' && hints.length > 0) {
+      e.preventDefault()
+      setActiveHintIndex(prev => (prev + 1) % hints.length)
+      return
+    }
+    if (e.key === 'ArrowUp' && hints.length > 0) {
+      e.preventDefault()
+      setActiveHintIndex(prev => (prev - 1 + hints.length) % hints.length)
+      return
+    }
+
+    // 4. Escape dismisses hints
     if (e.key === 'Escape') {
       setDismissedHints(true)
       return
     }
 
-    // 4. Enter sends message (unless shift is pressed)
+    // 5. Enter key: Fill in prediction if ghost text is present or if a hint is active!
     if (e.key === 'Enter' && !e.shiftKey) {
+      // If ghost text prediction is active, Enter fills in the prediction!
+      if (ghostSuffix) {
+        e.preventDefault()
+        setInput(input + ghostSuffix)
+        setDismissedHints(false)
+        return
+      }
+
+      // If hints are showing and user hasn't finished the prediction:
+      if (hints.length > 0) {
+        const candidate = hints[activeHintIndex >= 0 ? activeHintIndex : 0]
+        if (candidate && input.trim() !== candidate.completion.trim()) {
+          const cleanInput = input.trim().toLowerCase()
+          const compLower = candidate.completion.trim().toLowerCase()
+          if (
+            compLower.startsWith(cleanInput) ||
+            cleanInput.startsWith('/') ||
+            cleanInput.startsWith('@') ||
+            compLower.includes(cleanInput)
+          ) {
+            e.preventDefault()
+            applyHint(candidate)
+            return
+          }
+        }
+      }
+
+      // Otherwise, standard send
       e.preventDefault()
       handleSend()
     }
@@ -739,40 +788,61 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               <Sparkles className="w-3 h-3 text-amber-400 animate-pulse flex-none" />
               <span>Hints</span>
             </div>
-            {hints.map(hint => (
-              <button
-                key={hint.id}
-                type="button"
-                onMouseDown={e => {
-                  e.preventDefault()
-                  applyHint(hint)
-                }}
-                className="group flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#111620]/90 hover:bg-[#1a2333] border border-white/10 hover:border-[var(--accent)] text-xs text-neutral-200 hover:text-white transition-all shadow-md backdrop-blur-md flex-none cursor-pointer active:scale-95"
-                title={hint.description || hint.title}
-              >
-                <span className="text-xs flex-none">{hint.icon}</span>
-                <span
-                  className="text-[9.5px] px-1.5 py-0.2 rounded font-semibold uppercase tracking-wider flex-none"
-                  style={{
-                    backgroundColor: `${hint.accentColor || '#38bdf8'}25`,
-                    color: hint.accentColor || '#38bdf8',
-                    border: `1px solid ${hint.accentColor || '#38bdf8'}40`,
+            {hints.map((hint, idx) => {
+              const isSelected = idx === activeHintIndex
+              return (
+                <button
+                  key={hint.id}
+                  type="button"
+                  onPointerDown={e => {
+                    e.preventDefault()
                   }}
+                  onClick={e => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    applyHint(hint)
+                  }}
+                  onMouseEnter={() => setActiveHintIndex(idx)}
+                  className={`group flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs transition-all shadow-md backdrop-blur-md flex-none cursor-pointer active:scale-95 ${
+                    isSelected
+                      ? 'bg-[#1e293b] border-2 border-[var(--accent)] text-white ring-2 ring-[var(--accent)]/35 shadow-[var(--accent)]/20 scale-[1.02]'
+                      : 'bg-[#111620]/90 hover:bg-[#1a2333] border border-white/10 hover:border-[var(--accent)]/60 text-neutral-200 hover:text-white'
+                  }`}
+                  title={hint.description || hint.title}
                 >
-                  {hint.badge}
-                </span>
-                <span className="font-medium text-[11.5px] whitespace-nowrap text-neutral-300 group-hover:text-white">
-                  {hint.title}
-                </span>
-              </button>
-            ))}
+                  <span className="text-xs flex-none">{hint.icon}</span>
+                  <span
+                    className="text-[9.5px] px-1.5 py-0.2 rounded font-semibold uppercase tracking-wider flex-none"
+                    style={{
+                      backgroundColor: `${hint.accentColor || '#38bdf8'}25`,
+                      color: hint.accentColor || '#38bdf8',
+                      border: `1px solid ${hint.accentColor || '#38bdf8'}40`,
+                    }}
+                  >
+                    {hint.badge}
+                  </span>
+                  <span className="font-medium text-[11.5px] whitespace-nowrap text-neutral-300 group-hover:text-white">
+                    {hint.title}
+                  </span>
+                  {isSelected && (
+                    <span className="text-[9.5px] px-1 py-0.2 rounded bg-white/15 text-white font-mono flex-none ml-1 hidden sm:inline-block border border-white/20">
+                      ↵ Enter
+                    </span>
+                  )}
+                </button>
+              )
+            })}
             {ghostSuffix && (
-              <div className="flex items-center gap-1 text-[10px] text-neutral-400 px-2 py-1 rounded-xl bg-white/5 border border-white/10 flex-none hidden sm:flex">
+              <div className="flex items-center gap-1 text-[10px] text-neutral-300 px-2 py-1 rounded-xl bg-white/10 border border-white/15 flex-none hidden sm:flex shadow-sm">
                 <span>Press</span>
-                <kbd className="px-1.5 py-0.2 text-[9px] font-mono rounded bg-white/15 text-white border border-white/20">
+                <kbd className="px-1.5 py-0.2 text-[9px] font-mono rounded bg-white/20 text-white border border-white/30 font-bold">
+                  ↵ Enter
+                </kbd>
+                <span>or</span>
+                <kbd className="px-1.5 py-0.2 text-[9px] font-mono rounded bg-white/20 text-white border border-white/30 font-bold">
                   Tab ⇥
                 </kbd>
-                <span>to complete</span>
+                <span>to fill</span>
               </div>
             )}
           </div>
@@ -809,6 +879,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                 }
               }}
               onFocus={() => {
+                if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current)
                 setIsFocused(true)
                 onKeyboardStateChange?.(true)
                 setTimeout(() => {
@@ -816,7 +887,9 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                 }, 80)
               }}
               onBlur={() => {
-                setIsFocused(false)
+                blurTimeoutRef.current = setTimeout(() => {
+                  setIsFocused(false)
+                }, 250)
                 setTimeout(() => {
                   const vv = window.visualViewport
                   if (!vv || window.innerHeight - vv.height < 120) {
