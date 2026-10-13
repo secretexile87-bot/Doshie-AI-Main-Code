@@ -2863,6 +2863,108 @@ def get_forecast(location="El Paso", day_index=1):
         return f"Forecast error: {e}"
 
 
+def get_week_forecast(location="El Paso"):
+    """Fetch a rich multi-day / 7-day forecast for a location."""
+    import datetime
+    clean_loc = location.strip()
+    
+    # Try geocoding and Open-Meteo for a full 7-day forecast with daily highs, lows, and precipitation
+    try:
+        geo_q = urllib.parse.quote(clean_loc)
+        geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={geo_q}&count=1&language=en&format=json"
+        lat, lon, display_name = None, None, clean_loc
+        with urllib.request.urlopen(geo_url, timeout=8) as res:
+            geo_data = json.loads(res.read().decode("utf-8"))
+            results = geo_data.get("results", [])
+            if results:
+                lat = results[0].get("latitude")
+                lon = results[0].get("longitude")
+                name = results[0].get("name")
+                admin1 = results[0].get("admin1")
+                country = results[0].get("country")
+                display_name = f"{name}, {admin1 or country or ''}".strip(", ")
+
+        if lat is not None and lon is not None:
+            meteo_url = (
+                f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
+                f"&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+                f"&temperature_unit=fahrenheit&timezone=auto"
+            )
+            with urllib.request.urlopen(meteo_url, timeout=10) as res:
+                meteo_data = json.loads(res.read().decode("utf-8"))
+                daily = meteo_data.get("daily", {})
+                dates = daily.get("time", [])
+                max_temps = daily.get("temperature_2m_max", [])
+                min_temps = daily.get("temperature_2m_min", [])
+                rain_probs = daily.get("precipitation_probability_max", [])
+                codes = daily.get("weathercode", [])
+
+                def wmo_to_desc(code):
+                    if code == 0: return "Clear sky ☀️"
+                    if code in (1, 2): return "Mostly sunny 🌤️"
+                    if code == 3: return "Overcast ☁️"
+                    if code in (45, 48): return "Foggy 🌫️"
+                    if code in (51, 53, 55): return "Drizzle 🌦️"
+                    if code in (61, 63, 65): return "Rain 🌧️"
+                    if code in (71, 73, 75): return "Snow ❄️"
+                    if code in (80, 81, 82): return "Rain showers 🌧️"
+                    if code in (95, 96, 99): return "Thunderstorms ⛈️"
+                    return "Partly cloudy ⛅"
+
+                lines = [f"📅 **7-Day Weather Forecast for {display_name}:**\n"]
+                for i in range(min(len(dates), 7)):
+                    d_str = dates[i]
+                    try:
+                        dt = datetime.datetime.strptime(d_str, "%Y-%m-%d")
+                        day_name = dt.strftime("%A (%b %d)")
+                    except Exception:
+                        day_name = d_str
+                    
+                    high = round(max_temps[i]) if i < len(max_temps) else "?"
+                    low = round(min_temps[i]) if i < len(min_temps) else "?"
+                    rain = rain_probs[i] if i < len(rain_probs) else 0
+                    cond = wmo_to_desc(codes[i]) if i < len(codes) else "Fair"
+                    rain_str = f", 💧 {rain}% rain" if rain and rain > 10 else ""
+                    lines.append(f"• **{day_name}**: {cond} — High: **{high}°F** / Low: **{low}°F**{rain_str}")
+
+                return "\n".join(lines)
+    except Exception as e:
+        pass
+
+    # Fallback to wttr.in 3-day data
+    try:
+        loc_q = clean_loc.replace(" ", "+")
+        url = f"https://wttr.in/{loc_q}?format=j1"
+        with urllib.request.urlopen(url, timeout=12) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        days = data.get("weather", [])
+        if not days:
+            return f"Weather for {clean_loc}: " + get_weather(clean_loc)
+        lines = [f"📅 **Weather Forecast for {clean_loc}:**\n"]
+        for day in days:
+            d_date = day.get("date", "")
+            try:
+                dt = datetime.datetime.strptime(d_date, "%Y-%m-%d")
+                d_label = dt.strftime("%A (%b %d)")
+            except Exception:
+                d_label = d_date
+            high = day.get("maxtempF", "?")
+            low = day.get("mintempF", "?")
+            hourly = day.get("hourly", [])
+            desc = "Fair"
+            rain = 0
+            if hourly:
+                mid = hourly[len(hourly)//2]
+                if mid.get("weatherDesc"):
+                    desc = mid["weatherDesc"][0].get("value", "Fair")
+                rain = max(int(h.get("chanceofrain", "0")) for h in hourly if h.get("chanceofrain", "").isdigit())
+            rain_str = f", 💧 {rain}% rain" if rain > 10 else ""
+            lines.append(f"• **{d_label}**: {desc} — High: **{high}°F** / Low: **{low}°F**{rain_str}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Weather for {clean_loc}: " + get_weather(clean_loc)
+
+
 
 def get_battery_status():
     try:
