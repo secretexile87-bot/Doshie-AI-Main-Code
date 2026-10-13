@@ -374,7 +374,13 @@ export const LockScreen: React.FC<LockScreenProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-between p-4 sm:p-8 select-none text-white transition-all duration-500 overflow-y-auto ${bgClass}`}
+      style={{
+        paddingTop: 'max(env(safe-area-inset-top, 0px), var(--native-safe-top, 0px), 52px)',
+        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), var(--native-safe-bottom, 0px), 24px)',
+        paddingLeft: 'max(env(safe-area-inset-left, 0px), 16px)',
+        paddingRight: 'max(env(safe-area-inset-right, 0px), 16px)',
+      }}
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-between select-none text-white transition-all duration-500 overflow-y-auto ${bgClass}`}
     >
       {/* Dynamic Ambient Background Elements */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -438,22 +444,26 @@ export const LockScreen: React.FC<LockScreenProps> = ({
       </div>
 
       {/* Top Header: Security Badge, Seasonal Countdown Badge & Host */}
-      <div className="relative z-10 w-full max-w-4xl flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-xs text-[var(--accent-light)] font-medium shadow-lg">
-          <Shield className="w-4 h-4 text-[var(--accent)]" />
-          <span>{customization.lockScreenCustomNote || 'Secure Workstation • RTX 5070 Local Engine'}</span>
+      <div className="relative z-10 w-full max-w-4xl flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-xs text-[var(--accent-light)] font-medium shadow-lg min-w-0 truncate">
+          <Shield className="w-3.5 h-3.5 text-[var(--accent)] flex-none" />
+          <span className="truncate">{customization.lockScreenCustomNote || (
+            <>
+              <span className="hidden sm:inline">Secure Workstation • </span>
+              <span>RTX 5070 Local Engine</span>
+            </>
+          )}</span>
         </div>
 
         {/* Small time till next season on top */}
-        <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-[11px] sm:text-xs text-[var(--accent-light)] font-medium shadow-lg whitespace-nowrap">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-[11px] sm:text-xs text-[var(--accent-light)] font-medium shadow-lg whitespace-nowrap flex-none">
           <span className="text-xs sm:text-sm">{seasonal.icon}</span>
           <span className="text-white font-semibold">{seasonal.seasonName}</span>
-          <span className="text-white/40 hide-on-ultranarrow">•</span>
-          <span className="font-mono text-[10px] text-[var(--accent-light)] seasonal-mobile-short hide-on-ultranarrow">{seasonal.daysUntilNext}d to {seasonal.nextSeasonName}</span>
-          <span className="font-mono text-[11px] text-[var(--accent-light)] seasonal-desktop-full">{seasonal.countdownText}</span>
+          <span className="text-white/40">•</span>
+          <span className="font-mono text-[10px] sm:text-xs text-[var(--accent-light)]">{seasonal.daysUntilNext}d to {seasonal.nextSeasonName}</span>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className="hidden md:flex items-center gap-2 text-xs text-gray-400 flex-none">
           <Cpu className="w-3.5 h-3.5 text-[var(--accent-light)]" />
           <span className="font-mono">Hermes Host</span>
         </div>

@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import {
   Settings,
   PanelLeft,
 } from 'lucide-react'
+import { getSeasonalInfo } from '../utils/seasonal'
 
 interface HeaderProps {
   online: boolean
@@ -28,7 +29,9 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleSidebar,
   onOpenSettings,
   activeViewTitle,
+  seasonalCountdownVisible = false,
 }) => {
+  const seasonal = useMemo(() => getSeasonalInfo(), [])
 
   return (
     <header
@@ -59,10 +62,22 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Center: Active Title */}
-      <div className="flex items-center justify-center min-w-0 truncate mx-2">
+      {/* Center: Seasonal Countdown Badge & Active Title */}
+      <div className="flex items-center justify-center min-w-0 truncate mx-2 gap-2">
+        {seasonalCountdownVisible && (
+          <button
+            onClick={() => onOpenSettings('appearance')}
+            title={`Current Season: ${seasonal.seasonName} (${seasonal.daysUntilNext} days until ${seasonal.nextSeasonName}). Click to customize appearance.`}
+            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono text-[var(--accent-light)] transition-all cursor-pointer active:scale-95 flex-none"
+          >
+            <span>{seasonal.icon}</span>
+            <span className="font-semibold text-white">{seasonal.seasonName}</span>
+            <span className="text-white/40">•</span>
+            <span>{seasonal.daysUntilNext}d</span>
+          </button>
+        )}
         {activeViewTitle && (
-          <span className="text-xs font-mono text-neutral-400 truncate max-w-[200px] sm:max-w-xs">
+          <span className="text-xs font-mono text-neutral-400 truncate max-w-[160px] sm:max-w-xs">
             {activeViewTitle}
           </span>
         )}

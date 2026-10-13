@@ -22,10 +22,10 @@ const getSessionsStorageKey = (profile: string) =>
   `Doshie_chat_sessions_${profile.toLowerCase().replace(/\s+/g, '_')}`
 
 const DEFAULT_CUSTOMIZATION: GuiCustomization = {
-  theme: 'antigravity',
-  seasonalThemeEnabled: false,
-  seasonalCountdownVisible: false,
-  backgroundStyle: 'solid',
+  theme: 'seasonal',
+  seasonalThemeEnabled: true,
+  seasonalCountdownVisible: true,
+  backgroundStyle: 'glow',
   fontSize: 'comfortable',
   chatDensity: 'comfortable',
   bubbleStyle: 'rounded',
@@ -51,7 +51,7 @@ const DEFAULT_CUSTOMIZATION: GuiCustomization = {
   quickWakeWidgetShowOnLock: false,
   ledGlowMode: 'off',
   ledGlowIntensity: 'soft',
-  lockScreenWallpaper: 'oled',
+  lockScreenWallpaper: 'seasonal',
   lockScreenClockFormat: '12h',
   lockScreenAutoLockMinutes: 5,
 }
@@ -67,11 +67,6 @@ const loadInitialCustomization = (profile: string): GuiCustomization => {
       return {
         ...DEFAULT_CUSTOMIZATION,
         ...parsed,
-        theme: parsed.theme === 'seasonal' ? 'antigravity' : (parsed.theme || 'antigravity'),
-        ledGlowMode: 'off',
-        backgroundStyle: 'solid',
-        seasonalCountdownVisible: false,
-        seasonalThemeEnabled: false,
       }
     }
     const globalSaved = localStorage.getItem('Doshie_gui_customization')
@@ -80,11 +75,6 @@ const loadInitialCustomization = (profile: string): GuiCustomization => {
       return {
         ...DEFAULT_CUSTOMIZATION,
         ...parsed,
-        theme: parsed.theme === 'seasonal' ? 'antigravity' : (parsed.theme || 'antigravity'),
-        ledGlowMode: 'off',
-        backgroundStyle: 'solid',
-        seasonalCountdownVisible: false,
-        seasonalThemeEnabled: false,
       }
     }
   } catch {}
@@ -150,7 +140,7 @@ export function App() {
             setCustomization(prev => {
               const updated = {
                 ...prev,
-                ...(legacyTheme && ['antigravity', 'emerald', 'cyberpunk', 'oled', 'amber', 'crimson', 'terminal', 'nord', 'dracula'].includes(legacyTheme) ? { theme: legacyTheme } : {}),
+                ...(legacyTheme && ['antigravity', 'emerald', 'cyberpunk', 'oled', 'amber', 'crimson', 'terminal', 'nord', 'dracula', 'seasonal'].includes(legacyTheme) ? { theme: legacyTheme } : {}),
                 ...(typeof legacyMins === 'number' ? { lockScreenAutoLockMinutes: legacyMins } : {}),
               }
               localStorage.setItem(getCustomizationStorageKey(profile), JSON.stringify(updated))
