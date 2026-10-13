@@ -1040,6 +1040,44 @@ export function App() {
       setIsMessengerOpen(true)
       return
     }
+    if (lower === '/hub' || lower === '/agent' || lower === '/agents') {
+      setIsAgentHubOpen(true)
+      return
+    }
+    if (lower === '/tasks' || lower === '/task') {
+      setIsAgentHubOpen(true)
+      return
+    }
+    if (lower === '/skills' || lower === '/skill') {
+      setIsAgentHubOpen(true)
+      return
+    }
+    if (lower.startsWith('/goal')) {
+      const goalText = trimmed.replace(/^\/goal\s*/i, '').trim()
+      if (goalText) {
+        try {
+          const res = await fetch('/api/agent-tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              agent_id: selectedAgent?.id || 'dea427fd2f58',
+              goal: goalText,
+              profile: activeProfile,
+            }),
+          })
+          if (res.ok) {
+            triggerCommandBanner(`Dispatched Autonomous Goal: ${goalText}`, '🎯')
+            setIsAgentHubOpen(true)
+            return
+          }
+        } catch (e) {
+          console.error('Goal dispatch error:', e)
+        }
+      } else {
+        setIsAgentHubOpen(true)
+        return
+      }
+    }
 
     const hasAttachments = Boolean(attachments && attachments.length > 0)
     if ((!trimmed && !hasAttachments) || isGenerating) return
@@ -1117,20 +1155,40 @@ export function App() {
       attachments: hasAttachments ? attachments : undefined,
     }
 
+    let effectiveAgentId = agentId || selectedAgent?.id
+    let agentHeaderInfo = selectedAgent ? { id: selectedAgent.id, name: selectedAgent.name, accent: selectedAgent.accent } : undefined
+
+    const mentionMatch = trimmed.match(/^@([a-zA-Z0-9_-]+)\b\s*/i)
+    if (mentionMatch) {
+      const mentionedName = mentionMatch[1].toLowerCase()
+      const agentMap: Record<string, { id: string; name: string; accent: string }> = {
+        hermes: { id: 'dea427fd2f58', name: 'Hermes', accent: '#35f2d0' },
+        tutor: { id: '3ed296472c34', name: 'Tutor', accent: '#4ea8de' },
+        researcher: { id: 'dc1183a71c4d', name: 'Researcher', accent: '#9d4edd' },
+        home: { id: 'e2a3e4f8414b', name: 'Home', accent: '#52b788' },
+        media: { id: 'c196b651bfb3', name: 'Media', accent: '#ffb703' },
+        codearchitect: { id: 'bfd727a63325', name: 'CodeArchitect', accent: '#06b6d4' },
+      }
+      if (agentMap[mentionedName]) {
+        effectiveAgentId = agentMap[mentionedName].id
+        agentHeaderInfo = agentMap[mentionedName]
+      }
+    }
+
     const pendingAssistantMessage: Message = {
       id: (Date.now() + 1).toString(),
       role: 'assistant',
       content: '',
       timestamp: Date.now(),
       pending: true,
-      agent: selectedAgent ? { id: selectedAgent.id, name: selectedAgent.name, accent: selectedAgent.accent } : undefined,
+      agent: agentHeaderInfo,
     }
 
     const updatedWithUser = [...messages, userMessage, pendingAssistantMessage]
     setMessages(updatedWithUser)
     syncSessionMessages(updatedWithUser, targetSessionId)
 
-    await executeChatRequest(trimmed, attachments, pendingAssistantMessage.id, targetSessionId, brainMode, agentId, location)
+    await executeChatRequest(trimmed, attachments, pendingAssistantMessage.id, targetSessionId, brainMode, effectiveAgentId, location)
   }
 
   // Resend prompt as a fresh new message at the end of chat

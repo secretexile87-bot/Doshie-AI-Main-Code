@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import {
   Send,
   Square,
@@ -13,12 +13,15 @@ import {
   Edit3,
   Camera,
   MapPin,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from 'lucide-react'
 import type { ChatAttachment, SpecialistAgent } from '../types'
 import { FileEditorModal } from './FileEditorModal'
 import { CameraCaptureModal } from './CameraCaptureModal'
 import { LocationPickerModal } from './LocationPickerModal'
+import { getPredictiveHints, getTopGhostSuffix } from '../utils/hintPredictor'
+import type { PredictionHint } from '../utils/hintPredictor'
 
 export interface ClientLocation {
   latitude: number
@@ -108,8 +111,33 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const [locationError, setLocationError] = useState<string | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const ghostBackdropRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const recognitionRef = useRef<any>(null)
+
+  // Smart Autocomplete & Hint Prediction States
+  const [isFocused, setIsFocused] = useState(false)
+  const [dismissedHints, setDismissedHints] = useState(false)
+
+  const hints = useMemo(() => {
+    if (dismissedHints) return []
+    return getPredictiveHints(input)
+  }, [input, dismissedHints])
+
+  const ghostSuffix = useMemo(() => {
+    if (dismissedHints || !input) return null
+    return getTopGhostSuffix(input, hints)
+  }, [input, hints, dismissedHints])
+
+  const applyHint = (hint: PredictionHint) => {
+    setInput(hint.completion)
+    setDismissedHints(false)
+    if (textareaRef.current) {
+      textareaRef.current.focus()
+      const len = hint.completion.length
+      textareaRef.current.setSelectionRange(len, len)
+    }
+  }
 
   const handleBrainChange = (newBrain: string) => {
     setSelectedBrain(newBrain)
@@ -403,6 +431,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       clientLocation || undefined
     )
     setInput('')
+    setDismissedHints(false)
     setAttachments([])
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
@@ -410,6 +439,37 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // 1. Tab accepts the ghost text completion or top predictive hint
+    if (e.key === 'Tab' && !e.shiftKey) {
+      if (ghostSuffix) {
+        e.preventDefault()
+        setInput(input + ghostSuffix)
+        setDismissedHints(false)
+        return
+      } else if (hints.length > 0) {
+        e.preventDefault()
+        applyHint(hints[0])
+        return
+      }
+    }
+
+    // 2. Right Arrow at the end of input accepts the ghost completion
+    if (e.key === 'ArrowRight' && textareaRef.current) {
+      if (textareaRef.current.selectionStart === input.length && ghostSuffix) {
+        e.preventDefault()
+        setInput(input + ghostSuffix)
+        setDismissedHints(false)
+        return
+      }
+    }
+
+    // 3. Escape dismisses hints
+    if (e.key === 'Escape') {
+      setDismissedHints(true)
+      return
+    }
+
+    // 4. Enter sends message (unless shift is pressed)
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
@@ -672,41 +732,109 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           </div>
         )}
 
+        {/* Smart Predictive Hints Tray (Specialized for Autonomous Tasks & Actions) */}
+        {hints.length > 0 && (isFocused || input.length > 0) && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 px-1 scrollbar-none animate-fadeIn select-none w-full max-w-full">
+            <div className="flex items-center gap-1 text-[10px] font-bold text-amber-400 uppercase tracking-wider pl-1.5 pr-2 py-1 flex-none bg-amber-500/10 border border-amber-500/20 rounded-xl shadow-sm">
+              <Sparkles className="w-3 h-3 text-amber-400 animate-pulse flex-none" />
+              <span>Hints</span>
+            </div>
+            {hints.map(hint => (
+              <button
+                key={hint.id}
+                type="button"
+                onMouseDown={e => {
+                  e.preventDefault()
+                  applyHint(hint)
+                }}
+                className="group flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#111620]/90 hover:bg-[#1a2333] border border-white/10 hover:border-[var(--accent)] text-xs text-neutral-200 hover:text-white transition-all shadow-md backdrop-blur-md flex-none cursor-pointer active:scale-95"
+                title={hint.description || hint.title}
+              >
+                <span className="text-xs flex-none">{hint.icon}</span>
+                <span
+                  className="text-[9.5px] px-1.5 py-0.2 rounded font-semibold uppercase tracking-wider flex-none"
+                  style={{
+                    backgroundColor: `${hint.accentColor || '#38bdf8'}25`,
+                    color: hint.accentColor || '#38bdf8',
+                    border: `1px solid ${hint.accentColor || '#38bdf8'}40`,
+                  }}
+                >
+                  {hint.badge}
+                </span>
+                <span className="font-medium text-[11.5px] whitespace-nowrap text-neutral-300 group-hover:text-white">
+                  {hint.title}
+                </span>
+              </button>
+            ))}
+            {ghostSuffix && (
+              <div className="flex items-center gap-1 text-[10px] text-neutral-400 px-2 py-1 rounded-xl bg-white/5 border border-white/10 flex-none hidden sm:flex">
+                <span>Press</span>
+                <kbd className="px-1.5 py-0.2 text-[9px] font-mono rounded bg-white/15 text-white border border-white/20">
+                  Tab ⇥
+                </kbd>
+                <span>to complete</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Integrated Composer Input Capsule */}
         <div className="relative flex flex-col px-3 sm:px-4 pt-3 pb-2 sm:pb-2.5 bg-white/[0.04] hover:bg-white/[0.05] border border-white/10 hover:border-white/20 focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)]/25 rounded-3xl transition-all shadow-xl shadow-black/50 backdrop-blur-xl group overflow-hidden box-border w-full">
-          {/* Top Row: Textarea */}
-          <textarea
-            ref={textareaRef}
-            rows={1}
-            value={input}
-            onChange={e => {
-              setInput(e.target.value)
-              textareaRef.current?.scrollIntoView({ block: 'nearest' })
-            }}
-            onFocus={() => {
-              onKeyboardStateChange?.(true)
-              setTimeout(() => {
-                textareaRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-              }, 80)
-            }}
-            onBlur={() => {
-              setTimeout(() => {
-                const vv = window.visualViewport
-                if (!vv || window.innerHeight - vv.height < 120) {
-                  onKeyboardStateChange?.(false)
+          {/* Top Row: Textarea Container with Inline Ghost Text */}
+          <div className="relative w-full min-w-0">
+            {/* Inline Ghost Text Backdrop */}
+            {ghostSuffix && isFocused && (
+              <div
+                ref={ghostBackdropRef}
+                aria-hidden="true"
+                className="absolute inset-0 pointer-events-none select-none text-white/35 font-inherit text-[15px] sm:text-[16px] leading-relaxed px-0 py-0.5 whitespace-pre-wrap break-words overflow-hidden"
+              >
+                <span className="invisible">{input}</span>
+                <span className="text-white/40 italic font-normal">{ghostSuffix}</span>
+              </div>
+            )}
+
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={input}
+              onChange={e => {
+                setInput(e.target.value)
+                setDismissedHints(false)
+                textareaRef.current?.scrollIntoView({ block: 'nearest' })
+              }}
+              onScroll={e => {
+                if (ghostBackdropRef.current) {
+                  ghostBackdropRef.current.scrollTop = e.currentTarget.scrollTop
                 }
-              }, 120)
-            }}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder={isListening ? "Listening... speak now" : placeholder}
-            disabled={isGenerating}
-            enterKeyHint="send"
-            autoCapitalize="sentences"
-            autoCorrect="on"
-            spellCheck="true"
-            className="w-full min-w-0 bg-transparent text-white placeholder-neutral-400 text-[15px] sm:text-[16px] leading-relaxed outline-none resize-none px-0 py-0.5 min-h-[36px] max-h-[160px] overflow-y-auto"
-          />
+              }}
+              onFocus={() => {
+                setIsFocused(true)
+                onKeyboardStateChange?.(true)
+                setTimeout(() => {
+                  textareaRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+                }, 80)
+              }}
+              onBlur={() => {
+                setIsFocused(false)
+                setTimeout(() => {
+                  const vv = window.visualViewport
+                  if (!vv || window.innerHeight - vv.height < 120) {
+                    onKeyboardStateChange?.(false)
+                  }
+                }, 120)
+              }}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              placeholder={isListening ? "Listening... speak now" : placeholder}
+              disabled={isGenerating}
+              enterKeyHint="send"
+              autoCapitalize="sentences"
+              autoCorrect="on"
+              spellCheck="true"
+              className="w-full min-w-0 bg-transparent text-white placeholder-neutral-400 text-[15px] sm:text-[16px] leading-relaxed outline-none resize-none px-0 py-0.5 min-h-[36px] max-h-[160px] overflow-y-auto relative z-10"
+            />
+          </div>
 
           {/* Bottom Bar: Attach, Model Selector, Voice & Send */}
           <div className="flex items-center justify-between gap-1.5 sm:gap-2 pt-2 sm:pt-2.5 mt-1 border-t border-white/5 w-full min-w-0">
