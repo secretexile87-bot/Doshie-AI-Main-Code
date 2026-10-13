@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useTransition, useMemo } from 'react'
+import { useState, useEffect, useRef, useTransition, useMemo } from 'react'
 import { Header } from './components/Header'
 import { Sidebar } from './components/Sidebar'
 import { ChatMessage } from './components/ChatMessage'
@@ -25,34 +25,34 @@ const getSessionsStorageKey = (profile: string) =>
 const DEFAULT_CUSTOMIZATION: GuiCustomization = {
   theme: 'antigravity',
   seasonalThemeEnabled: false,
-  seasonalCountdownVisible: true,
-  backgroundStyle: 'glow',
+  seasonalCountdownVisible: false,
+  backgroundStyle: 'solid',
   fontSize: 'comfortable',
   chatDensity: 'comfortable',
   bubbleStyle: 'rounded',
   assistantEmoji: '🦖',
   assistantName: 'Doshie',
   greetingTitle: 'How can I help you today?',
-  greetingSubtitle: 'Private local AI companion running directly on your RTX 5070 workstation.',
-  glassEffect: true,
+  greetingSubtitle: 'Private local AI companion running directly on your workstation.',
+  glassEffect: false,
   showTimestamp: true,
   showAvatars: true,
-  codeTheme: 'matrix',
+  codeTheme: 'high_contrast',
   soundEffects: false,
   soundVolume: 0.8,
   smoothScroll: true,
-  wakeWordEnabled: true,
+  wakeWordEnabled: false,
   wakeWordName: 'Doshie',
   voiceFeedbackEnabled: true,
   wakeSoundType: 'gemini',
   wakeSoundVolume: 0.8,
   wakeSoundCustomUrl: '',
-  quickWakeWidgetEnabled: true,
+  quickWakeWidgetEnabled: false,
   quickWakeWidgetStyle: 'floating',
-  quickWakeWidgetShowOnLock: true,
-  ledGlowMode: 'dynamic',
-  ledGlowIntensity: 'vivid',
-  lockScreenWallpaper: 'glow',
+  quickWakeWidgetShowOnLock: false,
+  ledGlowMode: 'off',
+  ledGlowIntensity: 'soft',
+  lockScreenWallpaper: 'oled',
   lockScreenClockFormat: '12h',
   lockScreenAutoLockMinutes: 5,
 }
@@ -63,9 +63,31 @@ const getCustomizationStorageKey = (profile: string) =>
 const loadInitialCustomization = (profile: string): GuiCustomization => {
   try {
     const profileSaved = localStorage.getItem(getCustomizationStorageKey(profile))
-    if (profileSaved) return { ...DEFAULT_CUSTOMIZATION, ...JSON.parse(profileSaved) }
+    if (profileSaved) {
+      const parsed = JSON.parse(profileSaved)
+      return {
+        ...DEFAULT_CUSTOMIZATION,
+        ...parsed,
+        theme: parsed.theme === 'seasonal' ? 'antigravity' : (parsed.theme || 'antigravity'),
+        ledGlowMode: 'off',
+        backgroundStyle: 'solid',
+        seasonalCountdownVisible: false,
+        seasonalThemeEnabled: false,
+      }
+    }
     const globalSaved = localStorage.getItem('Doshie_gui_customization')
-    if (globalSaved) return { ...DEFAULT_CUSTOMIZATION, ...JSON.parse(globalSaved) }
+    if (globalSaved) {
+      const parsed = JSON.parse(globalSaved)
+      return {
+        ...DEFAULT_CUSTOMIZATION,
+        ...parsed,
+        theme: parsed.theme === 'seasonal' ? 'antigravity' : (parsed.theme || 'antigravity'),
+        ledGlowMode: 'off',
+        backgroundStyle: 'solid',
+        seasonalCountdownVisible: false,
+        seasonalThemeEnabled: false,
+      }
+    }
   } catch {}
   return DEFAULT_CUSTOMIZATION
 }
@@ -275,9 +297,6 @@ export function App() {
     }
   }, [customization.myspaceSparkleCursor])
 
-  // MySpace Audio Player State
-  const [isPlayingMySpaceSong, setIsPlayingMySpaceSong] = useState(false)
-  const mySpaceAudioRef = useRef<HTMLAudioElement | null>(null)
 
   // Sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
@@ -1758,54 +1777,6 @@ export function App() {
         />
 
 
-        {/* MySpace Retro Marquee Ticker */}
-        {customization.myspaceMarqueeText && (
-          <div className="flex-none bg-black/75 border-b border-pink-500/40 text-pink-300 py-1 px-3 text-xs font-mono overflow-hidden shadow-inner flex items-center justify-between z-20">
-            <span className="mr-2 flex-none animate-pulse">✨</span>
-            <div className="flex-1 overflow-hidden whitespace-nowrap">
-              {React.createElement(
-                'marquee',
-                { className: 'w-full align-middle' },
-                customization.myspaceMarqueeText
-              )}
-            </div>
-            <span className="ml-2 flex-none animate-pulse">✨</span>
-          </div>
-        )}
-
-        {/* MySpace Profile Song Player Widget */}
-        {customization.myspaceSongUrl && (
-          <div className="flex-none bg-[#11051e]/85 backdrop-blur-md border-b border-purple-500/40 px-3 py-1.5 flex items-center justify-between text-xs text-purple-200 shadow-sm z-20">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="p-1 rounded bg-purple-900/60 text-purple-300 flex-none animate-pulse">
-                🎵
-              </span>
-              <span className="truncate font-semibold text-[11px]">
-                {customization.myspaceSongTitle || 'MySpace Profile Song'}
-              </span>
-            </div>
-            <audio
-              ref={mySpaceAudioRef}
-              src={customization.myspaceSongUrl}
-              onEnded={() => setIsPlayingMySpaceSong(false)}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                if (!mySpaceAudioRef.current) return
-                if (isPlayingMySpaceSong) {
-                  mySpaceAudioRef.current.pause()
-                  setIsPlayingMySpaceSong(false)
-                } else {
-                  mySpaceAudioRef.current.play().then(() => setIsPlayingMySpaceSong(true)).catch(() => {})
-                }
-              }}
-              className="px-2.5 py-0.5 rounded-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-[10px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer shadow-xs active:scale-95"
-            >
-              <span>{isPlayingMySpaceSong ? '⏸️ Pause' : '▶️ Play Song'}</span>
-            </button>
-          </div>
-        )}
 
         {/* View Switcher: Antigravity Transcript Viewer vs Live Doshie Chat */}
         {activeAntigravityId ? (

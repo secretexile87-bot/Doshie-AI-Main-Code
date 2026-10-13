@@ -3,19 +3,19 @@
 @layer base {
   :root,
   [data-theme="antigravity"] {
-    --bg-dark: #0d1117;
-    --card-dark: #161b22;
-    --card-hover: #21262d;
-    --border-dark: #30363d;
+    --bg-dark: #000000;
+    --card-dark: #09090b;
+    --card-hover: #18181b;
+    --border-dark: #27272a;
     --accent: #38bdf8;
     --accent-hover: #0284c7;
     --accent-light: #7dd3fc;
-    --user-bubble: #1f242c;
-    --bot-bubble: #161b22;
-    --bot-border: #30363d;
+    --user-bubble: #121215;
+    --bot-bubble: #09090b;
+    --bot-border: #27272a;
     --chat-font-size: 14.5px;
     --chat-gap: 0.75rem;
-    --bubble-radius: 1.25rem;
+    --bubble-radius: 0.85rem;
     --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --bg-pattern: none;
     --native-safe-top: env(safe-area-inset-top, 0px);
@@ -603,9 +603,10 @@ pre[class*="language-"] {
 .seasonal-action-pill {
   border-width: 1px;
   border-style: solid;
-  border-color: var(--led-glow-color, var(--accent, #f97316));
-  background: rgba(18, 12, 7, 0.75);
-  animation: seasonalLightingPulse 2.8s ease-in-out infinite;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(24, 24, 27, 0.8);
+  animation: none !important;
+  box-shadow: none !important;
 }
 
 /* LED Glow Setting Overrides */

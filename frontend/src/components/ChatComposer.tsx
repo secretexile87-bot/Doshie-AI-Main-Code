@@ -781,11 +781,11 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           </div>
         )}
 
-        {/* Smart Predictive Hints Tray (Specialized for Autonomous Tasks & Actions) */}
+        {/* Smart Predictive Hints Tray */}
         {hints.length > 0 && (isFocused || input.length > 0) && (
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 px-1 scrollbar-none animate-fadeIn select-none w-full max-w-full">
-            <div className="flex items-center gap-1 text-[10px] font-bold text-amber-400 uppercase tracking-wider pl-1.5 pr-2 py-1 flex-none bg-amber-500/10 border border-amber-500/20 rounded-xl shadow-sm">
-              <Sparkles className="w-3 h-3 text-amber-400 animate-pulse flex-none" />
+            <div className="flex items-center gap-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider pl-1.5 pr-2 py-1 flex-none bg-white/5 border border-white/10 rounded-lg shadow-sm">
+              <Sparkles className="w-3 h-3 text-neutral-400 flex-none" />
               <span>Hints</span>
             </div>
             {hints.map((hint, idx) => {
@@ -803,10 +803,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                     applyHint(hint)
                   }}
                   onMouseEnter={() => setActiveHintIndex(idx)}
-                  className={`group flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs transition-all shadow-md backdrop-blur-md flex-none cursor-pointer active:scale-95 ${
+                  className={`group flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs transition-all shadow-md flex-none cursor-pointer active:scale-95 ${
                     isSelected
-                      ? 'bg-[#1e293b] border-2 border-[var(--accent)] text-white ring-2 ring-[var(--accent)]/35 shadow-[var(--accent)]/20 scale-[1.02]'
-                      : 'bg-[#111620]/90 hover:bg-[#1a2333] border border-white/10 hover:border-[var(--accent)]/60 text-neutral-200 hover:text-white'
+                      ? 'bg-[#1e1e24] border border-white/30 text-white shadow-sm'
+                      : 'bg-[#121215] hover:bg-[#18181b] border border-white/10 text-neutral-300 hover:text-white'
                   }`}
                   title={hint.description || hint.title}
                 >
@@ -814,9 +814,9 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                   <span
                     className="text-[9.5px] px-1.5 py-0.2 rounded font-semibold uppercase tracking-wider flex-none"
                     style={{
-                      backgroundColor: `${hint.accentColor || '#38bdf8'}25`,
-                      color: hint.accentColor || '#38bdf8',
-                      border: `1px solid ${hint.accentColor || '#38bdf8'}40`,
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      color: '#e4e4e7',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
                     }}
                   >
                     {hint.badge}
@@ -833,13 +833,13 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               )
             })}
             {ghostSuffix && (
-              <div className="flex items-center gap-1 text-[10px] text-neutral-300 px-2 py-1 rounded-xl bg-white/10 border border-white/15 flex-none hidden sm:flex shadow-sm">
+              <div className="flex items-center gap-1 text-[10px] text-neutral-400 px-2 py-1 rounded-lg bg-white/5 border border-white/10 flex-none hidden sm:flex shadow-sm">
                 <span>Press</span>
-                <kbd className="px-1.5 py-0.2 text-[9px] font-mono rounded bg-white/20 text-white border border-white/30 font-bold">
+                <kbd className="px-1.5 py-0.2 text-[9px] font-mono rounded bg-white/15 text-white border border-white/20 font-bold">
                   ↵ Enter
                 </kbd>
                 <span>or</span>
-                <kbd className="px-1.5 py-0.2 text-[9px] font-mono rounded bg-white/20 text-white border border-white/30 font-bold">
+                <kbd className="px-1.5 py-0.2 text-[9px] font-mono rounded bg-white/15 text-white border border-white/20 font-bold">
                   Tab ⇥
                 </kbd>
                 <span>to fill</span>
@@ -849,7 +849,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         )}
 
         {/* Integrated Composer Input Capsule */}
-        <div className="relative flex flex-col px-3 sm:px-4 pt-3 pb-2 sm:pb-2.5 bg-white/[0.04] hover:bg-white/[0.05] border border-white/10 hover:border-white/20 focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)]/25 rounded-3xl transition-all shadow-xl shadow-black/50 backdrop-blur-xl group overflow-hidden box-border w-full">
+        <div className="relative flex flex-col px-3 sm:px-4 pt-3 pb-2 sm:pb-2.5 bg-[#09090b] hover:bg-[#0d0d10] border border-[#27272a] hover:border-[#3f3f46] focus-within:border-white/30 rounded-2xl transition-all shadow-xl shadow-black/60 group overflow-hidden box-border w-full">
           {/* Top Row: Textarea Container with Inline Ghost Text */}
           <div className="relative w-full min-w-0">
             {/* Inline Ghost Text Backdrop */}
