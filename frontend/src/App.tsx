@@ -898,21 +898,42 @@ export function App() {
     try {
       const targetAgentId = agentId || selectedAgent?.id
       const effectiveBrain = brainMode || localStorage.getItem('Doshie_brain_mode') || 'auto'
-      const response = await fetch('/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: trimmed || (hasAttachments ? 'Analyze the attached file(s) or image(s).' : ''),
-          profile: activeProfile,
-          attachments: hasAttachments ? attachments!.map(a => a.id) : [],
-          brain_mode: effectiveBrain,
-          agent_id: targetAgentId,
-          location: location || undefined,
-        }),
-        signal: controller.signal,
-      })
+      
+      // Auto-retry fetch helper to recover if Android suspended background network during app switch
+      let response: Response | null = null
+      let lastFetchErr: any = null
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (controller.signal.aborted) break
+        try {
+          response = await fetch('/chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              message: trimmed || (hasAttachments ? 'Analyze the attached file(s) or image(s).' : ''),
+              profile: activeProfile,
+              attachments: hasAttachments ? attachments!.map(a => a.id) : [],
+              brain_mode: effectiveBrain,
+              agent_id: targetAgentId,
+              location: location || undefined,
+            }),
+            signal: controller.signal,
+          })
+          if (response) break
+        } catch (err: any) {
+          lastFetchErr = err
+          if (err.name === 'AbortError') throw err
+          // If network failed (e.g., app was in background or socket paused), wait briefly and retry once app resumes
+          if (attempt < 2) {
+            await new Promise(r => setTimeout(r, 1200 * (attempt + 1)))
+          }
+        }
+      }
+
+      if (!response) {
+        throw lastFetchErr || new Error('Connection lost while app was in background. Please check connection.')
+      }
 
       if (!response.ok) {
         let errDetail = ''
@@ -1498,7 +1519,8 @@ export function App() {
     setIsSettingsOpen(true)
   }
 
-  // Hands-free continuous wake word listener ("Hey Doshie", "Doshie", etc.)
+  // Hands-free wake word listener ("Hey Doshie", "Doshie", etc.)
+  // Battery optimized: Pauses immediately when tab/app is hidden or minimized, handles battery saver mode
   useEffect(() => {
     if (customization.wakeWordEnabled === false || isLocked || isLiveVoiceOpen) {
       return
@@ -1510,12 +1532,33 @@ export function App() {
     let recognition: any = null
     let isStopped = false
     let restartTimer: any = null
+    let isPausedForVisibility = false
+
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || Boolean((window as any).Capacitor)
+    // Battery saver enabled by default on mobile or if explicitly configured
+    const isBatterySaver = customization.wakeWordBatterySaver ?? isMobile
+
+    const stopRecognition = () => {
+      if (restartTimer) {
+        clearTimeout(restartTimer)
+        restartTimer = null
+      }
+      if (recognition) {
+        try {
+          recognition.abort()
+        } catch {}
+        recognition = null
+      }
+    }
 
     const startRecognition = () => {
-      if (isStopped) return
+      if (isStopped || isPausedForVisibility || document.hidden) return
+      stopRecognition()
+
       try {
         recognition = new SpeechRec()
-        recognition.continuous = true
+        // In battery saver mode, continuous false lets recognition cycle with pauses instead of locking audio DSP 100% of the time
+        recognition.continuous = !isBatterySaver
         recognition.interimResults = false
         recognition.lang = 'en-US'
 
@@ -1555,12 +1598,15 @@ export function App() {
         }
 
         recognition.onend = () => {
-          if (!isStopped && !isLocked && !isLiveVoiceOpen && customization.wakeWordEnabled !== false) {
+          recognition = null
+          if (!isStopped && !isPausedForVisibility && !isLocked && !isLiveVoiceOpen && customization.wakeWordEnabled !== false && !document.hidden) {
+            // Adaptive delay: 1500ms backoff in battery saver mode or mobile to let CPU sleep and preserve battery; 400ms on desktop
+            const restartDelay = isBatterySaver ? 1500 : 400
             restartTimer = setTimeout(() => {
-              if (!isStopped && !isLocked && !isLiveVoiceOpen) {
+              if (!isStopped && !isPausedForVisibility && !isLocked && !isLiveVoiceOpen && !document.hidden) {
                 startRecognition()
               }
-            }, 400)
+            }, restartDelay)
           }
         }
 
@@ -1570,19 +1616,52 @@ export function App() {
       }
     }
 
-    startRecognition()
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab / app is hidden, screen locked, or minimized -> Halt microphone hardware immediately to save battery!
+        isPausedForVisibility = true
+        stopRecognition()
+      } else {
+        // Tab / app resumed and active -> Resume wake word listener if enabled
+        isPausedForVisibility = false
+        if (!isStopped && !isLocked && !isLiveVoiceOpen) {
+          // Small grace delay before restarting
+          restartTimer = setTimeout(() => {
+            if (!isStopped && !document.hidden && !isLocked && !isLiveVoiceOpen) {
+              startRecognition()
+            }
+          }, 300)
+        }
+      }
+    }
+
+    // Attach visibility listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('blur', () => {
+      // On mobile WebView, blur often fires when screen turns off or another app overlays
+      if (isMobile) {
+        handleVisibilityChange()
+      }
+    })
+    window.addEventListener('focus', () => {
+      if (!document.hidden) {
+        handleVisibilityChange()
+      }
+    })
+
+    // Initial start if visible
+    if (!document.hidden) {
+      startRecognition()
+    }
 
     return () => {
       isStopped = true
-      if (restartTimer) clearTimeout(restartTimer)
-      if (recognition) {
-        try {
-          recognition.abort()
-        } catch {}
-      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      stopRecognition()
     }
   }, [
     customization.wakeWordEnabled,
+    customization.wakeWordBatterySaver,
     customization.wakeWordName,
     customization.voiceFeedbackEnabled,
     customization.wakeSoundType,

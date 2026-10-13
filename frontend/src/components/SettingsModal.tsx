@@ -1788,7 +1788,7 @@ body {
                           />
                           <span className="text-[10px] text-emerald-400/60 mt-0.5 block">Responds to "Hey {customization.wakeWordName || 'Doshie'}"</span>
                         </div>
-                        <div className="flex flex-col justify-center">
+                        <div className="flex flex-col justify-center space-y-2">
                           <label className="flex items-center justify-between cursor-pointer">
                             <div>
                               <span className="text-xs font-medium text-white block">Action Voice Feedback</span>
@@ -1798,6 +1798,20 @@ body {
                               type="checkbox"
                               checked={customization.voiceFeedbackEnabled ?? true}
                               onChange={e => onUpdateCustomization({ voiceFeedbackEnabled: e.target.checked })}
+                              className="w-4 h-4 rounded accent-emerald-500 ml-2"
+                            />
+                          </label>
+                          <label className="flex items-center justify-between cursor-pointer pt-1 border-t border-emerald-900/40">
+                            <div>
+                              <span className="text-xs font-medium text-white block flex items-center gap-1">
+                                <span>🔋 Battery Saver Mode</span>
+                              </span>
+                              <span className="text-[10px] text-emerald-400/70 block">Auto-pauses when tab/app is closed or hidden to preserve battery</span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={customization.wakeWordBatterySaver ?? true}
+                              onChange={e => onUpdateCustomization({ wakeWordBatterySaver: e.target.checked })}
                               className="w-4 h-4 rounded accent-emerald-500 ml-2"
                             />
                           </label>

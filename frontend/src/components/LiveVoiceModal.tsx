@@ -155,7 +155,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       return
     }
 
-    if (noSleep) {
+    if (noSleep && document.visibilityState === 'visible') {
       requestWakeLock()
     } else {
       releaseWakeLock()
@@ -164,6 +164,26 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isOpen && noSleep) {
         requestWakeLock()
+      } else if (document.visibilityState === 'hidden') {
+        // App is hidden or phone screen locked: immediately release screen wakelock and stop mic hardware
+        releaseWakeLock()
+        if (activeRecorderRef.current && activeRecorderRef.current.state !== 'inactive') {
+          try { activeRecorderRef.current.stop() } catch {}
+          activeRecorderRef.current = null
+        }
+        if (mediaStreamRef.current) {
+          try { mediaStreamRef.current.getTracks().forEach((t) => t.stop()) } catch {}
+          mediaStreamRef.current = null
+        }
+        if (recognitionRef.current) {
+          try { recognitionRef.current.abort() } catch {}
+          recognitionRef.current = null
+        }
+        const nativeSpeech = getNativeSpeech()
+        if (nativeSpeech) {
+          try { nativeSpeech.stopListening().catch(() => {}) } catch {}
+        }
+        stopSpeech()
       }
     }
 

@@ -32,12 +32,19 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(DiYoshiBiometricPlugin.class);
         super.onCreate(savedInstanceState);
 
-        // Ensure microphone permissions are prompted and granted for speech recognition and live voice
+        // Ensure microphone and notification permissions are prompted and granted
+        java.util.List<String> neededPermissions = new java.util.ArrayList<>();
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{
-                android.Manifest.permission.RECORD_AUDIO,
-                android.Manifest.permission.MODIFY_AUDIO_SETTINGS
-            }, 101);
+            neededPermissions.add(android.Manifest.permission.RECORD_AUDIO);
+            neededPermissions.add(android.Manifest.permission.MODIFY_AUDIO_SETTINGS);
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                neededPermissions.add(android.Manifest.permission.POST_NOTIFICATIONS);
+            }
+        }
+        if (!neededPermissions.isEmpty()) {
+            requestPermissions(neededPermissions.toArray(new String[0]), 101);
         }
 
         installSafeAreaBridge();
@@ -46,6 +53,16 @@ public class MainActivity extends BridgeActivity {
         handleQuickActionIntent(getIntent());
         checkForUpdate();
         // Updates are checked against the trusted Doshie APK channel.
+
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().post(() -> {
+                try {
+                    android.webkit.WebSettings webSettings = bridge.getWebView().getSettings();
+                    webSettings.setDomStorageEnabled(true);
+                    webSettings.setDatabaseEnabled(true);
+                } catch (Exception ignored) {}
+            });
+        }
     }
 
     private void installBackButtonHandler() {

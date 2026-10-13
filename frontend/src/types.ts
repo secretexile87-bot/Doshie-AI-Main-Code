@@ -114,6 +114,7 @@ export interface GuiCustomization {
 
   // Voice Wake-Up, Sounds & Hands-Free Commands
   wakeWordEnabled?: boolean
+  wakeWordBatterySaver?: boolean
   wakeWordName?: string
   voiceFeedbackEnabled?: boolean
   wakeSoundType?: 'gemini' | 'marimba' | 'scifi' | 'arcade' | 'zen' | 'subtle' | 'custom' | 'silent'

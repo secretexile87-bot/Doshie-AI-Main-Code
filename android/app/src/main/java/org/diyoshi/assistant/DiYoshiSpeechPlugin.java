@@ -281,6 +281,37 @@ public class DiYoshiSpeechPlugin extends Plugin {
     }
 
     @Override
+    protected void handleOnPause() {
+        // Automatically release audio hardware and stop listening when app loses foreground
+        if (activeCall != null) {
+            try {
+                activeCall.reject("Speech recognition paused due to app backgrounding.");
+            } catch (Throwable ignored) {}
+            activeCall = null;
+        }
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(this::destroyRecognizer);
+        } else {
+            destroyRecognizer();
+        }
+    }
+
+    @Override
+    protected void handleOnStop() {
+        if (activeCall != null) {
+            try {
+                activeCall.reject("Speech recognition stopped due to app backgrounding.");
+            } catch (Throwable ignored) {}
+            activeCall = null;
+        }
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(this::destroyRecognizer);
+        } else {
+            destroyRecognizer();
+        }
+    }
+
+    @Override
     protected void handleOnDestroy() {
         if (activeCall != null) {
             try {
