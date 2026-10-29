@@ -1594,6 +1594,44 @@ body {
                     </button>
                   </div>
                 </div>
+
+                {/* 10. WhatsApp Agent Bridge & Jeff Link */}
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-emerald-500/50 transition-all flex flex-col justify-between shadow-md">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-xl bg-emerald-950 border border-emerald-500/40 text-emerald-400 shadow-md flex-none">
+                      <Bot className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-white">WhatsApp &amp; Jeff Agent</h4>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono font-bold uppercase bg-emerald-950 text-emerald-300 border border-emerald-700">
+                          Bridge Ready
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-300 mt-0.5">
+                        Autonomous WhatsApp link with peer agent routing for Jeff (WAAV Key linked).
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-3.5">
+                    <button
+                      onClick={() => window.open('/api/whatsapp/status', '_blank')}
+                      className="w-full py-2 px-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                    >
+                      <Bot className="w-3.5 h-3.5" />
+                      Bridge Status
+                    </button>
+                    <a
+                      href="https://web.whatsapp.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 px-2.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-200 text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5 text-center"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Open WhatsApp
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           ) : tab === 'settings' ? (
