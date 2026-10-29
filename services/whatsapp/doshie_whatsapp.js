@@ -18,6 +18,7 @@
 
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
+const QRCode = require('qrcode');
 const express = require('express');
 const http = require('http');
 
@@ -206,6 +207,97 @@ api.get('/status', (req, res) => {
     pairing_code: pairingCode,
     queue_size: messageQueue.length,
   });
+});
+
+// Visual QR Code PNG Image
+api.get('/qr.png', async (req, res) => {
+  if (!qrCode) {
+    return res.status(404).send('No QR code available.');
+  }
+  try {
+    const buffer = await QRCode.toBuffer(qrCode, { width: 360, margin: 2 });
+    res.type('image/png').send(buffer);
+  } catch (err) {
+    res.status(500).send('Error generating QR image');
+  }
+});
+
+// Visual QR Scan HTML Page
+api.get('/scan', async (req, res) => {
+  if (waStatus === 'ready') {
+    return res.send(`
+      <!DOCTYPE html>
+      <html><head><title>WhatsApp Connected · Doshie</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+        body { background: #0b141a; color: #e9edef; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; text-align: center; }
+        .card { background: #111b21; padding: 36px; border-radius: 24px; border: 1px solid #222e35; max-width: 420px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+        .badge { display: inline-block; padding: 6px 14px; background: rgba(37,211,102,0.15); color: #25d366; border: 1px solid #25d366; border-radius: 9999px; font-weight: 600; font-size: 13px; margin-bottom: 16px; }
+        .btn { display: inline-block; margin-top: 24px; padding: 12px 24px; background: #25d366; color: #111b21; font-weight: 700; border-radius: 14px; text-decoration: none; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.9; }
+      </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="badge">ONLINE · ACTIVE</div>
+          <h2 style="margin: 0 0 10px 0; color: #fff;">WhatsApp Connected!</h2>
+          <p style="color: #8696a0; font-size: 14px; line-height: 1.5; margin: 0;">
+            Doshie and Jeff Agent are linked and ready. Messages and automated tools are active.
+          </p>
+          <a class="btn" href="https://web.whatsapp.com" target="_blank">Open WhatsApp Web</a>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+
+  let qrImg = '';
+  if (qrCode) {
+    try {
+      qrImg = await QRCode.toDataURL(qrCode, { width: 320, margin: 2 });
+    } catch (_) {}
+  }
+
+  res.send(`
+    <!DOCTYPE html>
+    <html><head><title>Link Doshie &amp; Jeff Agent</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="refresh" content="6">
+    <style>
+      body { background: #0b141a; color: #e9edef; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+      .card { background: #111b21; padding: 28px; border-radius: 24px; border: 1px solid #222e35; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+      .qr-box { background: white; padding: 14px; border-radius: 18px; display: inline-block; margin: 18px 0; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+      .qr-box img { display: block; border-radius: 8px; }
+      .code-badge { background: #202c33; padding: 8px 16px; border-radius: 12px; font-family: monospace; font-size: 18px; color: #25d366; letter-spacing: 2px; margin: 12px 0; display: inline-block; border: 1px solid #2a3942; }
+      h2 { margin: 0 0 8px 0; font-size: 22px; color: #e9edef; }
+      p { margin: 6px 0; font-size: 13px; color: #8696a0; line-height: 1.5; }
+      .steps { text-align: left; background: #182229; padding: 16px; border-radius: 16px; margin-top: 18px; font-size: 13px; color: #d1d7db; }
+      .steps ol { margin: 0; padding-left: 20px; }
+      .steps li { margin-bottom: 8px; }
+      .steps li:last-child { margin-bottom: 0; }
+    </style>
+    </head>
+    <body>
+      <div class="card">
+        <h2>Link Doshie &amp; Jeff Agent</h2>
+        <p>Open WhatsApp on your phone to scan the code below</p>
+
+        ${qrImg ? `<div class="qr-box"><img src="${qrImg}" width="300" height="300" alt="WhatsApp QR Code" /></div>` : '<div style="padding: 40px; color: #8696a0;">⏳ Generating QR code... refreshing automatically in 6s.</div>'}
+
+        ${pairingCode ? `<p style="font-size: 12px; color: #8696a0; margin-top: 8px;">Or enter pairing code:</p><div class="code-badge">${pairingCode}</div>` : ''}
+
+        <div class="steps">
+          <ol>
+            <li>Open <strong>WhatsApp</strong> on your phone</li>
+            <li>Tap <strong>Menu (⋮)</strong> or <strong>Settings</strong></li>
+            <li>Tap <strong>Linked Devices</strong> &rarr; <strong>Link a device</strong></li>
+            <li>Point your camera at this QR code to scan</li>
+          </ol>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
 });
 
 // Info about the logged-in user

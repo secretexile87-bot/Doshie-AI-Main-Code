@@ -1615,11 +1615,11 @@ body {
                   </div>
                   <div className="grid grid-cols-2 gap-2 mt-3.5">
                     <button
-                      onClick={() => window.open('/api/whatsapp/status', '_blank')}
+                      onClick={() => window.open('/whatsapp', '_blank')}
                       className="w-full py-2 px-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
                     >
                       <Bot className="w-3.5 h-3.5" />
-                      Bridge Status
+                      Scan QR Code
                     </button>
                     <a
                       href="https://web.whatsapp.com"

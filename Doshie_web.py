@@ -14041,6 +14041,36 @@ def api_whatsapp_qr():
     return jsonify(doshie_whatsapp.get_qr())
 
 
+@app.route("/whatsapp", methods=["GET"])
+@app.route("/whatsapp/scan", methods=["GET"])
+def serve_whatsapp_scan():
+    import urllib.request
+    try:
+        req = urllib.request.urlopen("http://127.0.0.1:5099/scan", timeout=6)
+        return req.read().decode("utf-8"), 200, {"Content-Type": "text/html"}
+    except Exception as exc:
+        return f"""
+        <!DOCTYPE html>
+        <html><head><title>WhatsApp Starting</title><meta http-equiv="refresh" content="3">
+        <body style="background:#0b141a;color:#8696a0;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;">
+        <div style="text-align:center;">
+          <h2 style="color:#e9edef;">Connecting WhatsApp Bridge...</h2>
+          <p>Please wait a moment while the bridge initializes.</p>
+        </div>
+        </body></html>
+        """, 200, {"Content-Type": "text/html"}
+
+
+@app.route("/api/whatsapp/qr.png", methods=["GET"])
+def serve_whatsapp_qr_png():
+    import urllib.request
+    try:
+        req = urllib.request.urlopen("http://127.0.0.1:5099/qr.png", timeout=6)
+        return req.read(), 200, {"Content-Type": "image/png"}
+    except Exception:
+        return "", 404
+
+
 @app.route("/api/whatsapp/send", methods=["POST"])
 def api_whatsapp_send():
     import doshie_whatsapp
