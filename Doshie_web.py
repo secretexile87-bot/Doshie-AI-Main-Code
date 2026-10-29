@@ -14019,6 +14019,8 @@ def command_center():
 # ---------------------------------------------------------------------------
 @app.route("/api/whatsapp/status", methods=["GET"])
 def api_whatsapp_status():
+    if request.headers.get("Accept", "").startswith("text/html"):
+        return redirect("/whatsapp")
     import doshie_whatsapp
     return jsonify(doshie_whatsapp.get_status())
 
