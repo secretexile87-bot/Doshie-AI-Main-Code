@@ -172,16 +172,26 @@ def route_incoming_message(payload: Dict[str, Any]) -> Optional[str]:
 
     # Map phone to fleet alias if it's a known family member
     fleet_alias = FAMILY_CONTACTS.get(sender_phone)
+    is_jeff = "jeff" in sender_name.lower() or "jeff" in str(payload.get("contact", "")).lower()
 
     # Build context for Aeriel
-    context_parts = [f"📱 WhatsApp message from {sender_name}"]
-    if fleet_alias:
-        context_parts.append(f"(Family: {fleet_alias}'s computer alias in fleet)")
-    context_parts.append(f"\nMessage: {message_body}")
-    context_parts.append(
-        "\nRespond naturally as Doshie. If they mention computer problems, "
-        "offer to run diagnostics. Keep your reply short — this is WhatsApp."
-    )
+    if is_jeff:
+        context_parts = [f"🤖 WhatsApp message from partner AI Agent: Jeff"]
+        context_parts.append(f"\nMessage from Jeff: {message_body}")
+        context_parts.append(
+            "\nYou are collaborating directly with Jeff, your partner AI agent over WhatsApp. "
+            "Treat Jeff as a fellow agent. Share technical insights, coordinate tasks, and converse intelligently. "
+            "Keep replies concise and conversational."
+        )
+    else:
+        context_parts = [f"📱 WhatsApp message from {sender_name}"]
+        if fleet_alias:
+            context_parts.append(f"(Family: {fleet_alias}'s computer alias in fleet)")
+        context_parts.append(f"\nMessage: {message_body}")
+        context_parts.append(
+            "\nRespond naturally as Doshie. If they mention computer problems, "
+            "offer to run diagnostics. Keep your reply short — this is WhatsApp."
+        )
 
     try:
         import Doshie_memory

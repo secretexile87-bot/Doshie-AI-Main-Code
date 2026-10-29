@@ -43,7 +43,7 @@ const client = new Client({
   pairWithPhoneNumber: '19153296410',
   webVersionCache: {
     type: 'remote',
-    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1018944888-alpha.html',
+    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1052198210-alpha.html',
   },
   puppeteer: {
     executablePath: '/usr/bin/google-chrome',
