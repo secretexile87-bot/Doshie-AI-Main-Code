@@ -12,6 +12,7 @@ import { VoiceStudioModal } from './components/VoiceStudioModal'
 import { AgentHubModal } from './components/AgentHubModal'
 import { MessengerModal } from './components/MessengerModal'
 import { AgentConsoleModal } from './components/AgentConsoleModal'
+import { GamingModal } from './components/GamingModal'
 import { stopSpeech, subscribeSpeechState, playNeuralSpeech, playWakeChime } from './utils/audio'
 import { parseAndExecuteCommand, detectWakeWord, type CommandContext } from './utils/commands'
 import { getSeasonalInfo } from './utils/seasonal'
@@ -105,6 +106,7 @@ export function App() {
   const [isVoiceStudioOpen, setIsVoiceStudioOpen] = useState(false)
   const [isAgentHubOpen, setIsAgentHubOpen] = useState(false)
   const [isAgentConsoleOpen, setIsAgentConsoleOpen] = useState(false)
+  const [isGamingOpen, setIsGamingOpen] = useState(false)
   const [isMessengerOpen, setIsMessengerOpen] = useState(false)
   const [messengerUnreadCount, setMessengerUnreadCount] = useState(0)
   const [selectedAgent, setSelectedAgent] = useState<SpecialistAgent | null>(null)
@@ -119,12 +121,40 @@ export function App() {
   })
   const saveTimeoutRef = useRef<any>(null)
 
+  // Auto-speak replies state (disabled for text chat; speak out loud is only on live voice)
+  const [speakReplies, setSpeakReplies] = useState<boolean>(false)
+
+  const handleToggleSpeakReplies = () => {
+    setSpeakReplies(prev => {
+      const next = !prev
+      localStorage.setItem('doshie_speak_replies', String(next))
+      fetch('/profile-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: activeProfile,
+          preferences: { speak_replies: next },
+        }),
+      }).catch(() => {})
+      fetch('/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ speak_replies: next }),
+      }).catch(() => {})
+      return next
+    })
+  }
+
   // Sync profile customization from backend
   const syncProfilePreferences = async (profile: string) => {
     try {
       const res = await fetch(`/profile-preferences?profile=${encodeURIComponent(profile)}`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
+        if (typeof data?.preferences?.speak_replies === 'boolean') {
+          setSpeakReplies(data.preferences.speak_replies)
+          localStorage.setItem('doshie_speak_replies', String(data.preferences.speak_replies))
+        }
         const backendGui = data?.preferences?.gui_customization
         if (backendGui && typeof backendGui === 'object' && Object.keys(backendGui).length > 0) {
           setCustomization(prev => {
@@ -160,6 +190,15 @@ export function App() {
     const local = loadInitialCustomization(activeProfile)
     setCustomization(local)
     syncProfilePreferences(activeProfile)
+    fetch('/dashboard')
+      .then(res => res.json())
+      .then(d => {
+        if (typeof d?.speak_replies === 'boolean') {
+          setSpeakReplies(d.speak_replies)
+          localStorage.setItem('doshie_speak_replies', String(d.speak_replies))
+        }
+      })
+      .catch(() => {})
   }, [activeProfile])
 
   // Periodic check for Doshie Messenger unread count
@@ -962,6 +1001,8 @@ export function App() {
       const replyText = data.reply || 'No response received from Doshie.'
       const agentInfo = data.agent || (selectedAgent ? { id: selectedAgent.id, name: selectedAgent.name, accent: selectedAgent.accent } : undefined)
 
+      // Speak out loud is reserved exclusively for Live Voice mode
+
       startTransition(() => {
         setMessages(prev => {
           const finished = prev.map(msg =>
@@ -1191,6 +1232,7 @@ export function App() {
     if (mentionMatch) {
       const mentionedName = mentionMatch[1].toLowerCase()
       const agentMap: Record<string, { id: string; name: string; accent: string }> = {
+        aeriel: { id: 'dea427fd2f58', name: 'Aeriel', accent: '#35f2d0' },
         hermes: { id: 'dea427fd2f58', name: 'Hermes', accent: '#35f2d0' },
         tutor: { id: '3ed296472c34', name: 'Tutor', accent: '#4ea8de' },
         researcher: { id: 'dc1183a71c4d', name: 'Researcher', accent: '#9d4edd' },
@@ -1742,6 +1784,8 @@ export function App() {
         availableProfiles={profiles}
         onOpenMessenger={() => setIsMessengerOpen(true)}
         messengerUnreadCount={messengerUnreadCount}
+        onOpenAgentHub={() => setIsAgentHubOpen(true)}
+        onOpenAgentConsole={() => setIsAgentConsoleOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -1758,11 +1802,14 @@ export function App() {
           onOpenAgentHub={() => setIsAgentHubOpen(true)}
           onOpenAgentConsole={() => setIsAgentConsoleOpen(true)}
           onOpenMessenger={() => setIsMessengerOpen(true)}
+          onOpenGaming={() => setIsGamingOpen(true)}
           messengerUnreadCount={messengerUnreadCount}
           activeViewTitle={activeViewTitle}
           assistantEmoji={customization.assistantEmoji}
           assistantName={customization.assistantName}
           seasonalCountdownVisible={customization.seasonalCountdownVisible !== false}
+          speakReplies={speakReplies}
+          onToggleSpeakReplies={handleToggleSpeakReplies}
         />
 
 
@@ -1923,6 +1970,20 @@ export function App() {
         onOpenAgentConsole={() => {
           setIsSettingsOpen(false)
           setIsAgentConsoleOpen(true)
+        }}
+        onOpenGaming={() => {
+          setIsSettingsOpen(false)
+          setIsGamingOpen(true)
+        }}
+      />
+
+      {/* Doshie Gaming & Low-Latency VoIP Hub Modal */}
+      <GamingModal
+        isOpen={isGamingOpen}
+        onClose={() => setIsGamingOpen(false)}
+        onOpenDoctor={() => {
+          setSettingsTab('doctor')
+          setIsSettingsOpen(true)
         }}
       />
 

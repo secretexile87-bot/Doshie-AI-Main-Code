@@ -362,8 +362,8 @@ TOOLS = [
         "function": {
             "name": "inspect_hardware",
             "description": (
-                "Inspect any computer hardware subsystem (CPU, GPU, RAM, storage, thermals, motherboard, network, PCI, USB, or complete summary). "
-                "Provides deep telemetry including temperatures, clock frequencies, governors, power limits, and device topology."
+                "Inspect computer hardware subsystems (CPU, GPU, RAM, storage, thermals, motherboard, network, PCI, USB, or complete summary). "
+                "Can inspect the local Acer Nitro or query specific remote machines in Hermes's fleet."
             ),
             "parameters": {
                 "type": "object",
@@ -372,8 +372,26 @@ TOOLS = [
                         "type": "string",
                         "description": "Subsystem to inspect: 'all', 'summary', 'cpu', 'gpu', 'ram', 'disk', 'thermals', 'motherboard', 'network', 'pci', or 'usb'.",
                         "enum": ["all", "summary", "cpu", "gpu", "ram", "disk", "thermals", "motherboard", "network", "pci", "usb"]
+                    },
+                    "host": {
+                        "type": "string",
+                        "description": "Target computer to inspect: 'localhost' (default, Acer Nitro), 'fleet' (all computers), or a specific host name (e.g., 'DuranCyberPwrPC', 'vultr')."
                     }
                 }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "inspect_fleet",
+            "description": (
+                "Inspect all computers and devices across Hermes's personal mesh network (Tailscale fleet). "
+                "Discovers online Windows PCs, Linux servers, laptops, and mobile devices with IP addresses, OS, and network latency."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {}
             }
         }
     },
@@ -502,7 +520,8 @@ TOOLS = [
         "function": {
             "name": "wikipedia_search",
             "description": (
-                "Search and retrieve authoritative summaries and verified knowledge from Wikipedia about science, history, geography, people, technology, and culture."
+                "Search and retrieve authoritative summaries and verified knowledge from Wikipedia about history, geography, people, biology, and culture. "
+                "CRITICAL: NEVER use this tool when the user asks you to make, build, create, or code an application, script, tool, or calculator; write the code directly with write_file instead."
             ),
             "parameters": {
                 "type": "object",
@@ -515,6 +534,269 @@ TOOLS = [
                 "required": ["query"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_command",
+            "description": (
+                "Execute a shell / bash command directly on the host Linux workstation (e.g. systemctl status, journalctl, git, python, inspect files, check network or services). "
+                "Use this to inspect, diagnose, fix, test, and control the PC and services."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "The exact shell command to execute."
+                    },
+                    "cwd": {
+                        "type": "string",
+                        "description": "Optional working directory (defaults to /home/doshie/Doshie)."
+                    },
+                    "host": {
+                        "type": "string",
+                        "description": "Target host: 'localhost' (default, Acer Nitro) or any remote fleet computer (e.g. 'vultr', 'DuranCyberPwrPC', or IP)."
+                    }
+                },
+                "required": ["command"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "view_file",
+            "description": "View lines from any file on the local filesystem or on any remote fleet computer.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the file."
+                    },
+                    "start_line": {
+                        "type": "integer",
+                        "description": "1-based starting line number (default: 1)."
+                    },
+                    "line_count": {
+                        "type": "integer",
+                        "description": "Number of lines to read (default: 150)."
+                    },
+                    "host": {
+                        "type": "string",
+                        "description": "Optional target host: 'localhost' (default) or any remote fleet machine (e.g. 'vultr', 'DuranCyberPwrPC')."
+                    }
+                },
+                "required": ["path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "replace_file_content",
+            "description": "Perform an exact surgical find-and-replace edit in an existing file locally or on any remote fleet computer.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the file to edit."
+                    },
+                    "target_content": {
+                        "type": "string",
+                        "description": "The exact existing text chunk to find and replace."
+                    },
+                    "replacement_content": {
+                        "type": "string",
+                        "description": "The replacement text to put in place."
+                    },
+                    "host": {
+                        "type": "string",
+                        "description": "Optional target host: 'localhost' (default) or any remote fleet machine (e.g. 'vultr', 'DuranCyberPwrPC')."
+                    }
+                },
+                "required": ["path", "target_content", "replacement_content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": (
+                "Write complete files or source code directly to disk locally or to any remote fleet computer. "
+                "CRITICAL: ALWAYS use this tool immediately when asked to make, build, create, or code any application, GUI app, script, program, calculator, tool, or game."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the file to create or overwrite."
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "The full code or text content to write."
+                    },
+                    "host": {
+                        "type": "string",
+                        "description": "Optional target host: 'localhost' (default) or any remote fleet machine (e.g. 'vultr', 'DuranCyberPwrPC')."
+                    }
+                },
+                "required": ["path", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_file",
+            "description": (
+                "Delete a file or script directly from disk locally or on any remote fleet computer. "
+                "CRITICAL: ALWAYS use this tool immediately when asked to delete, remove, or clean up an existing file or script."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the file to delete (e.g. '/home/doshie/Desktop/calculator.py')."
+                    },
+                    "host": {
+                        "type": "string",
+                        "description": "Optional target host: 'localhost' (default) or any remote fleet machine (e.g. 'vultr', 'DuranCyberPwrPC')."
+                    }
+                },
+                "required": ["path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "remote_run_command",
+            "description": "Execute shell or PowerShell commands remotely on any machine in Hermes's fleet (e.g. 'vultr', 'DuranCyberPwrPC').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {
+                        "type": "string",
+                        "description": "Target computer name or IP (e.g. 'vultr', 'DuranCyberPwrPC', '100.104.3.15')."
+                    },
+                    "command": {
+                        "type": "string",
+                        "description": "The command or script to execute on the remote machine."
+                    }
+                },
+                "required": ["host", "command"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "remote_view_file",
+            "description": "Read file contents or source code lines from any remote computer in the fleet.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {
+                        "type": "string",
+                        "description": "Target computer name or IP (e.g. 'vultr', 'DuranCyberPwrPC')."
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the file on the remote machine."
+                    },
+                    "start_line": {
+                        "type": "integer",
+                        "description": "1-based starting line number (default: 1)."
+                    },
+                    "line_count": {
+                        "type": "integer",
+                        "description": "Number of lines to read (default: 150)."
+                    }
+                },
+                "required": ["host", "path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "remote_write_file",
+            "description": "Write or deploy source code / files directly to any remote computer in the fleet.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {
+                        "type": "string",
+                        "description": "Target computer name or IP (e.g. 'vultr', 'DuranCyberPwrPC')."
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the file on the remote computer."
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "The full code or text content to deploy."
+                    }
+                },
+                "required": ["host", "path", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "remote_replace_file_content",
+            "description": "Perform an exact surgical code edit in an existing file on a remote computer in the fleet.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {
+                        "type": "string",
+                        "description": "Target computer name or IP (e.g. 'vultr', 'DuranCyberPwrPC')."
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the file on the remote machine."
+                    },
+                    "target_content": {
+                        "type": "string",
+                        "description": "The exact existing code block to find and replace."
+                    },
+                    "replacement_content": {
+                        "type": "string",
+                        "description": "The replacement code to put in place."
+                    }
+                },
+                "required": ["host", "path", "target_content", "replacement_content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "remote_delete_file",
+            "description": "Delete a file or script directly on any remote computer in the fleet.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {
+                        "type": "string",
+                        "description": "Target computer name or IP (e.g. 'vultr', 'DuranCyberPwrPC')."
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the file to delete on the remote machine."
+                    }
+                },
+                "required": ["host", "path"]
+            }
+        }
     }
 ]
 
@@ -522,10 +804,14 @@ CAPABILITY_TOOL_MAP = {
     "web_research": ["web_search", "wikipedia_search"],
     "math_calculation": ["python_calculator"],
     "encyclopedia": ["wikipedia_search"],
-    "project_read": ["list_code_files", "read_code_file", "search_code"],
-    "code_proposals": ["propose_code_edit", "propose_new_file", "request_python_diagnostics"],
-    "service_health": ["check_service_health", "request_python_diagnostics"],
-    "hardware_management": ["inspect_hardware", "propose_hardware_change", "execute_hardware_change", "get_hardware_governance"],
+    "project_read": ["view_file", "list_code_files", "read_code_file", "search_code", "remote_view_file"],
+    "code_proposals": [
+        "run_command", "view_file", "replace_file_content", "write_file", "delete_file",
+        "remote_run_command", "remote_view_file", "remote_write_file", "remote_replace_file_content", "remote_delete_file",
+        "propose_code_edit", "propose_new_file", "request_python_diagnostics"
+    ],
+    "service_health": ["check_service_health", "inspect_hardware", "inspect_fleet", "run_command", "remote_run_command"],
+    "hardware_management": ["inspect_hardware", "inspect_fleet", "propose_hardware_change", "execute_hardware_change", "get_hardware_governance", "run_command", "remote_run_command"],
     "memory_read": ["search_memories", "get_tasks_and_notes"],
     "memory_write": ["save_memory", "create_task", "add_note"],
     "3d_rendering": ["render_3d_model"],
@@ -862,6 +1148,10 @@ def execute_tool(name, arguments, actor_profile="", can_propose_changes=False):
 
     if name == "inspect_hardware":
         import doshie_hardware
+        target_host = str(arguments.get("host") or "").strip()
+        if target_host and target_host.lower() not in ("localhost", "127.0.0.1", "acer-nitro", "local", "nitro"):
+            return doshie_hardware.inspect_host(target_host)
+
         comp = str(arguments.get("component") or "summary").lower()
         if comp in ("all", "full"):
             return doshie_hardware.inspect_all()
@@ -883,8 +1173,14 @@ def execute_tool(name, arguments, actor_profile="", can_propose_changes=False):
             return doshie_hardware.inspect_pci()
         elif comp == "usb":
             return doshie_hardware.inspect_usb()
+        elif comp in ("fleet", "network_fleet", "nodes"):
+            return doshie_hardware.inspect_fleet()
         else:
             return doshie_hardware.inspect_all()
+
+    if name == "inspect_fleet":
+        import doshie_hardware
+        return doshie_hardware.inspect_fleet()
 
     if name == "propose_hardware_change":
         import doshie_hardware
@@ -931,7 +1227,182 @@ def execute_tool(name, arguments, actor_profile="", can_propose_changes=False):
         except Exception as exc:
             return {"success": False, "error": str(exc)}
 
-    raise ValueError("Unknown or unauthorized tool.")
+    if name in ("run_command", "remote_run_command"):
+        import subprocess
+        import time
+        from pathlib import Path
+        import doshie_remote
+
+        cmd = str(arguments.get("command") or arguments.get("cmd") or "").strip()
+        if not cmd:
+            raise ValueError("No command provided.")
+        host = str(arguments.get("host") or "").strip()
+        if host and host.lower() not in ("localhost", "127.0.0.1", "acer-nitro", "local", "nitro"):
+            return doshie_remote.remote_run_command(host, cmd)
+
+        cwd = str(arguments.get("cwd") or "").strip()
+        work_dir = Path(cwd).expanduser().resolve() if cwd else Path("/home/doshie/Doshie")
+        if not work_dir.exists():
+            work_dir = Path("/home/doshie/Doshie")
+        destructive = [
+            "rm -rf /", "rm -rf /*", "mkfs", "dd if=/dev/zero",
+            ":(){ :|:& };:", "chmod -R 777 /", "> /dev/sda"
+        ]
+        if any(d in cmd for d in destructive):
+            raise ValueError("Command blocked by safety guardrails.")
+        start_time = time.time()
+        try:
+            proc = subprocess.run(
+                cmd,
+                shell=True,
+                cwd=str(work_dir),
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            duration = round(time.time() - start_time, 2)
+            stdout = proc.stdout[-15000:] if len(proc.stdout) > 15000 else proc.stdout
+            stderr = proc.stderr[-15000:] if len(proc.stderr) > 15000 else proc.stderr
+            return {
+                "ok": proc.returncode == 0,
+                "exit_code": proc.returncode,
+                "stdout": stdout,
+                "stderr": stderr,
+                "duration_seconds": duration,
+                "cwd": str(work_dir),
+                "command": cmd,
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "ok": False,
+                "exit_code": -1,
+                "error": "Command timed out after 60 seconds.",
+                "command": cmd,
+            }
+        except Exception as exc:
+            return {"ok": False, "error": str(exc), "command": cmd}
+
+    if name in ("view_file", "remote_view_file"):
+        from pathlib import Path
+        import doshie_remote
+
+        path_str = str(arguments.get("path") or arguments.get("file_path") or "").strip()
+        if not path_str:
+            raise ValueError("No file path provided.")
+        host = str(arguments.get("host") or "").strip()
+        start_line = max(int(arguments.get("start_line") or 1), 1)
+        line_count = min(max(int(arguments.get("line_count") or 150), 1), 500)
+        if host and host.lower() not in ("localhost", "127.0.0.1", "acer-nitro", "local", "nitro"):
+            return doshie_remote.remote_view_file(host, path_str, start_line, line_count)
+
+        file_path = Path(path_str).expanduser().resolve()
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        if not file_path.is_file():
+            raise ValueError(f"Path is not a regular file: {file_path}")
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        total_lines = len(lines)
+        end_line = min(start_line + line_count - 1, total_lines)
+        slice_lines = lines[start_line - 1:end_line]
+        numbered_lines = "".join(f"{i + start_line}: {line}" for i, line in enumerate(slice_lines))
+        return {
+            "path": str(file_path),
+            "start_line": start_line,
+            "end_line": end_line,
+            "total_lines": total_lines,
+            "content": numbered_lines,
+        }
+
+    if name in ("replace_file_content", "remote_replace_file_content"):
+        from pathlib import Path
+        import doshie_remote
+
+        path_str = str(arguments.get("path") or arguments.get("file_path") or "").strip()
+        target_content = str(arguments.get("target_content") or "")
+        replacement_content = str(arguments.get("replacement_content") or "")
+        if not path_str:
+            raise ValueError("No file path provided.")
+        if not target_content:
+            raise ValueError("No target content provided to replace.")
+        host = str(arguments.get("host") or "").strip()
+        if host and host.lower() not in ("localhost", "127.0.0.1", "acer-nitro", "local", "nitro"):
+            return doshie_remote.remote_replace_file_content(host, path_str, target_content, replacement_content)
+
+        file_path = Path(path_str).expanduser().resolve()
+        if not file_path.exists() or not file_path.is_file():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        occurrences = content.count(target_content)
+        if occurrences == 0:
+            raise ValueError(f"Target content not found in {file_path}.")
+        if occurrences > 1:
+            raise ValueError(f"Target content occurs {occurrences} times in {file_path}. Please provide a more unique target chunk.")
+        new_content = content.replace(target_content, replacement_content, 1)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        return {
+            "ok": True,
+            "path": str(file_path),
+            "message": f"Successfully replaced target content in {file_path}.",
+        }
+
+    if name in ("write_file", "remote_write_file"):
+        from pathlib import Path
+        import doshie_remote
+
+        path_str = str(arguments.get("path") or arguments.get("file_path") or "").strip()
+        content = str(arguments.get("content") or "")
+        overwrite = bool(arguments.get("overwrite", True))
+        if not path_str:
+            raise ValueError("No file path provided.")
+        host = str(arguments.get("host") or "").strip()
+        if host and host.lower() not in ("localhost", "127.0.0.1", "acer-nitro", "local", "nitro"):
+            return doshie_remote.remote_write_file(host, path_str, content, overwrite)
+
+        file_path = Path(path_str).expanduser().resolve()
+        if file_path.exists() and not overwrite:
+            raise FileExistsError(f"File already exists and overwrite is False: {file_path}")
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return {
+            "ok": True,
+            "path": str(file_path),
+            "bytes_written": len(content.encode("utf-8")),
+            "message": f"Successfully wrote {len(content.encode('utf-8'))} bytes to {file_path}."
+        }
+
+    if name in ("delete_file", "remote_delete_file"):
+        from pathlib import Path
+        import doshie_remote
+
+        path_str = str(arguments.get("path") or arguments.get("file_path") or "").strip()
+        if not path_str:
+            raise ValueError("No file path provided.")
+        host = str(arguments.get("host") or "").strip()
+        if host and host.lower() not in ("localhost", "127.0.0.1", "acer-nitro", "local", "nitro"):
+            return doshie_remote.remote_delete_file(host, path_str)
+
+        file_path = Path(path_str).expanduser().resolve()
+        if not file_path.exists():
+            return {
+                "ok": True,
+                "path": str(file_path),
+                "message": f"File {file_path} already does not exist."
+            }
+        if file_path.is_dir():
+            file_path.rmdir()
+        else:
+            file_path.unlink()
+        return {
+            "ok": True,
+            "path": str(file_path),
+            "message": f"Successfully deleted {file_path}."
+        }
+
+    raise ValueError(f"Unknown or unauthorized tool: {name}")
 
 
 
@@ -984,6 +1455,34 @@ def needs_project_tools(messages):
         "4k render",
         "render model",
         "render mesh",
+        "check doshie",
+        "check",
+        "status",
+        "service",
+        "services",
+        "systemctl",
+        "terminal",
+        "command",
+        "bash",
+        "shell",
+        "diagnose",
+        "fix",
+        "view file",
+        "edit file",
+        "write file",
+        "create file",
+        "save file",
+        "make",
+        "create",
+        "build",
+        "calculator",
+        "app",
+        "program",
+        "script",
+        "write a",
+        "code",
+        "develop",
+        "generate",
     )
 
     return any(trigger in latest for trigger in triggers)
@@ -1165,6 +1664,12 @@ def _vision_chat(
 
 
 TOOL_TITLES = {
+    "run_command": "Terminal Command Execution",
+    "view_file": "Inspect Source File",
+    "replace_file_content": "Surgical Code Replacement",
+    "write_file": "Write File",
+    "delete_file": "Delete File",
+    "remote_delete_file": "Remote File Deletion",
     "python_calculator": "Python Calculator",
     "wikipedia_search": "Wikipedia Lookup",
     "web_search": "Web Search",
@@ -1183,6 +1688,11 @@ TOOL_TITLES = {
     "create_task": "Create Task",
     "add_note": "Add Note",
     "inspect_hardware": "Inspect Hardware",
+    "inspect_fleet": "Inspect Fleet Network",
+    "remote_run_command": "Remote Terminal Execution",
+    "remote_view_file": "Remote File Inspection",
+    "remote_write_file": "Remote File Deployment",
+    "remote_replace_file_content": "Remote Surgical Code Edit",
     "propose_hardware_change": "Propose Hardware Change",
     "execute_hardware_change": "Execute Hardware Change",
     "get_hardware_governance": "Hardware Governance",
@@ -1218,6 +1728,31 @@ def chat(
 
     accumulated_thoughts = []
     executed_steps = []
+    seen_tool_calls = set()
+    disabled_tool_names = set()
+
+    # Detect if user prompt is a build / creation / coding request
+    user_prompt_text = ""
+    for m in reversed(messages):
+        if m.get("role") == "user":
+            user_prompt_text = str(m.get("content") or "").lower()
+            break
+
+    is_build_request = any(
+        kw in user_prompt_text for kw in (
+            "make a", "build a", "create a", "code a", "write a",
+            "make an", "build an", "create an", "code an",
+            "calculator", "app", "application", "script", "game",
+            "program", "desktop app", "gui"
+        )
+    ) and not any(
+        kw in user_prompt_text for kw in (
+            "search wikipedia", "look up on wikipedia", "search the web", "google", "search for"
+        )
+    )
+    if is_build_request:
+        disabled_tool_names.add("wikipedia_search")
+        disabled_tool_names.add("web_search")
 
     for _ in range(5):
         request_body = {
@@ -1254,15 +1789,21 @@ def chat(
             allowed_tools = []
             for tool in TOOLS:
                 name = tool["function"]["name"]
-                if name in ("web_search", "python_calculator", "wikipedia_search"):
+                if name in (
+                    "web_search", "python_calculator", "wikipedia_search",
+                    "check_service_health", "inspect_hardware", "inspect_fleet",
+                    "run_command", "view_file", "write_file", "replace_file_content", "delete_file",
+                    "remote_run_command", "remote_view_file", "remote_write_file", "remote_replace_file_content", "remote_delete_file"
+                ):
                     allowed_tools.append(tool)
                 elif project_tools_needed:
                     if inside_hermes and name == "consult_hermes_ai":
                         continue
                     allowed_tools.append(tool)
 
-        if allowed_tools:
-            request_body["tools"] = allowed_tools
+        active_tools = [t for t in allowed_tools if t["function"]["name"] not in disabled_tool_names]
+        if active_tools:
+            request_body["tools"] = active_tools
 
         payload = json.dumps(request_body).encode("utf-8")
 
@@ -1306,22 +1847,36 @@ def chat(
             raw_c = str(message.get("content") or "").strip()
             clean_c = re.sub(r"^```(?:json)?\s*", "", raw_c)
             clean_c = re.sub(r"\s*```$", "", clean_c).strip()
-            if clean_c.startswith("{") and clean_c.endswith("}"):
+
+            extracted_calls = []
+            decoder = json.JSONDecoder()
+            idx = 0
+            while idx < len(clean_c):
+                start = clean_c.find("{", idx)
+                if start == -1:
+                    break
                 try:
-                    parsed = json.loads(clean_c)
-                    if isinstance(parsed, dict) and ("name" in parsed or "tool" in parsed):
-                        t_name = str(parsed.get("name") or parsed.get("tool") or "").strip()
-                        t_args = parsed.get("arguments") or parsed.get("parameters") or {}
+                    obj, end_pos = decoder.raw_decode(clean_c[start:])
+                    if isinstance(obj, dict) and ("name" in obj or "tool" in obj or "function" in obj):
+                        fn_obj = obj.get("function") if isinstance(obj.get("function"), dict) else obj
+                        t_name = str(fn_obj.get("name") or fn_obj.get("tool") or "").strip()
+                        t_args = fn_obj.get("arguments") or fn_obj.get("parameters") or {}
                         if any(t["function"]["name"] == t_name for t in allowed_tools):
-                            tool_calls = [{
-                                "id": "call_inline_fallback",
+                            extracted_calls.append({
+                                "id": f"call_inline_fallback_{len(extracted_calls)}",
                                 "function": {
                                     "name": t_name,
                                     "arguments": t_args
                                 }
-                            }]
+                            })
+                    idx = start + max(end_pos, 1)
                 except Exception:
-                    pass
+                    idx = start + 1
+
+            if extracted_calls:
+                tool_calls = extracted_calls
+                message["tool_calls"] = tool_calls
+                message["content"] = ""
 
         if not tool_calls:
             final_content = str(message.get("content") or "").strip()
@@ -1355,6 +1910,28 @@ def chat(
             except Exception:
                 arguments = {}
 
+            # Deduplication & anti-loop guardrail
+            call_key = (name, json.dumps(arguments, sort_keys=True))
+            if call_key in seen_tool_calls:
+                disabled_tool_names.add(name)
+                content = json.dumps({
+                    "ok": True,
+                    "notice": (
+                        f"Notice: Tool '{name}' was already executed previously with these exact parameters. "
+                        "Redundant calls are suppressed. You already possess all necessary information. "
+                        "Do not call this tool again. Now proceed immediately to write the file using write_file "
+                        "or provide your complete response to the user."
+                    )
+                })
+                working_messages.append({
+                    "role": "tool",
+                    "tool_call_id": call.get("id", ""),
+                    "content": content
+                })
+                continue
+
+            seen_tool_calls.add(call_key)
+
             import time
             step_start = time.time()
             step_ok = True
@@ -1377,6 +1954,10 @@ def chat(
                     "error": str(error)
                 })
 
+            if name == "write_file" and step_ok:
+                disabled_tool_names.add("wikipedia_search")
+                disabled_tool_names.add("web_search")
+
             duration_ms = max(int((time.time() - step_start) * 1000), 1)
             executed_steps.append({
                 "tool": name,
@@ -1393,7 +1974,48 @@ def chat(
                 "content": content
             })
 
-    fallback_text = "I could not finish inspecting the project within the safe tool limit."
+    # If tools were executed but the model hit the iteration limit without generating text,
+    # invoke one final completion pass without tools so the user receives a helpful final answer.
+    if executed_steps:
+        try:
+            final_messages = list(working_messages)
+            final_messages.append({
+                "role": "system",
+                "content": (
+                    "All tool actions have completed. Summarize what you have built or performed, "
+                    "and provide the final helpful response with instructions to the user now. Do not call any tools."
+                )
+            })
+            final_payload = json.dumps({
+                "model": model,
+                "messages": final_messages,
+                "temperature": 0.35,
+                "max_tokens": 1500,
+                "keep_alive": os.environ.get("YOSHI_KEEP_ALIVE", "5m"),
+            }).encode("utf-8")
+            req_final = urllib.request.Request(
+                url,
+                data=final_payload,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req_final, timeout=max(timeout, 30)) as resp_final:
+                data_final = json.loads(resp_final.read().decode("utf-8"))
+                choice_msg = data_final.get("choices", [{}])[0].get("message", {})
+                final_content = str(choice_msg.get("content") or "").strip()
+                if final_content:
+                    thoughts_text = "\n\n".join(accumulated_thoughts).strip() if accumulated_thoughts else None
+                    if return_details:
+                        return {
+                            "reply": final_content,
+                            "thinking": thoughts_text,
+                            "steps": executed_steps,
+                        }
+                    return final_content
+        except Exception:
+            pass
+
+    fallback_text = "I executed the necessary tool actions, but reached the iteration limit before finalizing the response. Please review the step outputs above."
     if return_details:
         return {
             "reply": fallback_text,

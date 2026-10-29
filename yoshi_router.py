@@ -1513,6 +1513,23 @@ def _route_tool_rules(
         location = clean[len("/weather "):].strip()
         return True, yoshi_memory.get_weather(location)
 
+    # Multi-day / Weekly forecast ("this week", "this whole week", "weekly", "7 day", "weekend", "forecast")
+    if (
+        ("week" in lower or "weekend" in lower or "weekly" in lower or "7 day" in lower or "next few days" in lower)
+        and ("weather" in lower or "forecast" in lower or "rain" in lower or "temperature" in lower or "temps" in lower)
+    ) or (lower.startswith("forecast") or lower == "forecast?" or lower.startswith("/forecast")):
+        location = default_location
+        match = re.search(
+            r"\bin\s+(.+?)[?.!]?$",
+            clean,
+            flags=re.IGNORECASE
+        )
+        if match:
+            location = match.group(1).strip()
+        elif lower.startswith("/forecast "):
+            location = clean[len("/forecast "):].strip()
+        return True, yoshi_memory.get_week_forecast(location)
+
     # Tomorrow forecast
     if "tomorrow" in lower and (
         "weather" in lower
@@ -1534,9 +1551,9 @@ def _route_tool_rules(
             location = match.group(1).strip()
 
         forecast = yoshi_memory.get_forecast(location, 1)
-        return True, f"Tomorrow's forecast: {forecast}"
+        return True, forecast
 
-    # Current weather
+    # Current weather (strictly for current / today requests, not weekly forecasts)
     weather_phrases = (
         "what's the weather",
         "whats the weather",
@@ -1547,7 +1564,7 @@ def _route_tool_rules(
         "weather outside",
     )
 
-    if any(phrase in lower for phrase in weather_phrases):
+    if any(phrase in lower for phrase in weather_phrases) and not any(w in lower for w in ("week", "tomorrow", "forecast", "weekend")):
         location = default_location
 
         match = re.search(

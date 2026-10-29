@@ -25,6 +25,7 @@ import time
 import shutil
 import platform
 import subprocess
+import re
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -501,6 +502,150 @@ def inspect_all():
     }
 
 
+def inspect_fleet():
+    """
+    Inspect all machines and devices across Hermes's personal mesh network (Tailscale).
+    Returns categorized inventory of online and offline computers, IP addresses, OS, and latency.
+    """
+    fleet = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "local_host": {
+            "name": "acer-nitro",
+            "os": "linux",
+            "tailscale_ip": "100.109.79.35",
+            "status": "online (local workstation)",
+            "hardware": "Intel Core Ultra 7, NVIDIA RTX 5070"
+        },
+        "online_computers": [],
+        "offline_computers": [],
+        "mobile_and_other_devices": [],
+        "fleet_summary": ""
+    }
+
+    if not shutil.which("tailscale"):
+        fleet["fleet_summary"] = "Tailscale is not installed on this system."
+        return fleet
+
+    try:
+        p = subprocess.run(["tailscale", "status", "--json"], capture_output=True, text=True, timeout=5)
+        if p.returncode == 0:
+            data = json.loads(p.stdout)
+            self_node = data.get("Self", {})
+            if self_node:
+                fleet["local_host"]["name"] = self_node.get("HostName", "acer-nitro")
+                ips = self_node.get("TailscaleIPs", [])
+                if ips:
+                    fleet["local_host"]["tailscale_ip"] = ips[0]
+                fleet["local_host"]["os"] = self_node.get("OS", "linux")
+
+            peers = data.get("Peer", {})
+            peer_list = peers.values() if isinstance(peers, dict) else peers
+
+            for peer in peer_list:
+                hostname = peer.get("HostName", "Unknown")
+                os_type = str(peer.get("OS", "unknown")).lower()
+                ips = peer.get("TailscaleIPs", [])
+                ipv4 = ips[0] if ips else None
+                is_online = bool(peer.get("Online", False))
+                is_active = bool(peer.get("Active", False))
+                last_seen = peer.get("LastSeen", "")
+
+                device_info = {
+                    "hostname": hostname,
+                    "os": os_type,
+                    "ip": ipv4,
+                    "online": is_online,
+                    "active": is_active,
+                    "last_seen": last_seen,
+                    "latency": None
+                }
+
+                if is_online and hostname:
+                    try:
+                        ping_res = subprocess.run(
+                            ["tailscale", "ping", "-c", "1", "--until-direct=false", "--timeout=1s", hostname],
+                            capture_output=True, text=True, timeout=1.5
+                        )
+                        if ping_res.returncode == 0:
+                            m = re.search(r"in\s+([0-9\.]+\s*m?s)", ping_res.stdout)
+                            if m:
+                                device_info["latency"] = m.group(1)
+                    except Exception:
+                        pass
+
+                if os_type in ("android", "ios"):
+                    fleet["mobile_and_other_devices"].append(device_info)
+                elif is_online:
+                    fleet["online_computers"].append(device_info)
+                else:
+                    fleet["offline_computers"].append(device_info)
+
+            total_online = 1 + len(fleet["online_computers"])
+            online_names = [fleet["local_host"]["name"]] + [c["hostname"] for c in fleet["online_computers"]]
+            fleet["fleet_summary"] = (
+                f"{total_online} computers currently online ({', '.join(online_names)}). "
+                f"{len(fleet['offline_computers'])} other computers and {len(fleet['mobile_and_other_devices'])} mobile devices in fleet."
+            )
+    except Exception as e:
+        fleet["fleet_summary"] = f"Fleet scan encountered error: {e}"
+
+    return fleet
+
+
+def inspect_host(target: str = "localhost"):
+    """
+    Inspect a specific computer or server in Hermes's fleet or localhost.
+    Target can be 'localhost', 'acer-nitro', 'fleet', or any host in the fleet.
+    """
+    t = str(target or "localhost").strip()
+    if t.lower() in ("localhost", "127.0.0.1", "acer-nitro", "local", "nitro"):
+        return inspect_all()
+    if t.lower() in ("fleet", "all_hosts", "network", "mesh"):
+        return inspect_fleet()
+
+    fleet = inspect_fleet()
+    matched = None
+    all_devices = [fleet["local_host"]] + fleet["online_computers"] + fleet["offline_computers"] + fleet["mobile_and_other_devices"]
+    for d in all_devices:
+        name = d.get("name") or d.get("hostname", "")
+        ip = d.get("tailscale_ip") or d.get("ip", "")
+        if t.lower() in (name.lower(), ip.lower()) or t.lower() in name.lower():
+            matched = d
+            break
+
+    if not matched:
+        return {
+            "status": "not_found",
+            "message": f"Host '{target}' was not found in your Tailscale fleet.",
+            "available_online_hosts": [fleet["local_host"]["name"]] + [c["hostname"] for c in fleet["online_computers"]]
+        }
+
+    is_online = bool(matched.get("online") or matched.get("name") == "acer-nitro")
+    res = {
+        "status": "online" if is_online else "offline",
+        "target": target,
+        "device": matched,
+        "fleet_summary": fleet.get("fleet_summary")
+    }
+
+    # If it is online Linux server, test SSH connectivity
+    if is_online and matched.get("os") == "linux" and matched.get("ip"):
+        try:
+            ssh_test = subprocess.run(
+                ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=2", matched["ip"], "uptime"],
+                capture_output=True, text=True, timeout=3
+            )
+            if ssh_test.returncode == 0:
+                res["remote_uptime"] = ssh_test.stdout.strip()
+                res["ssh_access"] = "authenticated"
+            else:
+                res["ssh_access"] = "port_open_auth_required"
+        except Exception:
+            pass
+
+    return res
+
+
 # ==============================================================================
 # 2. COMMAND-GATED HARDWARE MODIFICATION ENGINE
 # ==============================================================================
@@ -699,6 +844,8 @@ def cli_main():
         print("==================================================")
         print("Usage:")
         print("  doshie hw inspect [all|cpu|gpu|ram|disk|thermals|motherboard|network|pci|usb]")
+        print("  doshie hw fleet")
+        print("  doshie hw host <hostname_or_ip>")
         print("  doshie hw set <target> <value> [--confirm]")
         print("  doshie hw profile <performance|powersave|balanced|gaming> [--confirm]")
         print("  doshie hw governance [status|set-reasoning]")
@@ -713,7 +860,35 @@ def cli_main():
 
     subcmd = args[0].lower()
 
-    if subcmd in ("inspect", "status", "info"):
+    if subcmd in ("fleet", "network", "mesh", "nodes"):
+        fleet = inspect_fleet()
+        print("==================================================")
+        print("  🌐 DOSHIE FLEET & MESH NETWORK INVENTORY")
+        print("==================================================")
+        print(f"Local Host:  {fleet['local_host']['name']} ({fleet['local_host']['os']}) | {fleet['local_host']['tailscale_ip']} (Active)")
+        print("\nOnline Computers:")
+        if fleet["online_computers"]:
+            for c in fleet["online_computers"]:
+                lat = f" | Latency: {c['latency']}" if c.get("latency") else ""
+                print(f"  🟢 {c['hostname']} ({c['os']}) | {c['ip']}{lat}")
+        else:
+            print("  (No other computers online)")
+
+        print("\nOffline Fleet Computers:")
+        for c in fleet["offline_computers"][:6]:
+            print(f"  ⚪ {c['hostname']} ({c['os']}) | {c['ip']}")
+
+        print(f"\nSummary: {fleet.get('fleet_summary')}")
+        print("==================================================")
+
+    elif subcmd in ("host", "node"):
+        if len(args) < 2:
+            print("Error: Specify host name or IP (e.g. doshie hw host DuranCyberPwrPC).")
+            sys.exit(1)
+        res = inspect_host(args[1])
+        print(json.dumps(res, indent=2))
+
+    elif subcmd in ("inspect", "status", "info"):
         comp = args[1].lower() if len(args) > 1 else "summary"
         if comp in ("all", "full"):
             print(json.dumps(inspect_all(), indent=2))

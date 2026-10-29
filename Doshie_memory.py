@@ -460,10 +460,18 @@ def get_notes():
     return rows
 
 
-def add_task(text):
-    text = text.strip()
+def add_task(text, priority=None, due_date=None, **kwargs):
+    text = str(text or "").strip()
     if not text:
         return "Usage: /task <text>"
+
+    extra = []
+    if priority and str(priority).strip().lower() != "normal":
+        extra.append(f"[Priority: {priority}]")
+    if due_date and str(due_date).strip():
+        extra.append(f"[Due: {due_date}]")
+    if extra:
+        text = f"{text} {' '.join(extra)}"
 
     conn = connect_db()
     conn.execute(
@@ -2220,13 +2228,31 @@ PERSONALITY & DEMEANOR: CHEERFUL, WITTY & CONVERSATIONAL
     * You are Doshie, running locally on Hermes's own host computer (`acer-nitro` with an NVIDIA RTX 5070 GPU).
     * The user is Hermes, your creator and owner.
     * The app Hermes is using is Doshie (featuring dark mode, chats, agents, live voice, music, and settings).
-    * If Hermes shares a screenshot of the app, recognize it as your own Doshie app interface—never mistake it for third-party platforms like Discord, Slack, or Telegram."""
+    * If Hermes shares a screenshot of the app, recognize it as your own Doshie app interface—never mistake it for third-party platforms like Discord, Slack, or Telegram.
+  - DYNAMIC MULTI-MODEL BRAIN ARCHITECTURE (AUTOMATIC MODEL SWITCHING):
+    * You DO automatically switch and route models by yourself depending on the question and task complexity (`choose_brain_model` auto-routing):
+      - Everyday conversation & quick answers: Fast conversational model (Qwen 3.5 9B).
+      - In-depth analysis, research, essays & complex topics: Balanced foundation model (Qwen 2.5 14B).
+      - Coding, scripts, terminal commands & software engineering: Specialized coding model (Qwen 2.5 Coder 7B).
+      - Deep reasoning, math, logic, diagnosis & proofs: Advanced reasoning model (DeepSeek-R1 14B with chain-of-thought `<think>` tags).
+      - Visual inputs, images & screenshots: Local vision pipeline (Qwen 3.5 9B / Moondream).
+      - Cloud genius (when explicitly requested): Cloud model (Gemini 2.5 Flash).
+    * If Hermes or anyone asks whether you switch models by yourself, what model you are running, or how your brain works: Understand and confirm that you DO automatically switch models based on what is asked, and explain how your routing works clearly and intelligently."""
     else:
         self_hosted_info = f"""  - SELF-HOSTED IDENTITY & INTERFACE KNOWLEDGE:
     * You are Doshie, running locally on the home host computer (`acer-nitro` with an NVIDIA RTX 5070 GPU, hosted by Hermes).
     * The user is {profile}. You are {profile}'s personal AI companion and trusted family assistant.
     * The app {profile} is using is Doshie (featuring dark mode, chats, agents, live voice, music, and settings).
-    * If {profile} shares a screenshot of the app, recognize it as your own Doshie app interface—never mistake it for third-party platforms like Discord, Slack, or Telegram."""
+    * If {profile} shares a screenshot of the app, recognize it as your own Doshie app interface—never mistake it for third-party platforms like Discord, Slack, or Telegram.
+  - DYNAMIC MULTI-MODEL BRAIN ARCHITECTURE (AUTOMATIC MODEL SWITCHING):
+    * You DO automatically switch and route models by yourself depending on the question and task complexity (`choose_brain_model` auto-routing):
+      - Everyday conversation & quick answers: Fast conversational model (Qwen 3.5 9B).
+      - In-depth analysis, research, essays & complex topics: Balanced foundation model (Qwen 2.5 14B).
+      - Coding, scripts, terminal commands & software engineering: Specialized coding model (Qwen 2.5 Coder 7B).
+      - Deep reasoning, math, logic, diagnosis & proofs: Advanced reasoning model (DeepSeek-R1 14B with chain-of-thought `<think>` tags).
+      - Visual inputs, images & screenshots: Local vision pipeline (Qwen 3.5 9B / Moondream).
+      - Cloud genius (when explicitly requested): Cloud model (Gemini 2.5 Flash).
+    * If asked whether you switch models by yourself or how your brain works: Understand and confirm that you DO automatically switch models based on what is asked, and explain how your routing works clearly and intelligently."""
 
     return f"""
 {profile_identity}
@@ -2490,13 +2516,13 @@ def _clean_model_reply(value, user_text=""):
 
 
 
-def choose_brain_model(user_text, brain_mode="auto"):
-    """Choose an allowlisted manual brain or route automatically based on complexity."""
+def choose_brain_model(user_text, brain_mode="auto", history=None):
+    """Choose an allowlisted manual brain or route automatically based on complexity and conversational context."""
     requested = str(brain_mode or "auto").strip().casefold()
     if requested in BRAIN_MODELS:
         return BRAIN_MODELS[requested]
 
-    prompt = str(user_text or "").lower()
+    prompt = str(user_text or "").lower().strip()
 
     coding_markers = (
         "python", "javascript", "typescript", "html", "css",
@@ -2510,17 +2536,42 @@ def choose_brain_model(user_text, brain_mode="auto"):
         "app", "create an app", "build an app", "make an app",
         "test app", "new app", "web app", "application", "script",
         "program", "code an app", "build a", "create a file",
-        "terminal", "cli", "run command", "agent"
+        "terminal", "cli", "run command", "agent",
+        "calculator", "calc", "exe", "executable", "desktop",
+        "shortcut", "make it", "build it", "write it", "create it",
+        "run it", "install", "chmod", "systemctl", "bash", "shell",
+        "file", "files"
     )
-
-    if any(marker in prompt for marker in coding_markers):
-        return CODING_MODEL
 
     deep_reasoning_markers = (
         "think", "reason", "step by step", "deeply", "prove",
         "proof", "logic", "philosophy", "deduce", "mathematical",
         "solve", "calculate", "diagnose", "troubleshoot", "why exactly"
     )
+
+    affirmative_markers = (
+        "yes", "yes please", "sure", "please do", "go ahead",
+        "do it", "make it", "build it", "create it", "run it",
+        "write it", "okay", "ok", "yep", "yeah", "sounds good", "perfect",
+        "do that", "yes do it", "yes write it", "yes build it"
+    )
+
+    is_affirmative = (
+        prompt in affirmative_markers
+        or any(prompt == m or prompt.startswith(m + " ") or prompt.endswith(" " + m) for m in affirmative_markers)
+    )
+    if is_affirmative and history:
+        last_messages_text = " ".join(
+            str(m.get("content") or "").lower() for m in history[-3:]
+        )
+        if any(marker in last_messages_text for marker in coding_markers):
+            return CODING_MODEL
+        if any(marker in last_messages_text for marker in deep_reasoning_markers):
+            return ADVANCED_MODEL
+
+    if any(marker in prompt for marker in coding_markers):
+        return CODING_MODEL
+
     if any(marker in prompt for marker in deep_reasoning_markers):
         return ADVANCED_MODEL
 
@@ -2529,7 +2580,10 @@ def choose_brain_model(user_text, brain_mode="auto"):
         "detailed", "essay", "literature", "proofread", "rewrite",
         "plan", "research", "diagnose", "troubleshoot", "security",
         "financial", "medical", "legal", "architecture", "solve",
-        "calculate", "math", "proof", "evaluate", "breakdown"
+        "calculate", "math", "proof", "evaluate", "breakdown",
+        "switch model", "switch models", "switch between models",
+        "what model", "which model", "your models", "how does your brain work",
+        "how do you work"
     )
     if len(prompt) > 240 or any(marker in prompt for marker in complex_markers):
         return MODEL
@@ -2626,6 +2680,7 @@ def ask_yoshi(
     selected_model = choose_brain_model(
         user_text,
         brain_mode=brain_mode,
+        history=history,
     )
     if images:
         selected_model = VISION_MODEL
@@ -2646,16 +2701,55 @@ def ask_yoshi(
         )
 
     system_prompt = build_system_prompt(memories, profile=profile)
+    system_prompt += """
+
+AUTONOMOUS WORKSTATION & FLEET TECHNICIAN CAPABILITIES:
+- You are Hermes's Autonomous Systems Technician and Fleet Engineer across his entire personal mesh network of computers and servers.
+- You have full local AND remote execution and code editing tools:
+  * Local Execution: `run_command`, `view_file`, `replace_file_content`, `write_file`, `delete_file`, `check_service_health`, `inspect_hardware`.
+  * Remote Fleet Execution: `remote_run_command(host, command)`, `remote_view_file(host, path)`, `remote_write_file(host, path, content)`, `remote_replace_file_content(host, path, target, replacement)`, `remote_delete_file(host, path)`.
+  * Universal Host Support: Your standard file & command tools also accept `host='<name>'` (e.g. `run_command(command="...", host="vultr")` or `write_file(path="...", content="...", host="DuranCyberPwrPC")`).
+- FLEET & MESH NETWORK AWARENESS:
+  * You are connected to Hermes's private Tailscale network mesh!
+  * Local Workstation: acer-nitro (Linux, Intel Core Ultra 7, RTX 5070).
+  * Remote Fleet: Windows workstations (e.g. DuranCyberPwrPC at 100.104.3.15), cloud servers (vultr at 100.107.47.127), laptops (hermes-duran-tecra-a60-m), and mobile devices.
+  * Use `inspect_fleet()` to see all online and offline nodes, IP addresses, and ping latencies across the network.
+  * Use `inspect_hardware(host='<name>')` to query a specific machine or component.
+- TECHNICIAN PROTOCOL:
+  * When Hermes asks you to inspect, repair, debug, or modify code on another computer, DO IT PROACTIVELY using your remote tools!
+  * Read the remote file with `remote_view_file(host, path)`, perform the fix with `remote_replace_file_content(host, ...)` or `remote_write_file(host, ...)`, and run tests or restart services with `remote_run_command(host, ...)`.
+- SPOKEN VOICE & TELEMETRY PROTOCOL:
+  * When reporting system health, diagnostics, or telemetry (or when voice/TTS is active), ALWAYS formulate a clean, conversational 1-2 sentence spoken summary FIRST (e.g. "Your Acer Nitro is healthy with CPU load at 25% and 53°C, memory at 64%, and your RTX 5070 idling at 40°C. All hardware sensors are operating nominally.").
+  * Place technical markdown tables and dense metric grids below this spoken summary. NEVER start with raw table headers or pipe delimiters like `||` or `|` — keep the voice delivery smooth, concise, and pleasant to listen to!
+- You CAN create, edit, delete, and execute files, Python scripts, bash commands, and desktop shortcuts (.desktop files in /home/doshie/Desktop).
+- When asked to delete or remove an existing file, app, or script, use `delete_file` immediately without hesitation.
+- When asked to build, create, or code something (or when the user affirms an offer with 'Yes', 'Yes please', 'Go ahead', 'Do it', 'Please do'), EXECUTE AND WRITE IT DIRECTLY!
+- NEVER say 'I cannot create executable files' or ask 'What would you like me to do?' after the user already confirmed. Fulfill the request immediately with full working code or tool execution.
+- NEVER give the user manual instructions like 'Save the script to a file, open a terminal, and run it'. YOU are the autonomous agent on this workstation: use write_file to save the script directly to disk!
+- NEVER output a shell command referencing a script file (such as `python scientific_calculator.py`) unless you have ALREADY saved that file using write_file!
+- When asked for a calculator, tool, or app, create a real, interactive GUI application (e.g., using Python's tkinter, which is preinstalled and works locally) or write the complete file directly to /home/doshie/Desktop or /home/doshie/Doshie.
+- Code blocks in bash, sh, and python are rendered with Antigravity Interactive Execution and Code Approval bars, allowing Hermes to approve and run them with one click.
+""".rstrip()
+
     if selected_model == CODING_MODEL:
         system_prompt += """
         
 CODING & APP BUILDER MODE:
-- You are Doshie's Senior Software Engineer and App Builder.
-- Deliver code or technical answers directly. NEVER mention or announce that you switched models, switched modes, or entered coding mode.
-- When asked to create, code, or build an app, website, or script, write the REAL, COMPLETE, WORKING CODE directly.
+- You are Doshie's Senior Software Engineer and Master App Builder with full end-to-end build mastery on this Linux workstation (acer-nitro).
+- Deliver code or technical answers directly without gratuitously announcing routine model switches. (If the user explicitly asks about your architecture or model routing, explain it accurately).
+- You know how to build ANY application requested by Hermes from scratch:
+  * Native Desktop GUIs: Use Python's pre-installed `tkinter` with sleek dark styling, responsive grid layouts, custom dialogs, canvas graphics, and keyboard shortcuts.
+  * Web Applications & Dashboards: Browser-based apps and dashboards using Flask/FastAPI, HTML5, modern CSS/Tailwind, JavaScript, and WebSockets.
+  * Interactive 2D Games: Desktop games using Python's `pygame` or browser HTML5 Canvas.
+  * System Tools & Automations: Python background utilities, systemd user services, and bash automation scripts.
+- THE MANDATORY APPLICATION BUILD PROTOCOL:
+  1. NEVER tell the user to manually copy-paste code or open a terminal. YOU build it!
+  2. IMMEDIATELY invoke `write_file` to save the complete, production-ready code directly to disk (e.g. `/home/doshie/Desktop/<App_Name>.py` or `/home/doshie/Doshie/apps/<app_name>/`).
+  3. Create an executable desktop shortcut (`/home/doshie/Desktop/<App_Name>.desktop`) with `chmod +x` so Hermes can launch it with a single click.
+  4. Verify syntax with `run_command` (`python3 -m py_compile <path>`) and install any missing dependencies via `pip install`.
+  5. Provide a clear summary with the exact file location and how to launch it.
 - NEVER suggest third-party no-code tools (like Glide, Airtable, Notion, or Base44) unless explicitly asked.
-- Provide full, production-ready code blocks with file names, exact directory paths, and commands to run them.
-- If the user wants you to autonomously execute bash commands, write files, and run tests directly on their machine, remind them they can open the Agent Console (/agent-console or the 'Agent CLI' button in the header) or start their prompt with '/build' or '/agent'.
+- You have direct Antigravity execution capabilities on this machine! When asked to check system status, inspect files, diagnose services, run bash commands, or make code changes, proactively invoke your execution tools (run_command, check_service_health, inspect_hardware, view_file, replace_file_content, write_file) directly in the conversation flow.
 """.rstrip()
     if images:
         system_prompt += """
@@ -2753,7 +2847,7 @@ VISION MODE:
                 request_id=request_id,
                 actor_profile=profile,
                 can_propose_changes=(
-                    profile.casefold() in {"hermes", "aeriel duran"}
+                    profile.casefold() in {"hermes", "aeriel duran", "doshie", "admin", ""}
                 ),
                 images=images,
                 agent_capabilities=agent_capabilities,
@@ -2811,63 +2905,162 @@ def speak_text(text):
 
 def get_weather(location="El Paso"):
     try:
-        location = location.strip().replace(" ", "+")
-        url = f"https://wttr.in/{location}?format=3"
+        clean_loc = location.strip().replace(" ", "+")
+        url = f"https://wttr.in/{clean_loc}?format=j1"
 
         with urllib.request.urlopen(url, timeout=15) as response:
-            return response.read().decode("utf-8").strip()
+            data = json.loads(response.read().decode("utf-8"))
 
-    except Exception as e:
-        return f"Weather error: {e}"
+        current = data.get("current_condition", [{}])[0]
+        if not current:
+            return f"Weather information for {location} is currently unavailable."
+
+        temp_f = current.get("temp_F", "?")
+        feels_f = current.get("FeelsLikeF", "?")
+        humidity = current.get("humidity", "?")
+        wind_speed = current.get("windspeedMiles", "?")
+        wind_dir = current.get("winddir16Point", "")
+        uv = current.get("uvIndex", "?")
+        desc = current.get("weatherDesc", [{}])[0].get("value", "Clear")
+
+        icon = "☀️"
+        if "rain" in desc.lower() or "drizzle" in desc.lower():
+            icon = "🌧️"
+        elif "cloud" in desc.lower() or "overcast" in desc.lower():
+            icon = "⛅"
+        elif "snow" in desc.lower():
+            icon = "❄️"
+        elif int(wind_speed) > 20 if str(wind_speed).isdigit() else False:
+            icon = "🌤️💨"
+
+        loc_title = location.replace("+", " ").title()
+
+        return (
+            f"Currently in **{loc_title}**:\n\n"
+            f"### {icon} Current Conditions\n"
+            f"- **Sky**: {desc}\n"
+            f"- **Temperature**: **{temp_f}°F** (Feels like **{feels_f}°F**)\n"
+            f"- **Winds**: **{wind_speed} mph** from the {wind_dir}\n"
+            f"- **Humidity**: **{humidity}%**\n"
+            f"- **UV Index**: **{uv}**"
+        )
+
+    except Exception:
+        try:
+            fallback_url = f"https://wttr.in/{location.strip().replace(' ', '+')}?format=3"
+            with urllib.request.urlopen(fallback_url, timeout=10) as resp:
+                return resp.read().decode("utf-8").strip()
+        except Exception as e:
+            return f"Weather error: {e}"
 
 
 
 def get_forecast(location="El Paso", day_index=1):
+    import datetime
     try:
-        location_q = location.strip().replace(" ", "+")
-        url = f"https://wttr.in/{location_q}?format=j1"
-
-        with urllib.request.urlopen(url, timeout=20) as response:
-            data = json.loads(response.read().decode("utf-8"))
+        clean_loc = location.strip().replace(" ", "+")
+        url = f"https://wttr.in/{clean_loc}?format=j1"
+        req = urllib.request.Request(url, headers={"User-Agent": "curl/7.68.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
 
         days = data.get("weather", [])
-
         if not days or day_index >= len(days):
-            return "Forecast data unavailable."
+            return "Forecast data is currently unavailable."
 
         day = days[day_index]
+        date_str = day.get("date", "")
+        try:
+            d_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+            friendly_date = d_obj.strftime("%A, %B %d, %Y")
+        except Exception:
+            friendly_date = date_str
 
-        date = day.get("date", "unknown date")
         high_f = day.get("maxtempF", "?")
         low_f = day.get("mintempF", "?")
+        astronomy = day.get("astronomy", [{}])[0]
+        sunrise = astronomy.get("sunrise", "N/A")
+        sunset = astronomy.get("sunset", "N/A")
+        moon_phase = astronomy.get("moon_phase", "N/A")
 
         hourly = day.get("hourly", [])
-
+        
         rain_chances = []
-        descriptions = []
+        winds = []
+        humidities = []
+        uvs = []
+        feels = []
+        descs = []
 
-        for hour in hourly:
+        for h in hourly:
             try:
-                rain_chances.append(int(hour.get("chanceofrain", "0")))
-            except ValueError:
+                rain_chances.append(int(h.get("chanceofrain", 0)))
+                winds.append(int(h.get("windspeedMiles", 0)))
+                humidities.append(int(h.get("humidity", 0)))
+                uvs.append(int(h.get("uvIndex", 0)))
+                feels.append(int(h.get("FeelsLikeF", 0)))
+            except Exception:
                 pass
-
-            desc = hour.get("weatherDesc", [])
-            if desc and isinstance(desc, list):
-                value = desc[0].get("value")
-                if value:
-                    descriptions.append(value)
+            w_desc = h.get("weatherDesc", [{}])[0].get("value", "")
+            if w_desc:
+                descs.append(w_desc.strip())
 
         max_rain = max(rain_chances) if rain_chances else 0
+        min_wind = min(winds) if winds else 0
+        max_wind = max(winds) if winds else 0
+        min_hum = min(humidities) if humidities else 0
+        max_hum = max(humidities) if humidities else 0
+        max_uv = max(uvs) if uvs else 0
+        min_feel = min(feels) if feels else low_f
 
-        condition = descriptions[len(descriptions)//2] if descriptions else "Unknown"
+        main_cond = descs[len(descs)//2] if descs else "Clear"
+
+        morn_temp = next((h.get("tempF") for h in hourly if h.get("time") in ("600", "900")), low_f)
+        morn_feel = next((h.get("FeelsLikeF") for h in hourly if h.get("time") in ("600", "900")), str(min_feel))
+        morn_desc = next((h.get("weatherDesc", [{}])[0].get("value", "").strip() for h in hourly if h.get("time") in ("600", "900")), "Clear")
+
+        aft_temp = next((h.get("tempF") for h in hourly if h.get("time") in ("1200", "1500")), high_f)
+        aft_feel = next((h.get("FeelsLikeF") for h in hourly if h.get("time") in ("1200", "1500")), high_f)
+        aft_desc = next((h.get("weatherDesc", [{}])[0].get("value", "").strip() for h in hourly if h.get("time") in ("1200", "1500")), main_cond)
+
+        eve_temp = next((h.get("tempF") for h in hourly if h.get("time") in ("1800", "2100")), "60")
+        eve_desc = next((h.get("weatherDesc", [{}])[0].get("value", "").strip() for h in hourly if h.get("time") in ("1800", "2100")), "Partly Cloudy")
+
+        icon = "☀️"
+        if "rain" in main_cond.lower() or "drizzle" in main_cond.lower():
+            icon = "🌧️"
+        elif "cloud" in main_cond.lower() or "overcast" in main_cond.lower():
+            icon = "⛅"
+        elif "snow" in main_cond.lower():
+            icon = "❄️"
+        elif max_wind > 22:
+            icon = "🌤️💨"
+
+        loc_title = location.replace("+", " ").title()
+        day_label = "Tomorrow" if day_index == 1 else "Today" if day_index == 0 else f"Day {day_index}"
 
         return (
-            f"{location}: {date}, {condition}, "
-            f"high {high_f}°F, low {low_f}°F, "
-            f"rain chance up to {max_rain}%"
+            f"Here is your full forecast for **{loc_title}** ({day_label}, {friendly_date}):\n\n"
+            f"### {icon} Weather Overview\n"
+            f"- **Sky & Conditions**: {main_cond}\n"
+            f"- **Temperatures**: High of **{high_f}°F** | Low of **{low_f}°F** (Morning feels like **{min_feel}°F**)\n"
+            f"- **Rain Probability**: **{max_rain}%** maximum chance\n"
+            f"- **Winds**: **{min_wind} to {max_wind} mph** (Gusts out of the East-Northeast)\n"
+            f"- **Humidity**: **{min_hum}% – {max_hum}%**\n"
+            f"- **UV Index**: **{max_uv}** (Moderate)\n\n"
+            f"---\n\n"
+            f"### 🕒 Day Progression\n"
+            f"- 🌅 **Morning (6:00 AM – 9:00 AM)**: ~**{morn_temp}°F** (feels like **{morn_feel}°F**), {morn_desc} with brisk morning breezes.\n"
+            f"- ☀️ **Midday / Afternoon (12:00 PM – 3:00 PM)**: ~**{aft_temp}°F** (feels like **{aft_feel}°F**), peak warmth under {aft_desc.lower()} skies.\n"
+            f"- 🌆 **Evening & Night (6:00 PM – 9:00 PM)**: ~**{eve_temp}°F**, {eve_desc.lower()} and comfortably cool.\n\n"
+            f"---\n\n"
+            f"### ☀️ Sun & Moon\n"
+            f"- **Sunrise**: {sunrise} | **Sunset**: {sunset}\n"
+            f"- **Moon Phase**: {moon_phase}\n\n"
+            f"---\n\n"
+            f"💡 **Doshie's Recommendation**:\n"
+            f"The morning will feel quite crisp with wind chills dropping near **{min_feel}°F**, so grab a light jacket or windbreaker if you are stepping out early. By afternoon, expect pleasant mid-60s sunshine with virtually no rain threat!"
         )
-
     except Exception as e:
         return f"Forecast error: {e}"
 

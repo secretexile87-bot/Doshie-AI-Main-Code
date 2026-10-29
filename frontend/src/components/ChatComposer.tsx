@@ -12,6 +12,8 @@ import {
   Edit3,
   MapPin,
   AlertCircle,
+  ChevronDown,
+  Bot,
 } from 'lucide-react'
 import type { ChatAttachment, SpecialistAgent } from '../types'
 import { FileEditorModal } from './FileEditorModal'
@@ -90,9 +92,19 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const [isDragging, setIsDragging] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [editingAttachment, setEditingAttachment] = useState<ChatAttachment | null>(null)
-  const [selectedBrain] = useState<string>(() => {
+  const [selectedBrain, setSelectedBrain] = useState<string>(() => {
     return localStorage.getItem('Doshie_brain_mode') || 'auto'
   })
+
+  const BRAIN_OPTIONS = [
+    { id: 'auto', label: 'Auto (Intelligent)', desc: 'Automatically selects best local or cloud model' },
+    { id: 'fast', label: 'Fast (Qwen 3.5 9B)', desc: 'Ultra-low latency instant local chat' },
+    { id: 'balanced', label: 'Balanced (Qwen 2.5 14B)', desc: 'Deep knowledge & natural reasoning' },
+    { id: 'coding', label: 'Coding (Qwen Coder 7B)', desc: 'Specialized programming & scripts' },
+    { id: 'advanced', label: 'Reasoning (DeepSeek R1 14B)', desc: 'Chain-of-thought advanced reasoning' },
+    { id: 'heavyweight', label: 'DeepSeek R1 32B', desc: 'Maximum depth reasoning on RTX 5070' },
+    { id: 'genius', label: 'Genius (Gemini 2.5 Flash)', desc: 'Multimodal cloud superintelligence' },
+  ]
 
   // Camera & Geolocation States
   const [isCameraOpen, setIsCameraOpen] = useState(false)
@@ -734,7 +746,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
           {/* Bottom Bar: Attach, Voice & Send */}
           <div className="flex items-center justify-between gap-2 pt-2 mt-1 border-t border-white/5 w-full min-w-0">
-            {/* Left: Attach File Button */}
+            {/* Left: Attach File Button & Model Selector Dropdown */}
             <div className="flex items-center gap-1.5 min-w-0">
               <button
                 type="button"
@@ -745,6 +757,46 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
+
+              {/* Specialist Agents Quick Launcher */}
+              {onOpenAgentHub && (
+                <button
+                  type="button"
+                  onClick={onOpenAgentHub}
+                  title={selectedAgent ? `Specialist Agent: ${selectedAgent.name} (Click to switch)` : "Summon Specialist Agent"}
+                  className={`h-7 px-2 rounded-lg border text-[11px] font-mono flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 flex-none ${
+                    selectedAgent
+                      ? 'bg-purple-950/70 border-purple-500/50 text-purple-300 shadow-xs'
+                      : 'bg-white/5 hover:bg-white/10 border-white/10 text-neutral-300 hover:text-white'
+                  }`}
+                >
+                  <Bot className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="hidden xs:inline">
+                    {selectedAgent ? selectedAgent.name : 'agent'}
+                  </span>
+                </button>
+              )}
+
+              {/* AI Model Brain Selector */}
+              <div className="relative flex items-center">
+                <select
+                  value={selectedBrain}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setSelectedBrain(val)
+                    localStorage.setItem('Doshie_brain_mode', val)
+                  }}
+                  title="Choose AI Model Brain"
+                  className="h-7 pl-2 pr-5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono text-neutral-300 hover:text-white cursor-pointer transition-all outline-none appearance-none max-w-[125px] sm:max-w-[170px] truncate"
+                >
+                  {BRAIN_OPTIONS.map((opt) => (
+                    <option key={opt.id} value={opt.id} className="bg-[#18181b] text-white">
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-neutral-400 pointer-events-none absolute right-1.5" />
+              </div>
             </div>
 
             {/* Right: Voice & Send / Stop */}

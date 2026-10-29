@@ -120,6 +120,34 @@ def _clean_text(value: object) -> str:
     # 2. Remove fenced code blocks completely
     text = re.sub(r"```[\s\S]*?```", " ", text)
 
+    # 2b. Handle markdown tables and dense hardware telemetry
+    has_tables = bool(re.search(r"(?m)^\s*\|.*\|\s*$", text) or "||" in text)
+    if has_tables:
+        summary_m = re.search(r"(?:Diagnostics Summary|System Summary|Summary):\s*([^\n\r]+)", text, re.I)
+        lines = text.splitlines()
+        natural_lines = []
+        for line in lines:
+            trimmed = line.strip()
+            if not trimmed or trimmed.startswith("|") or "||" in trimmed or re.match(r"^[-=–—]{3,}$", trimmed):
+                continue
+            if re.match(r"^(?:COMPONENT|UTILIZATION|HARDWARE SENSORS|HOST SYSTEM)", trimmed, re.I):
+                continue
+            if re.match(r"^(?:Diagnostics Summary|Summary):", trimmed, re.I):
+                natural_lines.append(re.sub(r"^(?:Diagnostics Summary|Summary):\s*", "Diagnostics summary: ", trimmed, flags=re.I))
+                continue
+            if trimmed.startswith(("•", "*", "-")) and any(u in trimmed for u in ("°C", "GB", "W", "%")):
+                continue
+            natural_lines.append(trimmed)
+
+        if natural_lines:
+            text = ". ".join(natural_lines)
+        elif summary_m:
+            text = f"{summary_m.group(1)}. Detailed metrics are shown on your screen."
+        else:
+            text = "Diagnostics complete. Host system metrics are displayed on your screen."
+
+    text = re.sub(r"(?m)^\s*\|.*\|\s*$", " ", text)
+
     # 3. Remove inline code backticks, keep code content
     text = re.sub(r"`([^`]+)`", r"\1", text)
 

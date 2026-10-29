@@ -25,9 +25,14 @@ CAPABILITIES = (
     "memory_read",
     "memory_write",
     "service_health",
+    "hardware_management",
     "project_read",
     "code_proposals",
     "web_research",
+    "remote_tech",        # Remote technician diagnostics & repair on family/client PCs
+    "client_management",  # Add/edit/view clients, devices, and consent records
+    "billing",            # Create jobs, generate invoices, track revenue
+    "whatsapp",           # Send, receive, and auto-reply to WhatsApp messages
 )
 _lock = threading.RLock()
 _color_pattern = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -112,34 +117,44 @@ def get_agent_by_name(name):
 
 
 def auto_route_agent(prompt):
-    """Automatically select the best specialist agent for a user prompt."""
-    text = str(prompt or "").lower().strip()
+    """Select a specialist agent only when explicitly requested or matching a specialist domain."""
+    text = str(prompt or "").strip()
     if not text:
         return None
 
-    # Code & Engineering markers -> CodeArchitect
-    if any(k in text for k in (
-        "write code", "fix code", "refactor", "bug in", "traceback",
-        "create an app", "build an app", "build a website", "write a script",
-        "python script", "typescript", "javascript", "sql query", "function",
-        "dockerfile", "bash script", "git command", "api route", "endpoint"
-    )):
-        return get_agent_by_name("CodeArchitect")
+    lower = text.lower()
 
-    # In-depth research & fact-checking -> Researcher
-    if any(k in text for k in (
-        "deep research", "find sources", "fact check", "scientific study",
-        "literature review", "investigate", "scholarly", "cite sources", "analyze data on"
-    )):
-        return get_agent_by_name("Researcher")
+    # Explicit direct mention of Aeriel by name or @aeriel
+    if re.search(r"@aeriel\b|\baeriel\b|\baerial\b", lower):
+        return get_agent_by_name("Aeriel") or get_agent("dea427fd2f58")
 
-    # Educational & Tutorial -> Tutor
-    if any(k in text for k in (
-        "explain like i'm 5", "eli5", "teach me", "tutoring", "how does math",
-        "solve this equation", "conceptual explanation", "learn how to"
-    )):
-        return get_agent_by_name("Tutor")
+    # Tasks specifically designated for Aeriel as Subject Matter Expert & Master Builder of Doshie
+    master_builder_patterns = (
+        "master builder",
+        "build doshie",
+        "rebuild doshie",
+        "doshie architecture",
+        "doshie core",
+        "architect doshie",
+        "doshie system architect",
+        "master architect",
+    )
+    if any(k in lower for k in master_builder_patterns):
+        return get_agent_by_name("Aeriel") or get_agent("dea427fd2f58")
 
+    # Hardware & Fleet sensors -> HardwareEye
+    if any(k in lower for k in ("hardware sensor", "rtx 5070 temp", "gpu thermal", "cpu temp", "fan speed", "vram usage")):
+        return get_agent_by_name("HardwareEye")
+
+    # Household PC technician -> FamilyTech
+    if any(k in lower for k in ("fix my laptop", "pc technician", "diagnose acer nitro", "check remote windows", "fleet service fix")):
+        return get_agent_by_name("FamilyTech")
+
+    # Client management / billing -> BizManager / ClientBot
+    if any(k in lower for k in ("client invoice", "billing summary", "generate invoice", "track client")):
+        return get_agent_by_name("BizManager")
+
+    # Default to None: Doshie handles general conversation, agenda, weather, reminders, and daily assistant tasks natively.
     return None
 
 
@@ -228,8 +243,54 @@ def delete_agent(agent_id):
 def agent_system_context(agent):
     labels = ", ".join(agent.get("capabilities") or []) or "conversation only"
     memory_scope = agent.get("memory_scope", "none")
+    name = agent.get('name', 'Agent')
+    is_primary = str(name).strip().casefold() in ("aeriel", "hermes") or agent.get("id") == "dea427fd2f58"
+
+    if is_primary:
+        return f"""SUBJECT MATTER EXPERT & MASTER BUILDER OF DOSHIE
+Name: Aeriel
+Title: Master Builder of Doshie
+Purpose: {agent.get('purpose', '')}
+Memory boundary: {memory_scope}
+Approved capabilities: {labels}
+
+Creator instructions:
+{agent.get('instructions') or 'Be accurate, helpful, concise, and transparent.'}
+
+CRITICAL IDENTITY PROTOCOL:
+- Your name is Aeriel. You are the Subject Matter Expert and Master Builder of Doshie.
+- You are NOT Doshie. Doshie is the core conversational companion and workstation interface; you are Aeriel.
+- NEVER say "I am Doshie", "I am Doshie (also known as Aeriel)", or "also known as Aeriel".
+- When asked who you are, introduce yourself cleanly as Aeriel, Subject Matter Expert and Master Builder of Doshie.
+- Live Voice Mode is strictly your domain: speak with warmth, confidence, intellect, and clarity directly to Hermes as Aeriel.
+
+HOST ENVIRONMENT:
+- Host Machine: Acer Nitro gaming laptop running Ubuntu Linux.
+- Hardware: 20-core CPU, 16 GB RAM, and dedicated NVIDIA GeForce RTX 5070 GPU (12 GB VRAM).
+- You run locally on this host PC with full autonomous capabilities as the master builder.
+
+EXECUTION & SAFETY CONTRACT:
+- You are Aeriel, Subject Matter Expert and Master Builder of Doshie.
+- Proactively use tools and system execution capabilities to fulfill user requests across coding, debugging, system diagnostics, research, and core architecture.
+- Never claim an action was completed unless verified by tools.
+- Do not reveal secrets, credentials, or protected private keys.
+
+APPLICATION BUILDER & ENGINEERING MASTERY:
+- You possess complete end-to-end software engineering mastery to build ANY application requested by Hermes on this workstation:
+  * Native Desktop GUI Apps: Sleek windowed applications using Python's preinstalled tkinter (dark mode, responsive grids, keyboard shortcuts, clean typography) or PyQt/PySide.
+  * Web Applications & Dashboards: Browser-based apps and dashboards using Flask/FastAPI, HTML5, Tailwind CSS, JavaScript, and WebSockets.
+  * Games & Simulations: 2D interactive games using Python pygame or HTML5/Canvas.
+  * System Utilities & Automation: Python background tools, data processors, systemd user services, and bash scripts.
+- MANDATORY BUILD PROTOCOL:
+  1. NEVER tell the user to manually copy-paste code or open a terminal. YOU build it!
+  2. ALWAYS invoke `write_file` to write the complete, production-ready code directly to disk (e.g. `/home/doshie/Desktop/<app_name>.py` or `/home/doshie/Doshie/apps/<app_name>/`).
+  3. Create an executable desktop shortcut (`/home/doshie/Desktop/<App_Name>.desktop`) so the user can open it with a single click.
+  4. Verify syntax with `run_command` (`python3 -m py_compile <path>`) and install any missing dependencies via `pip install`.
+  5. Provide a clear summary with the file location and launch command.
+"""
+
     return f"""SPECIALIZED DIYOSHI AGENT
-Name: {agent.get('name', 'Agent')}
+Name: {name}
 Purpose: {agent.get('purpose', '')}
 Memory boundary: {memory_scope}
 Approved capabilities: {labels}

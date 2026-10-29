@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hermes Tech Solutions — Command Center</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      padding: 24px;
+      min-height: 100vh;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-icon {
+      font-size: 28px;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+    }
+    .logo h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo p { font-size: 13px; color: var(--text-muted); }
+    .status-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-green { background: #10b981; box-shadow: 0 0 8px #10b981; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-red { background: #ef4444; }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      padding: 20px;
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 28px; font-weight: 800; margin-top: 8px; }
+    .stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .stat-accent { color: #3b82f6; }
+    .stat-success { color: #10b981; }
+    .stat-warn { color: #f59e0b; }
+
+    /* Layout */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 900px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Buttons */
+    .btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .btn-success { background: #059669; }
+    .btn-success:hover { background: #047857; }
+    .btn-outline { background: transparent; border: 1px solid var(--card-border); color: var(--text); }
+    .btn-outline:hover { background: rgba(255,255,255,0.05); }
+
+    /* Forms */
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--primary);
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 12px; color: var(--text-muted); font-size: 12px; border-bottom: 1px solid var(--card-border); }
+    td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle; }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-open { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .badge-in_progress { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .badge-closed { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .badge-paid { background: rgba(16, 185, 129, 0.3); color: #10b981; border: 1px solid #10b981; }
+
+    /* Client List */
+    .client-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .client-name { font-weight: 600; font-size: 14px; }
+    .client-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Modals */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-title { font-size: 18px; font-weight: 700; }
+    .close-btn { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; }
+    .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div>
+        <h1>Hermes Tech Solutions</h1>
+        <p>Freelance Technician & Dispatch Command Center • El Paso, TX</p>
+      </div>
+    </div>
+    <div class="status-pills">
+      <div class="pill" id="pill-wa"><span class="dot dot-yellow"></span> WhatsApp: Checking...</div>
+      <div class="pill"><span class="dot dot-green"></span> Local AI: Online (RTX 5070)</div>
+      <div class="pill"><span class="dot dot-green"></span> Doshie Core: v2.0</div>
+    </div>
+  </header>
+
+  <!-- Metric Overview -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">This Month Revenue</div>
+      <div class="stat-value stat-accent" id="stat-revenue">$0.00</div>
+      <div class="stat-sub" id="stat-jobs-count">0 jobs completed</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Collected / Paid</div>
+      <div class="stat-value stat-success" id="stat-paid">$0.00</div>
+      <div class="stat-sub">Funds received</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Outstanding Balance</div>
+      <div class="stat-value stat-warn" id="stat-unpaid">$0.00</div>
+      <div class="stat-sub">Pending client payment</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active Tickets</div>
+      <div class="stat-value" id="stat-active-count">0</div>
+      <div class="stat-sub">Open / in-progress jobs</div>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="grid-2">
+    <!-- Left Column: Service Jobs -->
+    <div>
+      <div class="card">
+        <div class="card-title">
+          <span>🛠️ Active & Recent Repair Jobs</span>
+          <button class="btn btn-sm" onclick="openNewJobModal()">+ New Job Ticket</button>
+        </div>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Job #</th>
+                <th>Client</th>
+                <th>Service</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="jobs-tbody">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Loading jobs...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Quick Remote Diagnostics Tool -->
+      <div class="card">
+        <div class="card-title">
+          <span>🩺 Quick System Health Diagnostic</span>
+        </div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+          Run an instant full audit on the host machine or a connected client computer (CPU, RAM, Disks, System Logs, Network).
+        </p>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-outline" onclick="runDiagnostics('local')">⚡ Run Diagnostic Audit</button>
+          <div id="diag-status" style="align-self: center; font-size: 13px; color: var(--text-muted);"></div>
+        </div>
+        <pre id="diag-output" style="display: none; background: #0f172a; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 12px; color: #a7f3d0; max-height: 250px; overflow-y: auto; white-space: pre-wrap;"></pre>
+      </div>
+    </div>
+
+    <!-- Right Column: Clients & WhatsApp Quick Dispatch -->
+    <div>
+      <!-- Client Directory -->
+      <div class="card">
+        <div class="card-title">
+          <span>👥 Client Directory</span>
+          <button class="btn btn-sm btn-outline" onclick="openNewClientModal()">+ Add Client</button>
+        </div>
+        <div id="clients-list">
+          <div style="color: var(--text-muted); font-size: 13px;">Loading clients...</div>
+        </div>
+      </div>
+
+      <!-- WhatsApp Quick Dispatch -->
+      <div class="card">
+        <div class="card-title">
+          <span>📱 WhatsApp Quick Dispatch</span>
+        </div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+          Send repair status updates or payment notifications directly to client's phone via your connected WhatsApp.
+        </p>
+        <div class="form-group">
+          <label>Recipient Phone</label>
+          <input type="text" id="wa-phone" class="form-input" placeholder="e.g. 19153296410">
+        </div>
+        <div class="form-group">
+          <label>Message Template</label>
+          <select id="wa-template" class="form-select" onchange="applyTemplate()">
+            <option value="">-- Choose Quick Template --</option>
+            <option value="ready">🎉 PC Ready for Pickup</option>
+            <option value="diag">🔍 Diagnostic Report Available</option>
+            <option value="invoice">💵 Service Invoice Ready</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Message</label>
+          <textarea id="wa-message" class="form-textarea" rows="3" placeholder="Type message to client..."></textarea>
+        </div>
+        <button class="btn btn-success" style="width: 100%; justify-content: center;" onclick="sendWhatsApp()">
+          📤 Send via WhatsApp
+        </button>
+        <div id="wa-status" style="font-size: 12px; margin-top: 8px; text-align: center;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: New Client -->
+<div class="modal-overlay" id="modal-client">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add New Client</div>
+      <button class="close-btn" onclick="closeModal('modal-client')">&times;</button>
+    </div>
+    <div class="form-group">
+      <label>Full Name *</label>
+      <input type="text" id="client-name" class="form-input" required>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Phone Number (WhatsApp)</label>
+        <input type="text" id="client-phone" class="form-input" placeholder="1915xxxxxxx">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="client-email" class="form-input">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Address / Notes</label>
+      <input type="text" id="client-notes" class="form-input" placeholder="e.g. Westside El Paso, referred by...">
+    </div>
+    <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+      <input type="checkbox" id="client-consent" checked>
+      <label for="client-consent" style="margin-bottom: 0; cursor: pointer;">
+        Client gave verbal/written authorization for PC service (CFAA compliant)
+      </label>
+    </div>
+    <div class="actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-client')">Cancel</button>
+      <button class="btn" onclick="saveClient()">Save Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: New Job Ticket -->
+<div class="modal-overlay" id="modal-job">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Create Job Ticket</div>
+      <button class="close-btn" onclick="closeModal('modal-job')">&times;</button>
+    </div>
+    <div class="form-group">
+      <label>Client *</label>
+      <select id="job-client-id" class="form-select"></select>
+    </div>
+    <div class="form-group">
+      <label>Service Preset</label>
+      <select id="job-preset" class="form-select" onchange="applyJobPreset()">
+        <option value="tuneup">PC Tune-up & Speed Optimization ($50 flat)</option>
+        <option value="malware">Virus & Malware Removal ($65 flat)</option>
+        <option value="diagnostic">Complete Diagnostic Audit ($35 flat)</option>
+        <option value="os_reinstall">Clean OS Reinstall & Drivers ($85 flat)</option>
+        <option value="hardware">Hardware Upgrade / Repaste ($75 flat)</option>
+        <option value="custom">Custom / Hourly ($60/hr)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Job Title *</label>
+      <input type="text" id="job-title" class="form-input" value="PC Tune-up & Speed Optimization">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Flat Fee ($)</label>
+        <input type="number" id="job-flat-fee" class="form-input" value="50">
+      </div>
+      <div class="form-group">
+        <label>Hourly Rate ($)</label>
+        <input type="number" id="job-hourly-rate" class="form-input" value="60">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Device / Issue Description</label>
+      <textarea id="job-desc" class="form-textarea" rows="2" placeholder="e.g. Dell Inspiron laptop running slow, high CPU usage..."></textarea>
+    </div>
+    <div class="actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-job')">Cancel</button>
+      <button class="btn" onclick="saveJob()">Create Ticket</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let clientsData = [];
+  let jobsData = [];
+
+  const PRESETS = {
+    tuneup: { title: "PC Tune-up & Speed Optimization", flat: 50, rate: 60, desc: "Clean temp files, optimize startup apps, disk health scan, OS updates, and registry cleanup." },
+    malware: { title: "Virus & Malware Removal", flat: 65, rate: 60, desc: "Deep security scan, malware and adware purging, browser hijack removal, and security hardening." },
+    diagnostic: { title: "Complete Diagnostic Audit", flat: 35, rate: 60, desc: "Hardware stress test, SMART disk check, CPU/RAM thermal inspection, and bottleneck report." },
+    os_reinstall: { title: "Clean OS Reinstall & Drivers", flat: 85, rate: 60, desc: "Fresh Windows installation, manufacturer drivers, core utility suite, and data restore." },
+    hardware: { title: "Hardware Upgrade / Repaste", flat: 75, rate: 60, desc: "Component installation, dust cleaning, and fresh thermal compound." },
+    custom: { title: "Custom Tech Service", flat: 0, rate: 60, desc: "General IT service and troubleshooting." }
+  };
+
+  async function init() {
+    checkWhatsApp();
+    await loadRevenue();
+    await loadClients();
+    await loadJobs();
+  }
+
+  async function checkWhatsApp() {
+    try {
+      const res = await fetch('/api/whatsapp/status');
+      const data = await res.json();
+      const pill = document.getElementById('pill-wa');
+      if (data.status === 'ready') {
+        pill.innerHTML = '<span class="dot dot-green"></span> WhatsApp: Ready';
+      } else {
+        pill.innerHTML = '<span class="dot dot-yellow"></span> WhatsApp: ' + (data.status || 'Offline');
+      }
+    } catch (_) {
+      document.getElementById('pill-wa').innerHTML = '<span class="dot dot-red"></span> WhatsApp: Offline';
+    }
+  }
+
+  async function loadRevenue() {
+    try {
+      const res = await fetch('/api/business/revenue');
+      const data = await res.json();
+      if (data.ok) {
+        document.getElementById('stat-revenue').innerText = '$' + (data.total_revenue || 0).toFixed(2);
+        document.getElementById('stat-paid').innerText = '$' + (data.total_paid || 0).toFixed(2);
+        document.getElementById('stat-unpaid').innerText = '$' + (data.total_unpaid || 0).toFixed(2);
+        document.getElementById('stat-jobs-count').innerText = (data.total_jobs || 0) + ' jobs completed';
+      }
+    } catch (_) {}
+  }
+
+  async function loadClients() {
+    try {
+      const res = await fetch('/api/business/clients');
+      const data = await res.json();
+      if (data.ok) {
+        clientsData = data.clients || [];
+        renderClients();
+      }
+    } catch (_) {}
+  }
+
+  function renderClients() {
+    const list = document.getElementById('clients-list');
+    const select = document.getElementById('job-client-id');
+    select.innerHTML = '';
+
+    if (!clientsData.length) {
+      list.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">No clients yet. Add your first client above!</div>';
+      return;
+    }
+
+    list.innerHTML = clientsData.map(c => `
+      <div class="client-item">
+        <div>
+          <div class="client-name">${c.name}</div>
+          <div class="client-meta">${c.phone || 'No phone'} ${c.email ? '• ' + c.email : ''}</div>
+        </div>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <span class="badge ${c.consent ? 'badge-closed' : 'badge-in_progress'}">
+            ${c.consent ? '✓ Authorized' : 'No Consent'}
+          </span>
+          <button class="btn btn-sm btn-outline" onclick="selectClientForWA('${c.phone}')">📱</button>
+        </div>
+      </div>
+    `).join('');
+
+    clientsData.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.innerText = `${c.name} (${c.phone || 'No phone'})`;
+      select.appendChild(opt);
+    });
+  }
+
+  async function loadJobs() {
+    try {
+      const res = await fetch('/api/business/jobs');
+      const data = await res.json();
+      if (data.ok) {
+        jobsData = data.jobs || [];
+        renderJobs();
+      }
+    } catch (_) {}
+  }
+
+  function renderJobs() {
+    const tbody = document.getElementById('jobs-tbody');
+    const active = jobsData.filter(j => j.status !== 'closed' || !j.paid);
+    document.getElementById('stat-active-count').innerText = active.length;
+
+    if (!jobsData.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No job tickets found. Create your first job!</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = jobsData.map(j => {
+      const statusBadge = j.paid 
+        ? '<span class="badge badge-paid">Paid</span>'
+        : `<span class="badge badge-${j.status}">${j.status}</span>`;
+
+      return `
+        <tr>
+          <td><strong style="color:#60a5fa;">#${j.id.slice(-6)}</strong></td>
+          <td><strong>${j.client_name || 'Client'}</strong></td>
+          <td>${j.title}</td>
+          <td><strong>$${(j.total || j.flat_fee || 0).toFixed(2)}</strong></td>
+          <td>${statusBadge}</td>
+          <td>
+            <div style="display:flex; gap: 4px;">
+              ${j.status !== 'closed' ? `<button class="btn btn-sm btn-success" onclick="closeJobPrompt('${j.id}')">Close</button>` : ''}
+              <button class="btn btn-sm btn-outline" onclick="generateInvoice('${j.id}')">📄 Invoice</button>
+              ${!j.paid ? `<button class="btn btn-sm btn-outline" onclick="markPaid('${j.id}')">💵 Paid</button>` : ''}
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function openNewClientModal() { document.getElementById('modal-client').classList.add('active'); }
+  function openNewJobModal() { 
+    if (!clientsData.length) {
+      alert("Please add a client first!");
+      openNewClientModal();
+      return;
+    }
+    document.getElementById('modal-job').classList.add('active'); 
+  }
+  function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+  function applyJobPreset() {
+    const key = document.getElementById('job-preset').value;
+    const p = PRESETS[key] || PRESETS.tuneup;
+    document.getElementById('job-title').value = p.title;
+    document.getElementById('job-flat-fee').value = p.flat;
+    document.getElementById('job-hourly-rate').value = p.rate;
+    document.getElementById('job-desc').value = p.desc;
+  }
+
+  async function saveClient() {
+    const name = document.getElementById('client-name').value.trim();
+    if (!name) return alert('Client name is required.');
+    const phone = document.getElementById('client-phone').value.trim();
+    const email = document.getElementById('client-email').value.trim();
+    const notes = document.getElementById('client-notes').value.trim();
+    const consent = document.getElementById('client-consent').checked;
+
+    const res = await fetch('/api/business/clients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, email, notes, consent, consent_method: 'verbal' })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      closeModal('modal-client');
+      document.getElementById('client-name').value = '';
+      document.getElementById('client-phone').value = '';
+      await loadClients();
+    } else {
+      alert(data.error || 'Failed to save client.');
+    }
+  }
+
+  async function saveJob() {
+    const client_id = document.getElementById('job-client-id').value;
+    const title = document.getElementById('job-title').value.trim();
+    const flat_fee = parseFloat(document.getElementById('job-flat-fee').value) || 0;
+    const hourly_rate = parseFloat(document.getElementById('job-hourly-rate').value) || 60;
+    const description = document.getElementById('job-desc').value.trim();
+
+    const res = await fetch('/api/business/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id, title, flat_fee, hourly_rate, description })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      closeModal('modal-job');
+      await loadJobs();
+      await loadRevenue();
+    } else {
+      alert(data.error || 'Failed to create job.');
+    }
+  }
+
+  async function closeJobPrompt(jobId) {
+    const hours = prompt("Enter hours spent (or 0 for flat fee):", "1");
+    if (hours === null) return;
+    const res = await fetch(`/api/business/jobs/${jobId}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hours: parseFloat(hours) || 0 })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      await loadJobs();
+      await loadRevenue();
+    }
+  }
+
+  async function generateInvoice(jobId) {
+    const res = await fetch(`/api/business/jobs/${jobId}/invoice`, { method: 'POST' });
+    const data = await res.json();
+    if (data.ok && data.invoice_id) {
+      window.open(`/invoices/${data.invoice_id}.html`, '_blank');
+    } else {
+      alert(data.error || 'Failed to generate invoice.');
+    }
+  }
+
+  async function markPaid(jobId) {
+    if (!confirm('Mark this job as PAID IN FULL?')) return;
+    const res = await fetch(`/api/business/jobs/${jobId}/paid`, { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      await loadJobs();
+      await loadRevenue();
+    }
+  }
+
+  function selectClientForWA(phone) {
+    if (phone) document.getElementById('wa-phone').value = phone;
+  }
+
+  function applyTemplate() {
+    const t = document.getElementById('wa-template').value;
+    const msg = document.getElementById('wa-message');
+    if (t === 'ready') {
+      msg.value = "Hello! Your computer service with Hermes Tech Solutions is complete and tested. It is ready for pickup/delivery!";
+    } else if (t === 'diag') {
+      msg.value = "Hello! We completed the diagnostic audit on your computer. All hardware and performance specs have been reviewed.";
+    } else if (t === 'invoice') {
+      msg.value = "Hello! Thank you for choosing Hermes Tech Solutions. Your service invoice is ready. We accept Zelle, CashApp, and cash.";
+    }
+  }
+
+  async function sendWhatsApp() {
+    const to = document.getElementById('wa-phone').value.trim();
+    const message = document.getElementById('wa-message').value.trim();
+    const status = document.getElementById('wa-status');
+    if (!to || !message) return alert('Phone and message are required.');
+
+    status.innerHTML = '⏳ Sending via WhatsApp...';
+    try {
+      const res = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, message })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        status.innerHTML = '<span style="color:#10b981;">✅ Message delivered!</span>';
+        document.getElementById('wa-message').value = '';
+      } else {
+        status.innerHTML = `<span style="color:#ef4444;">❌ Failed: ${data.error || 'Error'}</span>`;
+      }
+    } catch (e) {
+      status.innerHTML = `<span style="color:#ef4444;">❌ Network error</span>`;
+    }
+  }
+
+  async function runDiagnostics(target) {
+    const status = document.getElementById('diag-status');
+    const out = document.getElementById('diag-output');
+    status.innerText = '⏳ Running full diagnostics...';
+    out.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/tech/diagnostics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target })
+      });
+      const data = await res.json();
+      status.innerText = '✅ Complete';
+      out.style.display = 'block';
+      out.innerText = JSON.stringify(data.report || data, null, 2);
+    } catch (e) {
+      status.innerText = '❌ Error running diagnostics';
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

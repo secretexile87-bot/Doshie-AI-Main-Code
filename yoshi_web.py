@@ -9471,6 +9471,8 @@ def _profile_locked_response(profile):
 PUBLIC_FUNNEL_PORT = 8443
 WEBSITE_HOSTS = {
     "yoshi-home.duckdns.org",
+    "hermes-doshie.tail50b4c5.ts.net",
+    "acer-nitro.tail50b4c5.ts.net",
     "hermes-duran-tecra-a60-m.tail50b4c5.ts.net",
 }
 PUBLIC_OPEN_ENDPOINTS = {

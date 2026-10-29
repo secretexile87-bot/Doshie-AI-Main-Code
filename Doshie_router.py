@@ -1551,7 +1551,7 @@ def _route_tool_rules(
             location = match.group(1).strip()
 
         forecast = yoshi_memory.get_forecast(location, 1)
-        return True, f"Tomorrow's forecast: {forecast}"
+        return True, forecast
 
     # Current weather (strictly for current / today requests, not weekly forecasts)
     weather_phrases = (

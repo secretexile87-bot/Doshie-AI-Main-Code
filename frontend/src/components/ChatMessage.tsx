@@ -353,6 +353,7 @@ const ToolIcon: React.FC<{ tool: string }> = ({ tool }) => {
   if (t.includes('search') || t.includes('web')) return <Search className="w-3.5 h-3.5 text-teal-400" />
   if (t.includes('terminal') || t.includes('command') || t.includes('cli') || t.includes('diagnost')) return <Terminal className="w-3.5 h-3.5 text-emerald-400" />
   if (t.includes('code') || t.includes('file') || t.includes('edit')) return <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+  if (t.includes('delete') || t.includes('remove') || t.includes('trash')) return <Trash2 className="w-3.5 h-3.5 text-rose-400" />
   if (t.includes('hard') || t.includes('cpu') || t.includes('gpu') || t.includes('governor')) return <Cpu className="w-3.5 h-3.5 text-cyan-400" />
   if (t.includes('memo') || t.includes('task') || t.includes('note')) return <Database className="w-3.5 h-3.5 text-purple-400" />
   if (t.includes('agent') || t.includes('hermes')) return <Bot className="w-3.5 h-3.5 text-violet-400" />
@@ -605,10 +606,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const [lightboxImage, setLightboxImage] = useState<ChatAttachment | null>(null)
   const [editingFile, setEditingFile] = useState<ChatAttachment | null>(null)
 
-  const { displayContent, thoughtContent, parsedInlineStep } = useMemo(() => {
+  const { displayContent, thoughtContent, parsedInlineSteps } = useMemo(() => {
     let content = message.content || ''
     let thought = message.thinking || ''
-    let inlineStep: any = null
+    const inlineSteps: any[] = []
 
     const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/i)
     if (thinkMatch) {
@@ -618,26 +619,68 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       content = content.replace(/<think>[\s\S]*?<\/think>/i, '').trim()
     }
 
-    // Check if content contains raw tool call JSON (e.g., from Ollama/local models)
-    const jsonMatch =
-      content.match(/^```(?:json)?\s*(\{[\s\S]*?\})\s*```$/i) ||
-      content.match(/^\s*(\{[\s\S]*\})\s*$/)
-    if (jsonMatch) {
+    // Check if content contains raw tool call JSON(s) (e.g. from Ollama/local models)
+    // 1. Check fenced code blocks
+    const jsonBlockRegex = /```(?:json)?\s*(\{[\s\S]*?\})\s*```/gi
+    let match: RegExpExecArray | null
+    let hasFenced = false
+    while ((match = jsonBlockRegex.exec(content)) !== null) {
       try {
-        const parsed = JSON.parse(jsonMatch[1])
+        const parsed = JSON.parse(match[1])
         if (parsed.name || parsed.tool || parsed.action) {
-          inlineStep = {
+          inlineSteps.push({
             tool: parsed.name || parsed.tool || parsed.action,
             title: parsed.title,
             arguments: parsed.arguments || parsed.parameters || parsed.args || {},
             result: parsed.result || parsed.output || '',
             ok: parsed.ok !== false,
-          }
-          content = ''
+          })
+          hasFenced = true
         }
-      } catch {
-        // Not valid JSON
+      } catch {}
+    }
+    if (hasFenced) {
+      content = content.replace(jsonBlockRegex, '').trim()
+    }
+
+    // 2. Also check for raw unfenced JSON objects (single or multiple)
+    let depth = 0
+    let startIdx = -1
+    let cleanedContent = ''
+    let lastEnd = 0
+    let foundAnyRaw = false
+
+    for (let i = 0; i < content.length; i++) {
+      const char = content[i]
+      if (char === '{') {
+        if (depth === 0) startIdx = i
+        depth++
+      } else if (char === '}') {
+        depth--
+        if (depth === 0 && startIdx !== -1) {
+          const candidate = content.slice(startIdx, i + 1)
+          try {
+            const parsed = JSON.parse(candidate)
+            if (parsed.name || parsed.tool || parsed.action) {
+              inlineSteps.push({
+                tool: parsed.name || parsed.tool || parsed.action,
+                title: parsed.title,
+                arguments: parsed.arguments || parsed.parameters || parsed.args || {},
+                result: parsed.result || parsed.output || '',
+                ok: parsed.ok !== false,
+              })
+              cleanedContent += content.slice(lastEnd, startIdx)
+              lastEnd = i + 1
+              foundAnyRaw = true
+            }
+          } catch {}
+          startIdx = -1
+        }
       }
+    }
+    if (foundAnyRaw) {
+      cleanedContent += content.slice(lastEnd)
+      content = cleanedContent.trim()
     }
 
     // If text has inline bullets (e.g. " • " or "• ") that didn't have newlines, normalize them so markdown renders them as proper list items
@@ -645,18 +688,18 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       content = content.replace(/\s*•\s*/g, '\n- ')
     }
 
-    return { displayContent: content, thoughtContent: thought, parsedInlineStep: inlineStep }
+    return { displayContent: content, thoughtContent: thought, parsedInlineSteps: inlineSteps }
   }, [message.content, message.thinking])
 
   const effectiveSteps = useMemo(() => {
     if (message.steps && message.steps.length > 0) {
       return message.steps
     }
-    if (parsedInlineStep) {
-      return [parsedInlineStep]
+    if (parsedInlineSteps && parsedInlineSteps.length > 0) {
+      return parsedInlineSteps
     }
     return []
-  }, [message.steps, parsedInlineStep])
+  }, [message.steps, parsedInlineSteps])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(displayContent || message.content)
@@ -843,7 +886,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                 {message.agent.name}
               </span>
               <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/10 text-neutral-300 border border-white/10">
-                Specialist Agent
+                {String(message.agent.name || '').toLowerCase() === 'aeriel' ? 'Master Builder' : 'Specialist Agent'}
               </span>
             </div>
           )}

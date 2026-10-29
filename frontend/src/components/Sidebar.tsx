@@ -17,6 +17,7 @@ import {
   Shield,
   Eye,
   Mic,
+  Bot,
 } from 'lucide-react'
 import type { ChatSession, AntigravitySummary, Profile } from '../types'
 
@@ -42,6 +43,8 @@ interface SidebarProps {
   availableProfiles?: Profile[]
   onOpenMessenger?: () => void
   messengerUnreadCount?: number
+  onOpenAgentHub?: () => void
+  onOpenAgentConsole?: () => void
 }
 
 function formatRelativeTime(dateInput: number | string): string {
@@ -111,6 +114,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   availableProfiles = [],
   onOpenMessenger,
   messengerUnreadCount = 0,
+  onOpenAgentHub,
+  onOpenAgentConsole,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [sessionFilter, setSessionFilter] = useState<'all' | 'chats' | 'voice'>('all')
@@ -287,6 +292,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </div>
             </button>
+          </div>
+        )}
+
+        {/* Action: Open Specialist Agents Hub & Console */}
+        {onOpenAgentHub && (
+          <div className="px-3 pb-2 flex gap-1.5">
+            <button
+              onClick={() => {
+                onOpenAgentHub()
+                if (window.innerWidth < 768) onClose()
+              }}
+              className="flex-1 py-2 px-3 rounded-2xl bg-white/5 hover:bg-purple-950/40 border border-white/10 hover:border-purple-500/50 text-neutral-200 hover:text-white text-xs font-semibold flex items-center justify-between transition-all cursor-pointer active:scale-[0.98]"
+            >
+              <div className="flex items-center gap-2">
+                <Bot className="w-3.5 h-3.5 text-purple-400" />
+                <span>Specialist Agents</span>
+              </div>
+              <span className="text-[10px] text-purple-300 font-mono">Hub</span>
+            </button>
+            {onOpenAgentConsole && (
+              <button
+                onClick={() => {
+                  onOpenAgentConsole()
+                  if (window.innerWidth < 768) onClose()
+                }}
+                title="Agent Console & CLI"
+                className="py-2 px-3 rounded-2xl bg-white/5 hover:bg-teal-950/40 border border-white/10 hover:border-teal-500/50 text-teal-300 hover:text-white text-xs font-mono font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-[0.98]"
+              >
+                <Terminal className="w-3.5 h-3.5 text-teal-400" />
+                <span>CLI</span>
+              </button>
+            )}
           </div>
         )}
 

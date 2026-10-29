@@ -45,6 +45,16 @@ __pycache__/
 
 # Local DBs
 messaging.db
+*.db-shm
+*.db-wal
+
+# WhatsApp Session & Cache
+wa_session/
+**/wa_session/
+.wwebjs_cache/
+**/.wwebjs_cache/
+.wwebjs_auth/
+**/.wwebjs_auth/
 
 # Large weights, downloads and user data
 models/

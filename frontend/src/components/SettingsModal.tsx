@@ -89,6 +89,7 @@ interface SettingsModalProps {
   onOpenVoiceStudio?: () => void
   onOpenAgentHub?: () => void
   onOpenAgentConsole?: () => void
+  onOpenGaming?: () => void
 }
 
 const BASE_VOICE_IDENTITIES = [
@@ -135,6 +136,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onOpenVoiceStudio,
   onOpenAgentHub,
   onOpenAgentConsole,
+  onOpenGaming,
 }) => {
   const [tab, setTab] = useState<'apps' | 'settings' | 'profiles' | 'appearance' | 'maintenance' | 'oversight' | 'doctor'>(initialTab)
 
@@ -1574,18 +1576,21 @@ body {
                   </div>
                   <div className="grid grid-cols-2 gap-2 mt-3.5">
                     <button
-                      onClick={() => handleTabChange('doctor')}
-                      className="w-full py-2 px-2.5 rounded-xl bg-cyan-900/60 hover:bg-cyan-800 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                      onClick={() => {
+                        onClose()
+                        onOpenGaming ? onOpenGaming() : handleTabChange('doctor')
+                      }}
+                      className="w-full py-2 px-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
                     >
-                      <Activity className="w-3.5 h-3.5" />
-                      View Status
+                      <Gamepad2 className="w-3.5 h-3.5" />
+                      Open Gaming Hub
                     </button>
                     <button
                       onClick={handleLaunchGamingApp}
-                      className="w-full py-2 px-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                      className="w-full py-2 px-2.5 rounded-xl bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-700/60 text-cyan-200 text-xs font-bold transition-all cursor-pointer shadow-md active:scale-98 flex items-center justify-center gap-1.5"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      Open Desktop App
+                      Desktop App
                     </button>
                   </div>
                 </div>
@@ -2214,11 +2219,14 @@ body {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleTabChange('doctor')}
-                        className="px-3 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-700 text-cyan-200 text-xs font-semibold cursor-pointer transition shadow-sm flex items-center gap-1.5"
+                        onClick={() => {
+                          onClose()
+                          onOpenGaming ? onOpenGaming() : handleTabChange('doctor')
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-semibold cursor-pointer transition shadow-sm flex items-center gap-1.5"
                       >
-                        <Activity className="w-3.5 h-3.5 text-cyan-400" />
-                        <span>Live Route Status</span>
+                        <Gamepad2 className="w-3.5 h-3.5" />
+                        <span>Gaming Hub</span>
                       </button>
                       <button
                         type="button"

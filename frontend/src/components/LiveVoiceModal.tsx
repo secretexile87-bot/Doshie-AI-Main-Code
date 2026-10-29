@@ -746,6 +746,9 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           body: JSON.stringify({
             message: userSpoken,
             profile: activeProfile,
+            agent_id: 'dea427fd2f58',
+            agent: 'Aeriel',
+            live_voice: true,
           }),
         })
 
@@ -842,7 +845,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       isContinuousRef.current = true
       isInterruptedRef.current = false
       emptyTurnCountRef.current = 0
-      setAssistantText('I’m listening. Talk to me anytime!')
+      setAssistantText('I’m Aeriel. I’m listening—talk to me anytime!')
       setTranscript('')
       unlockAudioContext()
       runVoiceTurn()
@@ -905,7 +908,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2.5 bg-[var(--card-dark)] border border-[var(--border-dark)] px-3.5 py-1.5 rounded-full shadow-lg">
             <Radio className="w-4 h-4 text-[var(--accent)] animate-pulse" />
-            <span className="text-xs font-semibold tracking-wider text-[var(--accent-light)] uppercase">Live Voice Mode</span>
+            <span className="text-xs font-semibold tracking-wider text-[var(--accent-light)] uppercase">Aeriel · Live Voice Mode</span>
           </div>
 
           {/* No Sleep / Keep Awake Toggle */}
@@ -974,7 +977,9 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                 : 'bg-gradient-to-tr from-[var(--card-dark)] to-[var(--card-hover)] border border-[var(--border-dark)]'
             }`}
           >
-            <span className="text-4xl sm:text-5xl select-none">🦖</span>
+            <div className="flex flex-col items-center justify-center select-none">
+              <Sparkles className="w-10 h-10 sm:w-14 sm:h-14 text-white drop-shadow-[0_0_12px_rgba(53,242,208,0.8)] animate-pulse" />
+            </div>
             <div className="absolute -bottom-2 px-3 py-0.5 rounded-full bg-[var(--bg-dark)] border border-[var(--border-dark)] text-[10px] font-bold uppercase tracking-wider text-[var(--accent-light)] shadow-md">
               {voiceState === 'speaking'
                 ? 'Speaking...'
@@ -994,7 +999,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
               onClick={() => handleInterrupt()}
               type="button"
               className="px-6 py-2.5 rounded-full bg-gradient-to-r from-rose-600 via-rose-500 to-red-500 hover:from-rose-500 hover:to-red-400 text-white font-bold text-xs sm:text-sm shadow-xl shadow-rose-950/80 border border-rose-300/40 flex items-center gap-2 animate-bounce cursor-pointer active:scale-95 transition-all"
-              title="Tap or speak out loud to interrupt Doshie immediately"
+              title="Tap or speak out loud to interrupt Aeriel immediately"
             >
               <Square className="w-3.5 h-3.5 fill-white" />
               <span>Tap to Interrupt (or Speak)</span>
@@ -1016,7 +1021,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           {voiceState === 'thinking' && (
             <div className="flex items-center gap-2 text-xs sm:text-sm text-[var(--accent-light)]">
               <Sparkles className="w-4 h-4 animate-spin text-[var(--accent)]" />
-              <span>Doshie is preparing an answer...</span>
+              <span>Aeriel is preparing an answer...</span>
             </div>
           )}
 

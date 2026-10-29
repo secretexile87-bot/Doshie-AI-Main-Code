@@ -9,6 +9,9 @@ echo "  🚀 DOSHIE ANDROID APK BUILD SYSTEM"
 echo "==========================================="
 
 echo "[1/4] Syncing frontend web assets to Android project..."
+if [ -d "$DIR/static/dist" ]; then
+    cp -r "$DIR/static/dist"/* "$DIR/www/"
+fi
 if [ -f "node_modules/.bin/cap" ]; then
     ./node_modules/.bin/cap sync android || true
 fi

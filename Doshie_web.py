@@ -5303,24 +5303,82 @@ if ("speechSynthesis" in window) {
 
 
 function cleanSpeechText(text) {
-    return String(text || "")
-        .replace(
-            /!\\[[^\\]]*(?:gif|animated)[^\\]]*\\]\\([^)]*\\)/gi,
-            " "
-        )
-        .replace(
-            /!\\[[^\\]]*\\]\\(https?:\\/\\/[^\\s)]+\\.gif(?:\\?[^\\s)]*)?\\)/gi,
-            " "
-        )
-        .replace(
-            /https?:\\/\\/[^\\s]+\\.gif(?:\\?[^\\s]*)?/gi,
-            " "
-        )
-        .replace(/\\b(?:gif|giphy|tenor)\\b\\s*:*/gi, " ")
-        .replace(/https?:\\/\\/[^\\s]+/g, " link ")
-        .replace(/[*_#>|]/g, " ")
-        .replace(/\\s+/g, " ")
-        .trim();
+    let raw = String(text || "");
+    if (!raw.trim()) return "";
+
+    // 1. Remove thinking / thought / system tags
+    raw = raw.replace(/<(?:think|thought|reasoning|system)>[\s\S]*?<\/(?:think|thought|reasoning|system)>/gi, " ");
+    raw = raw.replace(/<[^>]+>/g, " ");
+
+    // 2. Remove fenced code blocks
+    raw = raw.replace(/```[\s\S]*?```/g, " ");
+
+    // 3. Remove image embeds and GIFs
+    raw = raw.replace(/!\[[^\]]*(?:gif|animated)[^\]]*\]\([^)]*\)/gi, " ");
+    raw = raw.replace(/!\[[^\]]*\]\([^)]*\)/gi, " ");
+    raw = raw.replace(/https?:\/\/[^\s]+\.gif(?:\?[^\s]*)?/gi, " ");
+    raw = raw.replace(/\b(?:gif|giphy|tenor)\b\s*:/gi, " ");
+    raw = raw.replace(/https?:\/\/[^\s]+/g, " link ");
+
+    // 4. Special handling for Diagnostics & Technical Tables:
+    const summaryMatch = raw.match(/(?:Diagnostics Summary|System Summary|Summary):\s*([^\n\r]+)/i);
+    const hasTableOrDenseSpecs = raw.includes("|") || raw.includes("||") || /CPU|RAM|VRAM|NVMe|GPU/i.test(raw);
+
+    if (hasTableOrDenseSpecs) {
+        const lines = raw.split(/\r?\n/);
+        let naturalSentences = [];
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            // Skip table rows, headers, and markdown divider lines
+            if (trimmed.includes("|") || trimmed.startsWith("#") || /^[-=–—]{3,}$/.test(trimmed)) continue;
+            if (/^(?:COMPONENT|UTILIZATION|HARDWARE SENSORS|HOST SYSTEM)/i.test(trimmed)) continue;
+            // Include summary lines naturally
+            if (/^(?:Diagnostics Summary|Summary):/i.test(trimmed)) {
+                naturalSentences.push(trimmed.replace(/^(?:Diagnostics Summary|Summary):\s*/i, "Diagnostics summary: "));
+                continue;
+            }
+            // Skip dense bullet points filled with raw specs
+            if (trimmed.startsWith("•") || trimmed.startsWith("*") || trimmed.startsWith("-")) {
+                if (trimmed.includes("°C") || trimmed.includes("GB") || trimmed.includes("W") || trimmed.includes("%")) {
+                    continue;
+                }
+            }
+            naturalSentences.push(trimmed);
+        }
+
+        if (naturalSentences.length > 0) {
+            raw = naturalSentences.join(". ");
+        } else if (summaryMatch) {
+            raw = summaryMatch[1] + ". Detailed metrics are displayed on your screen.";
+        }
+    }
+
+    // 5. Remove any remaining markdown table lines
+    raw = raw.replace(/^[ \t]*\|.*\|[ \t]*$/gm, " ");
+
+    // 6. Clean markdown formatting
+    raw = raw.replace(/[*_~`#|>]/g, " ");
+
+    // 7. Remove bullets and list prefixes
+    raw = raw.replace(/^[ \t]*[•\-+*]\s+/gm, " ");
+
+    // 8. Clean up symbols, brackets, and emojis
+    raw = raw.replace(/[\\[\\]{}]/g, " ");
+    raw = raw.replace(/\\(\\s*(?:x86_64|amd64|arm64|Healthy|Load|0% load|ACER-NITRO)\\s*\\)/gi, " ");
+    raw = raw.replace(/[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]/g, " ");
+    raw = raw.replace(/[\\u2600-\\u27BF\\uFE00-\\uFE0F]/g, " ");
+
+    // 9. Clean up multiple dots, colons, spaces
+    raw = raw.replace(/\s*([,;:])\s*/g, "$1 ");
+    raw = raw.replace(/\.+/g, ".");
+    raw = raw.replace(/\s+/g, " ").trim();
+
+    if (!raw && hasTableOrDenseSpecs) {
+        raw = "Diagnostics complete. Host system metrics are displayed on your screen.";
+    }
+
+    return raw;
 }
 
 
@@ -5461,7 +5519,13 @@ function playCloneSpeech(audioBlob, requestToken) {
 
 
 async function speakDoshieReply(text) {
-    const cleanText = cleanSpeechText(text).slice(0, 700);
+    let cleanText = cleanSpeechText(text);
+    if (!cleanText) return;
+    if (cleanText.length > 600) {
+        const cut = cleanText.slice(0, 600);
+        const lastPunct = Math.max(cut.lastIndexOf("."), cut.lastIndexOf("!"), cut.lastIndexOf("?"));
+        cleanText = lastPunct > 80 ? cut.slice(0, lastPunct + 1) : cut.trim() + ".";
+    }
     if (!cleanText) return;
 
     stopDoshieVoice();
@@ -8801,6 +8865,7 @@ WEBSITE_HOSTS = {
     "Doshie-home.duckdns.org",
     "yoshi-home.duckdns.org",
     "hermes-doshie.tail50b4c5.ts.net",
+    "acer-nitro.tail50b4c5.ts.net",
     "hermes-duran-tecra-a60-m.tail50b4c5.ts.net",
 }
 PUBLIC_OPEN_ENDPOINTS = {
@@ -9118,10 +9183,10 @@ def append_conversation(
             {"role": "assistant", "content": reply},
         ])
 
-        if len(current) > 4:
-            older_messages = current[:-4]
+        if len(current) > 20:
+            older_messages = current[:-20]
             Doshie_summary.append_entries(older_messages, storage_profile)
-            current = current[-4:]
+            current = current[-20:]
 
         Doshie_history.save_history(current, storage_profile)
 
@@ -9173,8 +9238,10 @@ def website_logout():
 
 
 @app.route("/tech")
+@app.route("/tech-hub")
 def tech_preview():
-    return home()
+    tech_file = os.path.join(app.root_path, "static", "tech_hub.html")
+    return send_file(tech_file)
 
 @app.route("/")
 def canonical_home():
@@ -9854,6 +9921,31 @@ def api_gaming_launch():
         return jsonify({"ok": True, "message": "Launched Doshie Gaming App process."})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/gaming-tunnel", methods=["POST"])
+def api_gaming_tunnel():
+    try:
+        data = request.get_json(silent=True) or {}
+        enable = bool(data.get("enable", True))
+        node = str(data.get("node") or "vultr").strip()
+        
+        if enable:
+            cmd = ["sudo", "-n", "tailscale", "set", f"--exit-node={node}", "--exit-node-allow-lan-access=true"]
+        else:
+            cmd = ["sudo", "-n", "tailscale", "set", "--exit-node="]
+            
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode != 0:
+            return jsonify({"ok": False, "error": res.stderr.strip() or res.stdout.strip()}), 500
+            
+        import doshie_gaming_monitor
+        status = doshie_gaming_monitor.inspect_gaming_status(node)
+        doshie_gaming_monitor.save_status(status)
+        return jsonify({"ok": True, "enabled": enable, "gaming": status})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 
 
 @app.route("/dashboard", methods=["GET"])
@@ -12192,7 +12284,7 @@ def admin_terminal_stop():
 
 
 def _enabled_hermes_agent():
-    agent = Doshie_agents.get_agent_by_name("Hermes")
+    agent = Doshie_agents.get_agent_by_name("Aeriel") or Doshie_agents.get_agent_by_name("Hermes") or Doshie_agents.get_agent("dea427fd2f58")
     if not agent or not agent.get("enabled", True):
         return None
     return agent
@@ -13502,6 +13594,34 @@ def _chat_impl():
             "reply": Doshie_memory.get_weather(effective_weather_loc)
         })
 
+    # Natural language dispatch for autonomous background goals/tasks
+    dispatch_match = re.search(
+        r"^(?:please\s+)?(?:dispatch|start|launch|create|run)\s+(?:an?\s+)?(?:autonomous\s+)?background\s+(?:task|goal|job)\s+(?:for\s+([A-Za-z0-9_-]+)\s+)?to\s+(.+)$",
+        text,
+        re.IGNORECASE
+    )
+    if dispatch_match:
+        target_name = (dispatch_match.group(1) or "Hermes").strip()
+        goal = dispatch_match.group(2).strip()
+        agent = Doshie_agents.get_agent_by_name(target_name) or Doshie_agents.get_agent("dea427fd2f58")
+        agent_id = agent["id"] if agent else "dea427fd2f58"
+        try:
+            import Doshie_background_agent
+            task = Doshie_background_agent.dispatch_task(agent_id, goal, profile=profile)
+            agent_disp = agent.get('name', 'Hermes') if agent else 'Hermes'
+            return jsonify({
+                "reply": (
+                    f"🚀 **Autonomous Background Goal Dispatched**\n\n"
+                    f"- **Agent**: {agent_disp}\n"
+                    f"- **Task ID**: `{task.get('id')}`\n"
+                    f"- **Goal**: {goal}\n"
+                    f"- **Status**: Running in background\n\n"
+                    f"You can monitor its real-time progress in the **Specialist Agents Hub** or click the task in the agent dashboard."
+                )
+            })
+        except Exception as e:
+            app.logger.warning(f"Failed to auto-dispatch background task: {e}")
+
     if text.startswith(("/agent ", "/build ", "/cli ")) or text in ("/agent", "/build", "/cli"):
         if text in ("/agent", "/build", "/cli"):
             return jsonify({
@@ -13576,8 +13696,12 @@ def _chat_impl():
         model_text += f"\n\n[USER CURRENT LOCATION: {client_location}]"
 
     target_agent = None
+    is_live_voice = bool(data.get("live_voice") or data.get("live_voice_mode"))
     target_agent_id = str(data.get("agent_id") or data.get("agent") or "").strip()
-    if target_agent_id:
+    if is_live_voice:
+        # Live Voice mode is strictly Aeriel
+        target_agent = Doshie_agents.get_agent("dea427fd2f58") or Doshie_agents.get_agent_by_name("Aeriel")
+    elif target_agent_id:
         target_agent = Doshie_agents.get_agent(target_agent_id) or Doshie_agents.get_agent_by_name(target_agent_id)
     else:
         match_at = re.match(r"^@([A-Za-z0-9_-]+)\s*(.*)", text, re.DOTALL)
@@ -13613,13 +13737,24 @@ def _chat_impl():
         profile_prefs = Doshie_profile_preferences.get_preferences(profile)
         auto_search_enabled = profile_prefs.get("auto_web_search", True)
         if auto_search_enabled and text:
-            lower_text = text.strip().lower()
-            is_q = "?" in lower_text or lower_text.startswith((
-                "who ", "what ", "where ", "when ", "why ", "how ",
-                "is ", "are ", "can ", "could ", "should ", "would ",
-                "tell me ", "explain ", "define ", "news about ", "latest ", "recent ",
-                "search ", "google ", "look up ", "find online "
+            lower_text = text.lower()
+            # Conversational, self-referential, or greeting queries should NEVER trigger external web search
+            is_conversational = any(lower_text.startswith(c) for c in (
+                "how are you", "how are u", "how do you", "how's it going", "hows it going",
+                "who are you", "who r u", "what are you", "what can you do", "what is your name",
+                "why did you", "why do you", "why are you", "why were you", "why did it take",
+                "can you ", "could you ", "would you ", "will you ", "do you ", "are you ",
+                "tell me about yourself", "hello", "hi ", "hey ", "good morning", "good evening"
+            )) or any(pat in lower_text for pat in (
+                "take you", "take so long", "take a long time", "take along time",
+                "your thoughts", "you think", "you know about me", "you remember"
             ))
+
+            is_q = not is_conversational and ("?" in lower_text or lower_text.startswith((
+                "who ", "what ", "where ", "when ", "why ", "how ",
+                "is ", "are ", "should ", "tell me ", "explain ", "define ",
+                "news about ", "latest ", "recent ", "search ", "google ", "look up ", "find online "
+            )))
             if is_q:
                 query_clean = re.sub(r"^(?:search\s+(?:the\s+)?web\s+for|search\s+for|google|look\s+up)\s+", "", text, flags=re.IGNORECASE).strip(" ?.!")
                 if query_clean:
@@ -13657,14 +13792,44 @@ def _chat_impl():
             space,
         )
 
+    affirmative_markers = (
+        "yes", "yes please", "sure", "please do", "go ahead",
+        "do it", "make it", "build it", "create it", "run it",
+        "write it", "okay", "ok", "yep", "yeah", "sounds good", "perfect",
+        "do that", "yes do it", "yes write it", "yes build it"
+    )
+    clean_prompt = text.strip().lower().strip(".!,")
+    is_short_affirmative = clean_prompt in affirmative_markers or any(clean_prompt == m for m in affirmative_markers)
+    if is_short_affirmative and current_history:
+        last_asst = next((m.get("content") for m in reversed(current_history) if m.get("role") == "assistant"), "")
+        if last_asst:
+            model_text = f"{text} (Proceed directly with your offer from your immediately preceding response: provide the complete working code, create the file/executable, and execute it on the workstation now.)"
+
     agent_info = None
     agent_capabilities = None
     if target_agent and target_agent.get("enabled", True):
-        agent_system = (
-            f"You are {target_agent.get('name')}, a specialist AI in Doshie.\n"
-            f"{Doshie_agents.agent_system_context(target_agent)}\n\n"
-            f"Respond directly in your assigned role and persona."
-        )
+        agent_name = target_agent.get('name', 'Assistant')
+        if target_agent.get("id") == "dea427fd2f58" or agent_name.casefold() in ("aeriel", "hermes"):
+            voice_prompt_addon = ""
+            if is_live_voice:
+                voice_prompt_addon = (
+                    "LIVE VOICE MODE ACTIVE: You are speaking aloud directly to Hermes in real-time as Aeriel. "
+                    "Keep your spoken responses natural, warm, conversational, and concise (1-3 spoken sentences unless Hermes asks for detailed explanation). "
+                    "Do NOT output markdown tables, raw asterisks/bolding, or code snippets that sound unnatural when read aloud.\n"
+                )
+            agent_system = (
+                f"You are Aeriel, Subject Matter Expert and Master Builder of Doshie on this Linux workstation.\n"
+                f"CRITICAL IDENTITY REQUIREMENT: Your name is strictly Aeriel. You are NOT Doshie. Doshie is the text companion and workstation interface; you are Aeriel. Never say 'I am Doshie' or 'also known as Aeriel'.\n"
+                f"{voice_prompt_addon}"
+                f"{Doshie_agents.agent_system_context(target_agent)}\n\n"
+                f"You possess full workstation tools (run_command, write_file, view_file, replace_file_content, check_service_health). When asked to build, code, create, or execute (or when the user affirms with 'Yes', 'Yes please', 'Go ahead'), execute or write the code directly without asking what to do again."
+            )
+        else:
+            agent_system = (
+                f"You are {agent_name}, a specialist AI in Doshie.\n"
+                f"{Doshie_agents.agent_system_context(target_agent)}\n\n"
+                f"Respond directly in your assigned role and persona."
+            )
         chat_system_context = agent_system
         brain_mode = target_agent.get("model_mode", brain_mode)
         agent_memory_scope = target_agent.get("memory_scope", "shared")
@@ -13847,6 +14012,158 @@ def command_center():
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard"),
         "index.html",
     )
+
+
+# ---------------------------------------------------------------------------
+# WhatsApp Bridge API Endpoints
+# ---------------------------------------------------------------------------
+@app.route("/api/whatsapp/status", methods=["GET"])
+def api_whatsapp_status():
+    import doshie_whatsapp
+    return jsonify(doshie_whatsapp.get_status())
+
+
+@app.route("/api/whatsapp/start", methods=["POST"])
+def api_whatsapp_start():
+    import doshie_whatsapp
+    return jsonify(doshie_whatsapp.start_bridge())
+
+
+@app.route("/api/whatsapp/stop", methods=["POST"])
+def api_whatsapp_stop():
+    import doshie_whatsapp
+    return jsonify(doshie_whatsapp.stop_bridge())
+
+
+@app.route("/api/whatsapp/qr", methods=["GET"])
+def api_whatsapp_qr():
+    import doshie_whatsapp
+    return jsonify(doshie_whatsapp.get_qr())
+
+
+@app.route("/api/whatsapp/send", methods=["POST"])
+def api_whatsapp_send():
+    import doshie_whatsapp
+    data = request.get_json(silent=True) or {}
+    to = data.get("to", "")
+    message = data.get("message", "")
+    return jsonify(doshie_whatsapp.send_message(to, message))
+
+
+@app.route("/api/whatsapp/messages", methods=["GET"])
+def api_whatsapp_messages():
+    import doshie_whatsapp
+    limit = int(request.args.get("limit", 20))
+    return jsonify(doshie_whatsapp.get_messages(limit=limit))
+
+
+@app.route("/api/whatsapp/contacts", methods=["GET"])
+def api_whatsapp_contacts():
+    import doshie_whatsapp
+    return jsonify(doshie_whatsapp.get_contacts())
+
+
+@app.route("/api/whatsapp/incoming", methods=["POST"])
+def api_whatsapp_incoming():
+    import doshie_whatsapp
+    payload = request.get_json(silent=True) or {}
+    reply = doshie_whatsapp.route_incoming_message(payload)
+    if reply and payload.get("phone"):
+        # Send reply back via WhatsApp
+        doshie_whatsapp.send_message(payload["phone"], reply)
+    return jsonify({"ok": True, "reply": reply})
+
+
+# ---------------------------------------------------------------------------
+# Freelance Tech Business Endpoints
+# ---------------------------------------------------------------------------
+@app.route("/api/business/clients", methods=["GET", "POST"])
+def api_business_clients():
+    import doshie_clients
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        return jsonify(doshie_clients.add_client(
+            name=data.get("name", ""),
+            phone=data.get("phone", ""),
+            email=data.get("email", ""),
+            address=data.get("address", ""),
+            notes=data.get("notes", ""),
+            consent=bool(data.get("consent", False)),
+            consent_method=data.get("consent_method", "verbal"),
+        ))
+    query = request.args.get("q", "")
+    return jsonify({"ok": True, "clients": doshie_clients.search_clients(query=query)})
+
+
+@app.route("/api/business/jobs", methods=["GET", "POST"])
+def api_business_jobs():
+    import doshie_clients
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        return jsonify(doshie_clients.open_job(
+            client_id=data.get("client_id", ""),
+            title=data.get("title", ""),
+            description=data.get("description", ""),
+            hourly_rate=float(data.get("hourly_rate") or 60),
+            flat_fee=float(data.get("flat_fee") or 0),
+        ))
+    client_id = request.args.get("client_id", "")
+    status = request.args.get("status", "")
+    return jsonify({"ok": True, "jobs": doshie_clients.list_jobs(client_id=client_id, status=status)})
+
+
+@app.route("/api/business/revenue", methods=["GET"])
+def api_business_revenue():
+    import doshie_clients
+    period = request.args.get("period", "month")
+    return jsonify(doshie_clients.revenue_report(period=period))
+
+
+@app.route("/api/business/jobs/<job_id>/close", methods=["POST"])
+def api_business_job_close(job_id):
+    import doshie_clients
+    data = request.get_json(silent=True) or {}
+    return jsonify(doshie_clients.close_job(
+        job_id=job_id,
+        hours=float(data.get("hours", 0)),
+        parts_cost=float(data.get("parts_cost", 0)),
+        notes=str(data.get("notes", "")),
+    ))
+
+
+@app.route("/api/business/jobs/<job_id>/invoice", methods=["POST"])
+def api_business_job_invoice(job_id):
+    import doshie_clients
+    return jsonify(doshie_clients.generate_invoice(job_id))
+
+
+@app.route("/api/business/jobs/<job_id>/paid", methods=["POST"])
+def api_business_job_paid(job_id):
+    import doshie_clients
+    return jsonify(doshie_clients.mark_job_paid(job_id))
+
+
+@app.route("/api/tech/diagnostics", methods=["POST"])
+def api_tech_diagnostics():
+    import doshie_gcloud_tech
+    data = request.get_json(silent=True) or {}
+    target = data.get("target", "local")
+    report = doshie_gcloud_tech.full_health_report(target=target)
+    return jsonify({"ok": True, "report": report})
+
+
+@app.route("/tech")
+@app.route("/tech-hub")
+def serve_tech_hub():
+    tech_file = os.path.join(app.root_path, "static", "tech_hub.html")
+    return send_file(tech_file)
+
+
+@app.route("/invoices/<path:filename>")
+def serve_invoices(filename):
+    inv_dir = os.path.join(app.root_path, "data", "invoices")
+    return send_from_directory(inv_dir, filename)
+
 
 
 if __name__ == "__main__":
