@@ -1232,8 +1232,12 @@ export function App() {
     if (mentionMatch) {
       const mentionedName = mentionMatch[1].toLowerCase()
       const agentMap: Record<string, { id: string; name: string; accent: string }> = {
+        whatsapp: { id: 'whatsapp_agent01', name: 'WhatsApp', accent: '#25D366' },
+        jeff: { id: 'jeff_agent01', name: 'Jeff', accent: '#10b981' },
         aeriel: { id: 'dea427fd2f58', name: 'Aeriel', accent: '#35f2d0' },
         hermes: { id: 'dea427fd2f58', name: 'Hermes', accent: '#35f2d0' },
+        familytech: { id: 'techbot_family01', name: 'FamilyTech', accent: '#4fc3f7' },
+        clientbot: { id: 'techbot_client01', name: 'ClientBot', accent: '#ffb74d' },
         tutor: { id: '3ed296472c34', name: 'Tutor', accent: '#4ea8de' },
         researcher: { id: 'dc1183a71c4d', name: 'Researcher', accent: '#9d4edd' },
         home: { id: 'e2a3e4f8414b', name: 'Home', accent: '#52b788' },

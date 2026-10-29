@@ -124,6 +124,14 @@ def auto_route_agent(prompt):
 
     lower = text.lower()
 
+    # Explicit direct mention of WhatsApp or @whatsapp
+    if re.search(r"@whatsapp\b|\bwhatsapp\b", lower):
+        return get_agent_by_name("WhatsApp") or get_agent("whatsapp_agent01")
+
+    # Explicit direct mention of Jeff or @jeff
+    if re.search(r"@jeff\b|\bjeff\b", lower):
+        return get_agent_by_name("Jeff") or get_agent("jeff_agent01")
+
     # Explicit direct mention of Aeriel by name or @aeriel
     if re.search(r"@aeriel\b|\baeriel\b|\baerial\b", lower):
         return get_agent_by_name("Aeriel") or get_agent("dea427fd2f58")

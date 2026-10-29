@@ -27,7 +27,12 @@ export interface SpecialistAgentRef {
 
 // Built-in specialist agents
 export const DEFAULT_AGENTS: SpecialistAgentRef[] = [
+  { id: 'whatsapp', name: 'WhatsApp', purpose: 'WhatsApp messaging, bridge status & communications', accent: '#25D366' },
+  { id: 'jeff', name: 'Jeff', purpose: 'Partner AI Agent on WhatsApp (WAAV API integration)', accent: '#10b981' },
+  { id: 'aeriel', name: 'Aeriel', purpose: 'Subject Matter Expert & Master Builder of Doshie', accent: '#35f2d0' },
   { id: 'hermes', name: 'Hermes', purpose: 'Primary companion & versatile troubleshooter', accent: '#35f2d0' },
+  { id: 'familytech', name: 'FamilyTech', purpose: 'Household PC fleet technician (diagnostics, logs & repairs)', accent: '#4fc3f7' },
+  { id: 'clientbot', name: 'ClientBot', purpose: 'Client tech support, job logs & automated invoicing', accent: '#ffb74d' },
   { id: 'codearchitect', name: 'CodeArchitect', purpose: 'Senior software engineer, system architecture & code optimization', accent: '#06b6d4' },
   { id: 'researcher', name: 'Researcher', purpose: 'Deep retrieval, fact-checking & structured analysis', accent: '#9d4edd' },
   { id: 'tutor', name: 'Tutor', purpose: 'Patient coding mentor & math tutor', accent: '#4ea8de' },
