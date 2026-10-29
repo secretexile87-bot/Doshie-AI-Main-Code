@@ -114,10 +114,24 @@ process.on('uncaughtException', (err) => {
   console.error('⚠️ WhatsApp Exception:', err && err.message ? err.message : err);
 });
 
-// Incoming messages → queue for Doshie + auto-route to AI
-client.on('message', async (msg) => {
+// Track messages sent by Doshie/Jeff so we don't trigger recursive loops
+const sentByDoshie = new Set();
+
+// Messages listener — captures both incoming messages and user messages to Jeff
+client.on('message_create', async (msg) => {
   try {
     if (msg.isStatus) return;
+
+    const msgId = (msg.id && msg.id._serialized) || '';
+    if (sentByDoshie.has(msgId)) {
+      return; // Ignore messages sent by Doshie/Jeff itself
+    }
+
+    const isToJeff = String(msg.to || '').includes('1405439769317675') || String(msg.to || '').endsWith('@bot');
+    // If the message is from me, only handle if sent to Jeff
+    if (msg.fromMe && !isToJeff) {
+      return;
+    }
 
     let contactName = msg.from;
     try {
@@ -127,22 +141,31 @@ client.on('message', async (msg) => {
       }
     } catch (_) {}
 
-    let isGroup = typeof msg.from === 'string' && msg.from.endsWith('@g.us');
+    let fromStr = String(msg.from || '');
+    let isGroup = fromStr.endsWith('@g.us') || fromStr.endsWith('@newsletter') || fromStr.endsWith('@broadcast') || fromStr.startsWith('120363');
     let groupName = null;
     try {
       const chat = await msg.getChat();
       if (chat) {
-        isGroup = Boolean(chat.isGroup);
+        isGroup = isGroup || Boolean(chat.isGroup) || Boolean(chat.isChannel);
         groupName = chat.isGroup ? chat.name : null;
       }
     } catch (_) {}
 
+    let extractedBody = msg.body || '';
+    if (!extractedBody && msg._data) {
+      extractedBody = msg._data.body || msg._data.caption || msg._data.description || msg._data.title || '';
+    }
+
     const entry = {
-      id: (msg.id && msg.id._serialized) || String(Date.now()),
+      id: msgId || String(Date.now()),
       from: msg.from,
-      from_name: contactName,
+      from_name: isToJeff && msg.fromMe ? 'Hermes' : contactName,
       to: msg.to,
-      body: msg.body || '',
+      body: extractedBody,
+      type: msg.type || 'chat',
+      from_me: Boolean(msg.fromMe),
+      is_to_jeff: Boolean(isToJeff),
       timestamp: msg.timestamp || Math.floor(Date.now() / 1000),
       is_group: isGroup,
       group_name: groupName,
@@ -154,7 +177,7 @@ client.on('message', async (msg) => {
     messageQueue.unshift(entry);
     if (messageQueue.length > MAX_QUEUE) messageQueue.pop();
 
-    console.log(`📩 WhatsApp from ${entry.from_name}: ${entry.body.slice(0, 80)}`);
+    console.log(`📩 WhatsApp [${entry.type}] to=${entry.to} from=${entry.from_name}: ${entry.body.slice(0, 80)}`);
 
     // Forward to Doshie for AI routing (non-blocking)
     forwardToDoshie(entry).catch(() => {});
@@ -168,9 +191,11 @@ client.on('message', async (msg) => {
 // ---------------------------------------------------------------------------
 async function forwardToDoshie(entry) {
   const payload = JSON.stringify({
-    source: 'whatsapp',
+    source: entry.is_to_jeff ? 'whatsapp_to_jeff' : 'whatsapp',
     from: entry.from_name,
     phone: entry.from,
+    to: entry.to,
+    is_to_jeff: entry.is_to_jeff,
     message: entry.body,
     is_group: entry.is_group,
     group_name: entry.group_name,
@@ -309,6 +334,23 @@ api.get('/info', (req, res) => {
   });
 });
 
+// List chats
+api.get('/chats', async (req, res) => {
+  if (waStatus !== 'ready') return res.status(503).json({ ok: false, error: 'Not ready.' });
+  try {
+    const chats = await client.getChats();
+    const list = chats.map(c => ({
+      id: c.id ? c.id._serialized : null,
+      name: c.name,
+      isGroup: Boolean(c.isGroup),
+      unreadCount: c.unreadCount || 0
+    }));
+    res.json({ ok: true, chats: list });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Send a message
 api.post('/send', async (req, res) => {
   const { to, message, reply_to } = req.body || {};
@@ -318,19 +360,26 @@ api.post('/send', async (req, res) => {
   try {
     let clean = String(to).replace(/\D/g, '');
     let targetChatId = null;
+    let targetChat = null;
 
-    // Check if sending to self
-    if (client.info && client.info.wid) {
-      const myNumber = client.info.wid.user;
-      if (clean === myNumber || to === client.info.wid._serialized) {
-        targetChatId = client.info.wid._serialized;
+    const toLower = String(to).toLowerCase().trim();
+    if (toLower === 'jeff' || toLower.includes('1405439769317675')) {
+      targetChatId = '1405439769317675@bot';
+      try {
+        targetChat = await client.getChatById(targetChatId);
+      } catch (_) {}
+    } else if (String(to).endsWith('@g.us') || String(to).endsWith('@bot') || String(to).endsWith('@lid') || String(to).endsWith('@c.us')) {
+      targetChatId = to;
+    } else {
+      // Check if sending to self
+      if (client.info && client.info.wid) {
+        const myNumber = client.info.wid.user;
+        if (clean === myNumber || to === client.info.wid._serialized) {
+          targetChatId = client.info.wid._serialized;
+        }
       }
-    }
 
-    if (!targetChatId) {
-      if (String(to).endsWith('@g.us')) {
-        targetChatId = to;
-      } else {
+      if (!targetChatId) {
         // Resolve WhatsApp ID
         try {
           const numberId = await client.getNumberId(clean);
@@ -346,8 +395,20 @@ api.post('/send', async (req, res) => {
     }
 
     console.log(`📤 Sending message to ${targetChatId}: ${message.slice(0, 60)}...`);
-    const sentMsg = await client.sendMessage(targetChatId, message);
+    let sentMsg;
+    if (targetChat) {
+      sentMsg = await targetChat.sendMessage(message);
+    } else {
+      sentMsg = await client.sendMessage(targetChatId, message);
+    }
     const msgId = (sentMsg && sentMsg.id && sentMsg.id._serialized) ? sentMsg.id._serialized : 'sent';
+    if (msgId && msgId !== 'sent') {
+      sentByDoshie.add(msgId);
+      if (sentByDoshie.size > 500) {
+        const firstKey = sentByDoshie.values().next().value;
+        sentByDoshie.delete(firstKey);
+      }
+    }
     res.json({ ok: true, message_id: msgId, to: targetChatId });
   } catch (err) {
     console.error('Send error:', err);

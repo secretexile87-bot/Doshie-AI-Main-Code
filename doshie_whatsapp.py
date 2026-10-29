@@ -166,16 +166,24 @@ def route_incoming_message(payload: Dict[str, Any]) -> Optional[str]:
     if not message_body:
         return None
 
-    # Don't auto-reply to group messages (too noisy)
-    if is_group:
+    # Don't auto-reply to group/newsletter messages (too noisy)
+    if is_group or "@newsletter" in sender_phone or "@broadcast" in sender_phone or sender_phone.startswith("120363"):
         return None
 
     # Map phone to fleet alias if it's a known family member
     fleet_alias = FAMILY_CONTACTS.get(sender_phone)
+    is_to_jeff = bool(payload.get("is_to_jeff", False)) or "jeff" in str(payload.get("to", "")).lower() or "1405439769317675" in str(payload.get("to", ""))
     is_jeff = "jeff" in sender_name.lower() or "jeff" in str(payload.get("contact", "")).lower()
 
-    # Build context for Aeriel
-    if is_jeff:
+    # Build context for Aeriel / Jeff
+    if is_to_jeff:
+        context_parts = [
+            "You are Jeff, Hermes's partner AI agent connected through WhatsApp.",
+            f"Hermes just sent you a message in the WhatsApp Jeff chat: \"{message_body}\"",
+            "Respond directly to Hermes as Jeff. Be concise, helpful, intelligent, and conversational.",
+            "Keep your reply under 150 words and use clean plain text without markdown asterisks or symbols."
+        ]
+    elif is_jeff:
         context_parts = [f"🤖 WhatsApp message from partner AI Agent: Jeff"]
         context_parts.append(f"\nMessage from Jeff: {message_body}")
         context_parts.append(
@@ -197,16 +205,23 @@ def route_incoming_message(payload: Dict[str, Any]) -> Optional[str]:
         import Doshie_memory
         import Doshie_agents
 
-        agent = Doshie_agents.auto_route_agent(message_body)
-        system_ctx = Doshie_agents.agent_system_context(agent) if agent else ""
-        system_ctx += "\n\nYou are replying via WhatsApp. Keep your response under 200 words, conversational, and plain text (no markdown)."
+        if is_to_jeff:
+            agent = Doshie_agents.get_agent_by_name("Jeff") or Doshie_agents.get_agent("jeff_agent01")
+            system_ctx = Doshie_agents.agent_system_context(agent) if agent else ""
+            system_ctx += "\n\nYou are Jeff replying to Hermes on WhatsApp. Keep your response under 150 words, conversational, and plain text."
+            conv_profile = "WhatsApp_Jeff_Chat"
+        else:
+            agent = Doshie_agents.auto_route_agent(message_body)
+            system_ctx = Doshie_agents.agent_system_context(agent) if agent else ""
+            system_ctx += "\n\nYou are replying via WhatsApp. Keep your response under 200 words, conversational, and plain text (no markdown)."
+            conv_profile = f"WhatsApp_{sender_phone}"
 
         reply = Doshie_memory.ask_yoshi(
             [],
             "\n".join(context_parts),
             raise_on_error=False,
             profile="Hermes",
-            conversation_profile=f"WhatsApp_{sender_phone}",
+            conversation_profile=conv_profile,
             system_context=system_ctx,
             brain_mode="fast",
             memory_scope="shared",

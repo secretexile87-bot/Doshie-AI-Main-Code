@@ -14100,9 +14100,11 @@ def api_whatsapp_incoming():
     import doshie_whatsapp
     payload = request.get_json(silent=True) or {}
     reply = doshie_whatsapp.route_incoming_message(payload)
-    if reply and payload.get("phone"):
-        # Send reply back via WhatsApp
-        doshie_whatsapp.send_message(payload["phone"], reply)
+    if reply:
+        target = payload.get("to") if payload.get("is_to_jeff") else payload.get("phone")
+        if target:
+            # Send reply back via WhatsApp
+            doshie_whatsapp.send_message(target, reply)
     return jsonify({"ok": True, "reply": reply})
 
 
