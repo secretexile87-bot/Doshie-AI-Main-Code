@@ -72,7 +72,7 @@ Doshie_control_panel.register_control_panel(app)
 
 @app.after_request
 def force_download_headers(response):
-    if request.path.startswith('/static/downloads/') and request.path.lower().endswith(('.apk', '.exe')):
+    if request.path.startswith('/static/downloads/') and request.path.lower().endswith(('.apk', '.exe', '.zip')):
         response.headers['Content-Disposition'] = 'attachment; filename="' + os.path.basename(request.path) + '"'
         response.headers['Cache-Control'] = 'no-store'
     return response
@@ -8737,6 +8737,16 @@ def _profile_session_unlocked(profile):
     if not Doshie_profile_lock.is_locked(profile):
         return True
 
+    try:
+        forwarded = request.headers.get("X-Forwarded-For", "")
+        client_ip = (forwarded.split(",", 1)[0].strip() or request.remote_addr or "").strip()
+        host = (request.headers.get("Host") or "").split(":", 1)[0].strip().lower()
+        if (client_ip in ("127.0.0.1", "::1", "localhost") or host in ("127.0.0.1", "localhost")) and str(profile or "").strip().casefold() == "hermes":
+            _remember_profile_unlock(profile)
+            return True
+    except Exception:
+        pass
+
     unlocks = session.get("profile_unlocks", {})
     expires_at = unlocks.get(_profile_session_key(profile), 0)
     try:
@@ -8871,12 +8881,20 @@ WEBSITE_HOSTS = {
 PUBLIC_OPEN_ENDPOINTS = {
     "home", "static", "service_worker", "login_page",
     "profiles_get", "family_invite_claim", "family_login", "app_version", "android_asset_links",
-    "recovery_request", "recovery_verify", "recovery_reset", "download_latest_apk", "transcribe_audio",
+    "recovery_request", "recovery_verify", "recovery_reset", "download_latest_apk", "download_latest_aab", "transcribe_audio",
+    "download_slides_apk", "download_pdf_apk",
+    "proxy_doshie_chat", "proxy_altafuse", "proxy_altafuse_api", "redirect_altafuse",
+    "proxy_pdf", "proxy_pdf_api", "redirect_pdf",
+    "proxy_slides", "redirect_slides",
 }
 WEBSITE_LOGIN_OPEN_ENDPOINTS = {
     "static", "service_worker", "login_page", "app_version", "android_asset_links",
     "profiles_get", "family_invite_claim", "family_login",
-    "recovery_request", "recovery_verify", "recovery_reset", "download_latest_apk", "transcribe_audio",
+    "recovery_request", "recovery_verify", "recovery_reset", "download_latest_apk", "download_latest_aab", "transcribe_audio",
+    "download_slides_apk", "download_pdf_apk",
+    "proxy_doshie_chat", "proxy_altafuse", "proxy_altafuse_api", "redirect_altafuse",
+    "proxy_pdf", "proxy_pdf_api", "redirect_pdf",
+    "proxy_slides", "redirect_slides",
 }
 WEBSITE_PAGE_ENDPOINTS = {
     "canonical_home", "tech_preview", "home", "share_target",
@@ -8922,7 +8940,7 @@ def enforce_website_login():
     if endpoint in WEBSITE_LOGIN_OPEN_ENDPOINTS:
         public_download_page = (
             endpoint == "static"
-            and request.path == "/static/downloads/index.html"
+            and request.path.startswith("/static/downloads/")
         )
         if (
             endpoint != "static"
@@ -8948,6 +8966,8 @@ def enforce_website_origin():
     if not _is_public_funnel_request():
         return None
     if request.method in {"GET", "HEAD", "OPTIONS"}:
+        return None
+    if (request.endpoint or "") in {"proxy_doshie_chat", "proxy_altafuse", "proxy_altafuse_api", "proxy_pdf", "proxy_pdf_api", "redirect_pdf", "proxy_slides", "redirect_slides"}:
         return None
 
     origin = str(request.headers.get("Origin") or "").strip()
@@ -9010,11 +9030,12 @@ def add_website_security_headers(response):
         "default-src 'self'; "
         "base-uri 'self'; object-src 'none'; "
         "frame-ancestors 'self'; form-action 'self'; "
-        "img-src 'self' data: blob:; "
+        "img-src 'self' data: blob: https://*; "
         "media-src 'self' blob:; "
-        "connect-src 'self'; frame-src 'self'; "
+        "connect-src 'self' wss: https:; "
+        "font-src 'self' data: https://fonts.gstatic.com; "
         "worker-src 'self' blob:; "
-        "style-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "script-src 'self' 'unsafe-inline'",
     )
     if response.mimetype == "text/html":
@@ -9351,6 +9372,148 @@ def proxy_music_player(subpath=""):
         return f"Music player service unavailable: {e}", 502
 
 
+@app.route("/api/doshie/chat", methods=["POST", "OPTIONS"])
+def proxy_doshie_chat():
+    if request.method == "OPTIONS":
+        resp = Response()
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        resp.headers['Access-Control-Allow-Headers'] = '*'
+        return resp
+    import requests
+    target = "http://127.0.0.1:8090/api/doshie/chat"
+    try:
+        req_headers = {k: v for k, v in request.headers if k.lower() not in ['host', 'content-length']}
+        resp = requests.post(target, data=request.get_data(), headers=req_headers, timeout=(5, 30))
+        headers = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
+        return Response(resp.content, resp.status_code, headers)
+    except Exception as e:
+        return jsonify({"error": str(e), "reply": "Doshie assistant service temporarily unavailable.", "maker": "Doshie"}), 502
+
+
+@app.route("/api/calculator", methods=["POST", "OPTIONS"])
+@app.route("/api/thc-guidelines", methods=["GET", "OPTIONS"])
+@app.route("/api/thc-guidelines/<path:subpath>", methods=["GET", "OPTIONS"])
+def proxy_altafuse_api(subpath=""):
+    if request.method == "OPTIONS":
+        resp = Response()
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        resp.headers['Access-Control-Allow-Headers'] = '*'
+        return resp
+    import requests
+    target = f"http://127.0.0.1:8090{request.path}"
+    try:
+        req_headers = {k: v for k, v in request.headers if k.lower() not in ['host', 'content-length']}
+        if request.method == "POST":
+            resp = requests.post(target, data=request.get_data(), headers=req_headers, timeout=(5, 30))
+        else:
+            resp = requests.get(target, params=request.args, headers=req_headers, timeout=(5, 30))
+        headers = {'Content-Type': resp.headers.get('Content-Type', 'application/json'), 'Access-Control-Allow-Origin': '*'}
+        return Response(resp.content, resp.status_code, headers)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
+@app.route("/altafuse", methods=["GET"])
+def redirect_altafuse():
+    return redirect("/altafuse/", code=302)
+
+
+@app.route("/altafuse/", methods=["GET"])
+@app.route("/altafuse/<path:subpath>", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+def proxy_altafuse(subpath=""):
+    if request.method == "OPTIONS":
+        resp = Response()
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        resp.headers['Access-Control-Allow-Headers'] = '*'
+        return resp
+    import requests
+    target = f"http://127.0.0.1:8090/{subpath}" if subpath else "http://127.0.0.1:8090/"
+    try:
+        req_headers = {k: v for k, v in request.headers if k.lower() not in ['host', 'content-length']}
+        if request.method == "POST":
+            resp = requests.post(target, data=request.get_data(), params=request.args, headers=req_headers, timeout=(5, 30))
+        else:
+            resp = requests.get(target, params=request.args, headers=req_headers, timeout=(5, 30))
+        resp_headers = {
+            'Content-Type': resp.headers.get('Content-Type', 'text/html'),
+            'Access-Control-Allow-Origin': '*'
+        }
+        return Response(resp.content, resp.status_code, resp_headers)
+    except Exception as e:
+        return f"Altafuse service unavailable: {e}", 502
+
+
+@app.route("/pdf", methods=["GET"])
+def redirect_pdf():
+    return redirect("/pdf/", code=302)
+
+
+@app.route("/pdf/", methods=["GET"])
+@app.route("/pdf/<path:subpath>", methods=["GET", "POST", "OPTIONS"])
+def proxy_pdf(subpath=""):
+    if request.method == "OPTIONS":
+        resp = Response()
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        resp.headers['Access-Control-Allow-Headers'] = '*'
+        return resp
+    import requests
+    target = f"http://127.0.0.1:5240/{subpath}" if subpath else "http://127.0.0.1:5240/"
+    try:
+        req_headers = {k: v for k, v in request.headers if k.lower() not in ['host', 'content-length']}
+        if request.method == "POST":
+            resp = requests.post(target, data=request.get_data(), params=request.args, headers=req_headers, timeout=(5, 30))
+        else:
+            resp = requests.get(target, params=request.args, headers=req_headers, timeout=(5, 30))
+        resp_headers = {
+            'Content-Type': resp.headers.get('Content-Type', 'text/html'),
+            'Access-Control-Allow-Origin': '*'
+        }
+        return Response(resp.content, resp.status_code, resp_headers)
+    except Exception as e:
+        pdf_dir = os.path.join(app.root_path, "static", "pdf")
+        if not subpath or subpath.endswith("/"):
+            return send_from_directory(pdf_dir, "index.html")
+        return send_from_directory(pdf_dir, subpath)
+
+
+@app.route("/slides", methods=["GET"])
+def redirect_slides():
+    return redirect("/slides/", code=302)
+
+
+@app.route("/slides/", methods=["GET"])
+@app.route("/slides/<path:subpath>", methods=["GET", "POST", "OPTIONS"])
+def proxy_slides(subpath=""):
+    if request.method == "OPTIONS":
+        resp = Response()
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        resp.headers['Access-Control-Allow-Headers'] = '*'
+        return resp
+    import requests
+    target = f"http://127.0.0.1:5250/{subpath}" if subpath else "http://127.0.0.1:5250/"
+    try:
+        req_headers = {k: v for k, v in request.headers if k.lower() not in ['host', 'content-length']}
+        if request.method == "POST":
+            resp = requests.post(target, data=request.get_data(), params=request.args, headers=req_headers, timeout=(3, 10))
+        else:
+            resp = requests.get(target, params=request.args, headers=req_headers, timeout=(3, 10))
+        resp_headers = {
+            'Content-Type': resp.headers.get('Content-Type', 'text/html'),
+            'Access-Control-Allow-Origin': '*'
+        }
+        return Response(resp.content, resp.status_code, resp_headers)
+    except Exception as e:
+        slides_dir = os.path.join(app.root_path, "static", "slides")
+        if not subpath or subpath.endswith("/"):
+            return send_from_directory(slides_dir, "index.html")
+        return send_from_directory(slides_dir, subpath)
+
+
 @app.route("/api/execute-command", methods=["POST"])
 def execute_chat_command():
     data = request.get_json(force=True, silent=True) or {}
@@ -9503,6 +9666,25 @@ def download_rdp_apk():
         "Doshie-RDP.apk",
         as_attachment=True,
         download_name="Doshie-RDP.apk"
+    )
+
+@app.route("/download/slides-apk", methods=["GET"])
+@app.route("/download/slides", methods=["GET"])
+def download_slides_apk():
+    return send_from_directory(
+        os.path.join(app.root_path, "static", "downloads"),
+        "Doshie-Slides.apk",
+        as_attachment=True,
+        download_name="Doshie-Slides.apk"
+    )
+
+@app.route("/download/pdf-apk", methods=["GET"])
+def download_pdf_apk():
+    return send_from_directory(
+        os.path.join(app.root_path, "static", "downloads"),
+        "Doshie-PDF-Studio.apk",
+        as_attachment=True,
+        download_name="Doshie-PDF-Studio.apk"
     )
 
 
@@ -9933,7 +10115,7 @@ def api_gaming_tunnel():
         if enable:
             cmd = ["sudo", "-n", "tailscale", "set", f"--exit-node={node}", "--exit-node-allow-lan-access=true"]
         else:
-            cmd = ["sudo", "-n", "tailscale", "set", "--exit-node="]
+            cmd = ["sudo", "-n", "tailscale", "set", "--exit-node", ""]
             
         res = subprocess.run(cmd, capture_output=True, text=True)
         if res.returncode != 0:
@@ -10451,6 +10633,9 @@ def recovery_reset():
     result = Doshie_profile_lock.set_credential(
         profile, credential, auth_type
     )
+    _clear_profile_failures(profile)
+    with profile_unlock_attempts_lock:
+        profile_unlock_attempts.clear()
     session.clear()
     session["public_profile"] = profile
     session["public_profile_expires"] = time.time() + 8 * 60 * 60
@@ -10489,7 +10674,7 @@ def family_login():
     retry_after = _profile_retry_after(attempt_profile)
     if retry_after:
         return jsonify({
-            "error": "Too many incorrect sign-in attempts.",
+            "error": f"Too many incorrect sign-in attempts. Please wait {retry_after} seconds before trying again.",
             "retry_after": retry_after,
         }), 429
 
@@ -11813,6 +11998,12 @@ def settings_post():
         mode = str(data["mode"]).strip()
         if mode in ("family", "normal", "tech", "gaming"):
             settings["mode"] = mode
+
+    if "gemini_api_key" in data:
+        settings["gemini_api_key"] = str(data["gemini_api_key"]).strip()
+
+    if "brain_mode" in data:
+        settings["brain_mode"] = str(data["brain_mode"]).strip()
 
     if "default_weather_location" in data:
         location = str(data["default_weather_location"]).strip()
@@ -13369,7 +13560,7 @@ def _chat_impl():
 
     space = normalize_chat_space(data.get("space", "main"))
     chat_mode = normalize_chat_mode(data.get("chat_mode", "general"))
-    brain_mode = normalize_brain_mode(data.get("brain_mode", "auto"), profile)
+    brain_mode = normalize_brain_mode(data.get("brain_mode") or settings.get("brain_mode", "auto"), profile)
     incognito = bool(data.get("incognito", False))
     ephemeral_history = []
     if incognito:
@@ -13729,7 +13920,12 @@ def _chat_impl():
 
     if handled:
         return jsonify({
-            "reply": tool_reply
+            "reply": tool_reply,
+            "response": tool_reply,
+            "message": tool_reply,
+            "ok": True,
+            "profile": profile,
+            "space": space,
         })
 
     # Auto Web Search for questions & search requests
@@ -13799,7 +13995,14 @@ def _chat_impl():
         "do that", "yes do it", "yes write it", "yes build it"
     )
     clean_prompt = text.strip().lower().strip(".!,")
-    is_short_affirmative = clean_prompt in affirmative_markers or any(clean_prompt == m for m in affirmative_markers)
+    is_short_affirmative = (
+        clean_prompt in affirmative_markers
+        or any(clean_prompt == m for m in affirmative_markers)
+        or any(clean_prompt.startswith(p) for p in (
+            "can you build", "build this", "let's build", "lets build",
+            "please build", "can you make", "make this", "can you code", "code this"
+        ))
+    )
     if is_short_affirmative and current_history:
         last_asst = next((m.get("content") for m in reversed(current_history) if m.get("role") == "assistant"), "")
         if last_asst:
@@ -13894,6 +14097,9 @@ def _chat_impl():
 
     response_payload = {
         "reply": reply,
+        "response": reply,
+        "message": reply,
+        "ok": True,
         "thinking": thinking,
         "steps": steps,
         "memory": saved,

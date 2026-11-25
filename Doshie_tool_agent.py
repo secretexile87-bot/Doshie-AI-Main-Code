@@ -2332,6 +2332,21 @@ def chat(
         disabled_tool_names.add("wikipedia_search")
         disabled_tool_names.add("web_search")
 
+    is_conversational_turn = any(
+        kw in user_prompt_text.strip(" ?.!") for kw in (
+            "hello", "hi", "hey", "how are you", "hows it going", "how are u",
+            "good morning", "good evening", "good afternoon", "whats up", "what's up",
+            "let's chat", "lets chat", "how do you feel", "tell me about yourself",
+            "who are you", "what can you do", "what do you do", "conversation"
+        )
+    )
+    if is_conversational_turn:
+        disabled_tool_names.update([
+            "wikipedia_search", "web_search", "run_command", "view_file", "replace_file_content",
+            "write_file", "delete_file", "remote_run_command", "remote_view_file",
+            "remote_write_file", "remote_replace_file_content", "remote_delete_file"
+        ])
+
     for _ in range(5):
         request_body = {
             "model": model,

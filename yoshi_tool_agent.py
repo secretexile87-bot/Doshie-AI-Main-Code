@@ -1700,6 +1700,25 @@ TOOL_TITLES = {
 }
 
 
+def _enforce_ollama_keep_alive(url, model):
+    try:
+        parts = urllib.parse.urlsplit(url)
+        native_chat_url = urllib.parse.urlunsplit(
+            (parts.scheme, parts.netloc, "/api/chat", "", "")
+        )
+        ka = os.environ.get("YOSHI_KEEP_ALIVE", "5m")
+        req = urllib.request.Request(
+            native_chat_url,
+            data=json.dumps({"model": model, "keep_alive": ka}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=3):
+            pass
+    except Exception:
+        pass
+
+
 def chat(
     url, model, messages, timeout=180, request_id="",
     actor_profile="", can_propose_changes=False, images=None,
@@ -1718,7 +1737,26 @@ def chat(
             }
         return v_reply
 
-    working_messages = list(messages)
+    # Enforce English response across all turns
+    lang_directive = (
+        "\n\nCRITICAL LANGUAGE INSTRUCTION: You must formulate your entire response exclusively in English. "
+        "Under NO circumstance should you output Chinese characters, pinyin, or any language other than English unless the user explicitly asks for a translation."
+    )
+    working_messages = []
+    has_system = False
+    for m in messages:
+        m_copy = dict(m)
+        if m_copy.get("role") == "system":
+            has_system = True
+            content = str(m_copy.get("content") or "")
+            if "CRITICAL LANGUAGE INSTRUCTION" not in content:
+                m_copy["content"] = content + lang_directive
+        working_messages.append(m_copy)
+    if not has_system:
+        working_messages.insert(0, {
+            "role": "system",
+            "content": "You are Doshie, Hermes's autonomous AI assistant." + lang_directive
+        })
 
     model_str = str(model or "").lower()
     is_reasoning_model = (
@@ -1754,10 +1792,48 @@ def chat(
         disabled_tool_names.add("wikipedia_search")
         disabled_tool_names.add("web_search")
 
+    is_conversational_turn = any(
+        kw in user_prompt_text.strip(" ?.!") for kw in (
+            "hello", "hi", "hey", "how are you", "hows it going", "how are u",
+            "good morning", "good evening", "good afternoon", "whats up", "what's up",
+            "let's chat", "lets chat", "how do you feel", "tell me about yourself",
+            "who are you", "what can you do", "what do you do", "conversation"
+        )
+    )
+    if is_conversational_turn or is_capability_query:
+        disabled_tool_names.update([
+            "wikipedia_search", "web_search", "run_command", "view_file", "replace_file_content",
+            "write_file", "delete_file", "remote_run_command", "remote_view_file",
+            "remote_write_file", "remote_replace_file_content", "remote_delete_file"
+        ])
+
     for _ in range(5):
+        # Sanitize working_messages before sending to model endpoint (ensures tool_calls arguments is always a JSON string)
+        clean_messages = []
+        for wm in working_messages:
+            msg_copy = dict(wm)
+            if "tool_calls" in msg_copy and isinstance(msg_copy["tool_calls"], list):
+                clean_tc_list = []
+                for tc in msg_copy["tool_calls"]:
+                    if not isinstance(tc, dict):
+                        continue
+                    tc_copy = dict(tc)
+                    tc_copy["type"] = tc_copy.get("type") or "function"
+                    if "function" in tc_copy and isinstance(tc_copy["function"], dict):
+                        fn_copy = dict(tc_copy["function"])
+                        raw_a = fn_copy.get("arguments")
+                        if isinstance(raw_a, (dict, list)):
+                            fn_copy["arguments"] = json.dumps(raw_a)
+                        elif not isinstance(raw_a, str):
+                            fn_copy["arguments"] = "{}"
+                        tc_copy["function"] = fn_copy
+                    clean_tc_list.append(tc_copy)
+                msg_copy["tool_calls"] = clean_tc_list
+            clean_messages.append(msg_copy)
+
         request_body = {
             "model": model,
-            "messages": working_messages,
+            "messages": clean_messages,
             "temperature": 0.6 if is_reasoning_model else 0.35,
             "max_tokens": 2048,
             "keep_alive": os.environ.get("YOSHI_KEEP_ALIVE", "5m")
@@ -1814,7 +1890,15 @@ def chat(
             method="POST"
         )
 
-        response = urllib.request.urlopen(request, timeout=timeout)
+        try:
+            response = urllib.request.urlopen(request, timeout=timeout)
+        except urllib.error.HTTPError as http_err:
+            try:
+                err_body = http_err.read().decode("utf-8", errors="replace")
+                app_logger.error(f"Local model HTTP {http_err.code} error from {url}: {err_body}")
+            except Exception:
+                pass
+            raise
         key = str(request_id or "").strip()
         if key:
             with _ACTIVE_RESPONSES_LOCK:
@@ -1862,11 +1946,13 @@ def chat(
                         t_name = str(fn_obj.get("name") or fn_obj.get("tool") or "").strip()
                         t_args = fn_obj.get("arguments") or fn_obj.get("parameters") or {}
                         if any(t["function"]["name"] == t_name for t in allowed_tools):
+                            args_str = json.dumps(t_args) if isinstance(t_args, (dict, list)) else str(t_args or "{}")
                             extracted_calls.append({
                                 "id": f"call_inline_fallback_{len(extracted_calls)}",
+                                "type": "function",
                                 "function": {
                                     "name": t_name,
-                                    "arguments": t_args
+                                    "arguments": args_str
                                 }
                             })
                     idx = start + max(end_pos, 1)
@@ -1885,6 +1971,7 @@ def chat(
             thoughts_text = "\n\n".join(accumulated_thoughts).strip() if accumulated_thoughts else None
             if thoughts_text and "<think>" not in final_content:
                 final_content = f"<think>\n{thoughts_text}\n</think>\n\n{final_content}"
+            _enforce_ollama_keep_alive(url, model)
             if return_details:
                 return {
                     "reply": final_content,
@@ -2005,6 +2092,7 @@ def chat(
                 final_content = str(choice_msg.get("content") or "").strip()
                 if final_content:
                     thoughts_text = "\n\n".join(accumulated_thoughts).strip() if accumulated_thoughts else None
+                    _enforce_ollama_keep_alive(url, model)
                     if return_details:
                         return {
                             "reply": final_content,
@@ -2016,6 +2104,7 @@ def chat(
             pass
 
     fallback_text = "I executed the necessary tool actions, but reached the iteration limit before finalizing the response. Please review the step outputs above."
+    _enforce_ollama_keep_alive(url, model)
     if return_details:
         return {
             "reply": fallback_text,

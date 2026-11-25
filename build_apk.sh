@@ -45,12 +45,12 @@ SIZE=$(du -h "$APK_SRC" | cut -f1)
 echo "[4/4] Updating latest download metadata..."
 cat <<EOF2 > "$DIR/static/downloads/latest.json"
 {
-  "version": "1.0.1",
+  "version": "1.1.1",
   "updated": "$TIMESTAMP",
   "android": {
     "file": "Doshie-latest.apk",
     "name": "Doshie Assistant for Android",
-    "version": "1.0.1",
+    "version": "1.1.1",
     "size": "$SIZE",
     "url": "/static/downloads/Doshie-latest.apk"
   }

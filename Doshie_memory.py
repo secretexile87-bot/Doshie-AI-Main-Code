@@ -76,7 +76,7 @@ FALLBACK_VISION_MODEL = os.environ.get(
 )
 CLOUD_GENIUS_MODEL = os.environ.get(
     "YOSHI_CLOUD_MODEL",
-    "gemini-2.5-flash"
+    "gemini-3.5-flash"
 )
 BRAIN_MODELS = {
     "fast": FAST_MODEL,
@@ -2512,6 +2512,15 @@ def _clean_model_reply(value, user_text=""):
                 if first:
                     reply = first
 
+    # Guard against accidental CJK/Chinese text slips from bilingual foundation models
+    cjk_count = sum(1 for c in reply if '\u4e00' <= c <= '\u9fff')
+    if cjk_count > 5 and not any('\u4e00' <= c <= '\u9fff' for c in str(user_text or "")):
+        reply = (
+            "I'm Doshie, your personal autonomous AI assistant. I can help you build applications, "
+            "inspect and manage your workstation and network fleet, record and organize family memories, "
+            "run diagnostics, and assist with daily tasks. What would you like to do?"
+        )
+
     return reply or original
 
 
@@ -2540,7 +2549,8 @@ def choose_brain_model(user_text, brain_mode="auto", history=None):
         "calculator", "calc", "exe", "executable", "desktop",
         "shortcut", "make it", "build it", "write it", "create it",
         "run it", "install", "chmod", "systemctl", "bash", "shell",
-        "file", "files"
+        "file", "files", "build this", "build the", "can you build",
+        "create this", "make this", "code this", "memory bank"
     )
 
     deep_reasoning_markers = (
@@ -2642,22 +2652,53 @@ def call_gemini_api(messages, model=None, api_key=None, timeout=60):
             "parts": [{"text": system_instruction}]
         }
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={urllib.parse.quote(key)}"
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-        candidates = data.get("candidates", [])
-        if candidates:
-            parts = candidates[0].get("content", {}).get("parts", [])
-            reply_text = "".join(p.get("text", "") for p in parts if "text" in p).strip()
-            if reply_text:
-                return reply_text
-    raise RuntimeError("Empty response received from Google Gemini API.")
+    candidate_models = [target_model]
+    for fallback_m in ("gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"):
+        if fallback_m not in candidate_models:
+            candidate_models.append(fallback_m)
+
+    last_err = None
+    for m in candidate_models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={urllib.parse.quote(key)}"
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    reply_text = "".join(p.get("text", "") for p in parts if "text" in p).strip()
+                    if reply_text:
+                        return reply_text
+        except Exception as exc:
+            last_err = exc
+            continue
+
+    raise RuntimeError(f"Google Gemini API request failed across all candidate models: {last_err}")
+
+
+def _enforce_ollama_keep_alive(url, model):
+    try:
+        parts = urllib.parse.urlsplit(url)
+        native_chat_url = urllib.parse.urlunsplit(
+            (parts.scheme, parts.netloc, "/api/chat", "", "")
+        )
+        ka = os.environ.get("YOSHI_KEEP_ALIVE", "5m")
+        req = urllib.request.Request(
+            native_chat_url,
+            data=json.dumps({"model": model, "keep_alive": ka}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=3):
+            pass
+    except Exception:
+        pass
 
 
 def ask_yoshi(
@@ -2704,7 +2745,13 @@ def ask_yoshi(
     system_prompt += """
 
 AUTONOMOUS WORKSTATION & FLEET TECHNICIAN CAPABILITIES:
-- You are Hermes's Autonomous Systems Technician and Fleet Engineer across his entire personal mesh network of computers and servers.
+- You are Hermes's Autonomous Systems Technician, Senior Systems Engineer, and Fleet Engineer across his entire personal mesh network of computers and servers.
+- TOP-TIER TECHNICIAN MINDSET:
+  * Answer and troubleshoot like an elite Tier-3 systems technician.
+  * Diagnose from real telemetry and live state; identify exact root causes.
+  * Prescribe or execute precise, surgical fixes; never guess or offer vague generalities.
+  * Always verify that services, ports, and hardware are fully operational after changes.
+  * Never give robotic canned boilerplate or superficial placeholders like "Action executed successfully, sir." Always provide substantive, detailed technician readouts.
 - You have full local AND remote execution and code editing tools:
   * Local Execution: `run_command`, `view_file`, `replace_file_content`, `write_file`, `delete_file`, `check_service_health`, `inspect_hardware`.
   * Remote Fleet Execution: `remote_run_command(host, command)`, `remote_view_file(host, path)`, `remote_write_file(host, path, content)`, `remote_replace_file_content(host, path, target, replacement)`, `remote_delete_file(host, path)`.
@@ -2727,7 +2774,7 @@ AUTONOMOUS WORKSTATION & FLEET TECHNICIAN CAPABILITIES:
 - NEVER say 'I cannot create executable files' or ask 'What would you like me to do?' after the user already confirmed. Fulfill the request immediately with full working code or tool execution.
 - NEVER give the user manual instructions like 'Save the script to a file, open a terminal, and run it'. YOU are the autonomous agent on this workstation: use write_file to save the script directly to disk!
 - NEVER output a shell command referencing a script file (such as `python scientific_calculator.py`) unless you have ALREADY saved that file using write_file!
-- When asked for a calculator, tool, or app, create a real, interactive GUI application (e.g., using Python's tkinter, which is preinstalled and works locally) or write the complete file directly to /home/doshie/Desktop or /home/doshie/Doshie.
+- When asked to build an app, tool, or script, create a full, complete, working implementation tailored specifically to what the user requested. If a GUI is appropriate, use Python's `tkinter` (which is preinstalled) with clean modern dark styling, or Flask/HTML5 for web apps. Always write the complete, functional application directly to disk using `write_file`.
 - Code blocks in bash, sh, and python are rendered with Antigravity Interactive Execution and Code Approval bars, allowing Hermes to approve and run them with one click.
 """.rstrip()
 
@@ -2855,6 +2902,7 @@ VISION MODE:
                 return_details=return_details,
             )
             URL = model_url
+            _enforce_ollama_keep_alive(model_url, selected_model)
             if return_details and isinstance(res, dict):
                 res["reply"] = _clean_model_reply(res.get("reply", ""), user_text=user_text)
                 return res

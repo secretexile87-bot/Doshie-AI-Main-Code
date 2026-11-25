@@ -66,3 +66,4 @@ data/*.wav
 data/doshie_gaming_status.json
 static/renders/
 
+frontend/src_legacy_backup/

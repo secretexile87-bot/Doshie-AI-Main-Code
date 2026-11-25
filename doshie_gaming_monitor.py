@@ -97,15 +97,41 @@ def get_default_lan_interface() -> str:
 
 
 def get_lan_ip() -> str:
-    """Detects active host LAN IP address."""
+    """Detects active host LAN IP address (physical Ethernet/WiFi, not Tailscale)."""
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
+        proc = subprocess.run(
+            ["ip", "-4", "addr", "show", "enp129s0"],
+            capture_output=True,
+            text=True,
+            timeout=3
+        )
+        for line in proc.stdout.splitlines():
+            line = line.strip()
+            if line.startswith("inet "):
+                return line.split()[1].split("/")[0]
     except Exception:
-        return "192.168.1.167"
+        pass
+    try:
+        proc = subprocess.run(["ip", "-4", "route", "show"], capture_output=True, text=True, timeout=3)
+        for line in proc.stdout.splitlines():
+            if "proto kernel" in line and "src" in line and "tailscale" not in line and "docker" not in line:
+                parts = line.split()
+                if "src" in parts:
+                    return parts[parts.index("src") + 1]
+    except Exception:
+        pass
+    return "192.168.1.167"
+
+
+def get_tailscale_ip() -> str:
+    """Detects active host Tailscale 100.x mesh IP address."""
+    try:
+        proc = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True, timeout=3)
+        if proc.returncode == 0 and proc.stdout.strip():
+            return proc.stdout.strip().splitlines()[0]
+    except Exception:
+        pass
+    return "100.109.79.35"
 
 
 def check_ip_forward() -> bool:
@@ -266,6 +292,7 @@ def inspect_gaming_status(exit_node_target: str = DEFAULT_EXIT_NODE) -> dict:
         "healthy": healthy,
         "lan_interface": lan_iface,
         "lan_ip": lan_ip,
+        "tailscale_ip": get_tailscale_ip(),
         "gateway_status": {
             "ip_forward": ip_fwd,
             "nat_lan_rule": nat_lan,
